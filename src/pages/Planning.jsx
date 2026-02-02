@@ -67,6 +67,10 @@ export default function Planning() {
     }
   });
 
+  const weekStart = startOfWeek(new Date(selectedYear, 0, 1 + (selectedWeek - 1) * 7), { weekStartsOn: 1 });
+  const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
+  const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
+
   const suggestions = useMemo(() => {
     const productMap = {};
 
@@ -196,10 +200,6 @@ export default function Planning() {
 
     savePlanMutation.mutate(plans);
   };
-
-  const weekStart = startOfWeek(new Date(selectedYear, 0, 1 + (selectedWeek - 1) * 7), { weekStartsOn: 1 });
-  const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
-  const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
 
   return (
     <div className="space-y-6">
