@@ -47,24 +47,32 @@
  *
  * The mainPage value must match a key in the PAGES object exactly.
  */
+import Calendar from './pages/Calendar';
 import Dashboard from './pages/Dashboard';
 import Import from './pages/Import';
-import Products from './pages/Products';
-import Calendar from './pages/Calendar';
 import Production from './pages/Production';
+import Products from './pages/Products';
 import Reports from './pages/Reports';
+import Planning from './pages/Planning';
+import History from './pages/History';
+import Settings from './pages/Settings';
+import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
+    "Calendar": Calendar,
     "Dashboard": Dashboard,
     "Import": Import,
-    "Products": Products,
-    "Calendar": Calendar,
     "Production": Production,
+    "Products": Products,
     "Reports": Reports,
+    "Planning": Planning,
+    "History": History,
+    "Settings": Settings,
 }
 
 export const pagesConfig = {
     mainPage: "Dashboard",
     Pages: PAGES,
+    Layout: __Layout,
 };

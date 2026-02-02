@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Pencil, Search, Package } from "lucide-react";
+import { Plus, Pencil, Search, Package, X } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { base44 } from "@/api/base44Client";
 import SectorBadge, { SECTORS } from "../common/SectorBadge";
 import { toast } from "sonner";
@@ -21,6 +22,8 @@ export default function ProductsManager({ products, onRefresh }) {
     name: "",
     sector: "Padaria",
     recipe_yield: 1,
+    unit: "un",
+    production_days: ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"],
     active: true
   });
 
@@ -37,6 +40,8 @@ export default function ProductsManager({ products, onRefresh }) {
         name: product.name,
         sector: product.sector,
         recipe_yield: product.recipe_yield || 1,
+        unit: product.unit || "un",
+        production_days: product.production_days || ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"],
         active: product.active !== false
       });
     } else {
@@ -45,6 +50,8 @@ export default function ProductsManager({ products, onRefresh }) {
         name: "",
         sector: "Padaria",
         recipe_yield: 1,
+        unit: "un",
+        production_days: ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"],
         active: true
       });
     }
@@ -198,18 +205,49 @@ export default function ProductsManager({ products, onRefresh }) {
               </Select>
             </div>
 
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Rendimento da Receita</Label>
+                <Input
+                  type="number"
+                  min="0.1"
+                  step="0.1"
+                  value={formData.recipe_yield}
+                  onChange={(e) => setFormData({ ...formData, recipe_yield: parseFloat(e.target.value) || 1 })}
+                />
+              </div>
+              
+              <div>
+                <Label>Unidade</Label>
+                <Input
+                  value={formData.unit}
+                  onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                  placeholder="un, kg, dúzia..."
+                />
+              </div>
+            </div>
+
             <div>
-              <Label>Rendimento da Receita</Label>
-              <Input
-                type="number"
-                min="0.1"
-                step="0.1"
-                value={formData.recipe_yield}
-                onChange={(e) => setFormData({ ...formData, recipe_yield: parseFloat(e.target.value) || 1 })}
-              />
-              <p className="text-xs text-slate-500 mt-1">
-                Fator de conversão para produção
-              </p>
+              <Label>Dias de Produção</Label>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"].map(day => (
+                  <div key={day} className="flex items-center gap-1">
+                    <Checkbox
+                      checked={formData.production_days?.includes(day)}
+                      onCheckedChange={(checked) => {
+                        const days = formData.production_days || [];
+                        setFormData({
+                          ...formData,
+                          production_days: checked 
+                            ? [...days, day]
+                            : days.filter(d => d !== day)
+                        });
+                      }}
+                    />
+                    <span className="text-sm">{day.slice(0, 3)}</span>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="flex items-center gap-2">

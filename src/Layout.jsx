@@ -11,16 +11,20 @@ import {
   FileSpreadsheet,
   Menu,
   X,
-  ChefHat
+  ChefHat,
+  History,
+  Settings
 } from "lucide-react";
 
 const navigation = [
   { name: "Dashboard", page: "Dashboard", icon: LayoutDashboard },
-  { name: "Importar", page: "Import", icon: Upload },
+  { name: "Planejamento", page: "Planning", icon: ClipboardList },
   { name: "Produtos", page: "Products", icon: Package },
   { name: "Calendário", page: "Calendar", icon: CalendarDays },
-  { name: "Produção", page: "Production", icon: ClipboardList },
   { name: "Relatórios", page: "Reports", icon: FileSpreadsheet },
+  { name: "Histórico", page: "History", icon: History },
+  { name: "Importar", page: "Import", icon: Upload },
+  { name: "Configurações", page: "Settings", icon: Settings },
 ];
 
 export default function Layout({ children, currentPageName }) {
