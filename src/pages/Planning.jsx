@@ -144,7 +144,6 @@ export default function Planning() {
         const baseSuggestion = (avgSales + avgLoss) * adjustment;
         const productionUnits = Math.ceil(baseSuggestion / recipeYield);
 
-        const product = products.find(prod => prod.name === p.name);
         const productionDays = product?.production_days || [];
         
         // Distribuir sugestão pelos dias de produção
