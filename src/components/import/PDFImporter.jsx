@@ -57,7 +57,10 @@ export default function PDFImporter({ products, onImportComplete }) {
               items: {
                 type: "object",
                 properties: {
-                  produto: { type: "string" },
+                  produto: { 
+                    type: "string",
+                    description: "IMPORTANTE: Extrair SOMENTE o nome do produto, sem detalhes adicionais, códigos, preços ou informações extras. Exemplo: 'Pão Francês' ao invés de 'Pão Francês 50g - Cód 123'"
+                  },
                   quantidade: { type: "number" },
                   setor: { 
                     type: "string",
@@ -74,19 +77,33 @@ export default function PDFImporter({ products, onImportComplete }) {
         const data = result.output;
         setRecordType(data.tipo_documento);
         
-        const existingProductNames = products.map(p => p.name.toLowerCase());
         const extractedItems = data.itens || [];
         
-        const unknownProducts = extractedItems.filter(
-          item => !existingProductNames.includes(item.produto?.toLowerCase())
-        );
+        // Função de normalização para matching inteligente
+        const normalize = (str) => str.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+        
+        const productNameMap = {};
+        products.forEach(p => {
+          productNameMap[normalize(p.name)] = p.name;
+        });
+        
+        // Fazer matching e identificar produtos novos
+        const itemsWithMatching = extractedItems.map(item => {
+          const normalizedProduct = normalize(item.produto);
+          const matchedName = productNameMap[normalizedProduct];
+          
+          return {
+            ...item,
+            produto: matchedName || item.produto,
+            isNew: !matchedName
+          };
+        });
+        
+        const unknownProducts = itemsWithMatching.filter(item => item.isNew);
 
         setExtractedData({
           ...data,
-          itens: extractedItems.map(item => ({
-            ...item,
-            isNew: !existingProductNames.includes(item.produto?.toLowerCase())
-          }))
+          itens: itemsWithMatching
         });
 
         if (unknownProducts.length > 0) {

@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Calendar as CalendarUI } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarDays, Plus, Trash2, TrendingUp, TrendingDown, CalendarIcon } from "lucide-react";
+import { CalendarDays, Plus, Trash2, TrendingUp, TrendingDown, CalendarIcon, Pencil } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { SECTORS } from "../common/SectorBadge";
 import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth } from "date-fns";
@@ -18,6 +18,7 @@ export default function CalendarManager({ events, onRefresh }) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
+  const [editingEvent, setEditingEvent] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
     date: "",
@@ -28,9 +29,25 @@ export default function CalendarManager({ events, onRefresh }) {
 
   const handleDayClick = (date) => {
     setSelectedDate(date);
+    setEditingEvent(null);
     setFormData({
-      ...formData,
-      date: format(date, "yyyy-MM-dd")
+      name: "",
+      date: format(date, "yyyy-MM-dd"),
+      impact_percentage: 0,
+      sector: "Todos",
+      notes: ""
+    });
+    setDialogOpen(true);
+  };
+
+  const handleEditEvent = (event) => {
+    setEditingEvent(event);
+    setFormData({
+      name: event.name,
+      date: event.date,
+      impact_percentage: event.impact_percentage || 0,
+      sector: event.sector || "Todos",
+      notes: event.notes || ""
     });
     setDialogOpen(true);
   };
@@ -42,13 +59,19 @@ export default function CalendarManager({ events, onRefresh }) {
     }
 
     try {
-      await base44.entities.CalendarEvent.create(formData);
-      toast.success("Evento criado");
+      if (editingEvent) {
+        await base44.entities.CalendarEvent.update(editingEvent.id, formData);
+        toast.success("Evento atualizado");
+      } else {
+        await base44.entities.CalendarEvent.create(formData);
+        toast.success("Evento criado");
+      }
       setDialogOpen(false);
+      setEditingEvent(null);
       setFormData({ name: "", date: "", impact_percentage: 0, sector: "Todos", notes: "" });
       onRefresh?.();
     } catch (error) {
-      toast.error("Erro ao criar evento");
+      toast.error(editingEvent ? "Erro ao atualizar evento" : "Erro ao criar evento");
     }
   };
 
@@ -187,6 +210,9 @@ export default function CalendarManager({ events, onRefresh }) {
                       }`}>
                         {event.impact_percentage > 0 ? "+" : ""}{event.impact_percentage}%
                       </span>
+                      <Button variant="ghost" size="sm" onClick={() => handleEditEvent(event)}>
+                        <Pencil className="w-4 h-4 text-blue-500" />
+                      </Button>
                       <Button variant="ghost" size="sm" onClick={() => handleDelete(event.id)}>
                         <Trash2 className="w-4 h-4 text-red-500" />
                       </Button>
@@ -207,8 +233,8 @@ export default function CalendarManager({ events, onRefresh }) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Plus className="w-5 h-5" />
-              Novo Evento/Feriado
+              {editingEvent ? <Pencil className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+              {editingEvent ? "Editar Evento/Feriado" : "Novo Evento/Feriado"}
             </DialogTitle>
           </DialogHeader>
           
@@ -279,7 +305,7 @@ export default function CalendarManager({ events, onRefresh }) {
               Cancelar
             </Button>
             <Button onClick={handleSave}>
-              Criar Evento
+              {editingEvent ? "Salvar" : "Criar Evento"}
             </Button>
           </DialogFooter>
         </DialogContent>

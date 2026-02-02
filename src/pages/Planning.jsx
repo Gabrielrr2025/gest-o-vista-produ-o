@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ClipboardList, Save, TrendingUp, TrendingDown, Sparkles } from "lucide-react";
 import SectorBadge, { SECTORS } from "../components/common/SectorBadge";
-import { getWeek, getYear, parseISO, startOfWeek, endOfWeek, format } from "date-fns";
+import { getWeek, getYear, parseISO, startOfWeek, endOfWeek, format, eachDayOfInterval, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 
@@ -144,8 +144,19 @@ export default function Planning() {
         const baseSuggestion = (avgSales + avgLoss) * adjustment;
         const productionUnits = Math.ceil(baseSuggestion / recipeYield);
 
-        const existingPlan = productionPlans.find(plan => plan.product_name === p.name);
-        const plannedQty = editedQuantities[p.name] ?? existingPlan?.planned_quantity ?? productionUnits;
+        const product = products.find(prod => prod.name === p.name);
+        const productionDays = product?.production_days || [];
+        
+        // Distribuir sugestão pelos dias de produção
+        const dailyPlanned = {};
+        weekDays.forEach((day, idx) => {
+          const dayName = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"][day.getDay()];
+          const shouldProduce = productionDays.includes(dayName);
+          const key = `${p.name}_${idx}`;
+          const existingPlan = productionPlans.find(plan => plan.product_name === p.name);
+          const dailyQty = shouldProduce ? Math.ceil(productionUnits / productionDays.length) : 0;
+          dailyPlanned[idx] = editedQuantities[key] ?? existingPlan?.planned_quantity ?? dailyQty;
+        });
 
         return {
           ...p,
@@ -153,7 +164,8 @@ export default function Planning() {
           avgLoss: avgLoss.toFixed(1),
           maxSales,
           suggested: productionUnits,
-          planned: plannedQty,
+          dailyPlanned,
+          productionDays,
           recipeYield,
           adjustment: ((adjustment - 1) * 100).toFixed(0)
         };
@@ -161,29 +173,34 @@ export default function Planning() {
       .sort((a, b) => b.avgSales - a.avgSales);
   }, [salesRecords, lossRecords, products, selectedWeek, selectedYear, selectedSector, productionPlans, editedQuantities]);
 
-  const handleQuantityChange = (productName, value) => {
+  const handleQuantityChange = (productName, day, value) => {
+    const key = `${productName}_${day}`;
     setEditedQuantities(prev => ({
       ...prev,
-      [productName]: parseInt(value) || 0
+      [key]: parseInt(value) || 0
     }));
   };
 
   const handleSave = () => {
-    const plans = suggestions.map(s => ({
-      product_name: s.name,
-      sector: s.sector,
-      week_number: selectedWeek,
-      year: selectedYear,
-      suggested_quantity: s.suggested,
-      planned_quantity: s.planned,
-      status: "planejado"
-    }));
+    const plans = suggestions.map(s => {
+      const totalPlanned = Object.values(s.dailyPlanned).reduce((sum, val) => sum + val, 0);
+      return {
+        product_name: s.name,
+        sector: s.sector,
+        week_number: selectedWeek,
+        year: selectedYear,
+        suggested_quantity: s.suggested,
+        planned_quantity: totalPlanned,
+        status: "planejado"
+      };
+    });
 
     savePlanMutation.mutate(plans);
   };
 
   const weekStart = startOfWeek(new Date(selectedYear, 0, 1 + (selectedWeek - 1) * 7), { weekStartsOn: 1 });
   const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
+  const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
 
   return (
     <div className="space-y-6">
@@ -253,55 +270,59 @@ export default function Planning() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-slate-50">
-                  <TableHead className="text-xs">Produto</TableHead>
+                  <TableHead className="text-xs sticky left-0 bg-slate-50 z-10">Produto</TableHead>
                   <TableHead className="text-xs">Setor</TableHead>
-                  <TableHead className="text-xs text-right">Média Vendas</TableHead>
-                  <TableHead className="text-xs text-right">Maior Venda</TableHead>
-                  <TableHead className="text-xs text-right">Média Perdas</TableHead>
+                  <TableHead className="text-xs text-right">Média</TableHead>
                   <TableHead className="text-xs text-center">Ajuste</TableHead>
-                  <TableHead className="text-xs text-right bg-blue-50">Sugestão</TableHead>
-                  <TableHead className="text-xs text-right bg-green-50">Pedido</TableHead>
+                  {weekDays.map((day, idx) => (
+                    <TableHead key={idx} className="text-xs text-center bg-blue-50">
+                      {format(day, "EEE dd", { locale: ptBR })}
+                    </TableHead>
+                  ))}
+                  <TableHead className="text-xs text-right bg-green-50">Total</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {suggestions.map((item, index) => (
                   <TableRow key={index} className="hover:bg-slate-50">
-                    <TableCell className="font-medium text-sm">{item.name}</TableCell>
+                    <TableCell className="font-medium text-sm sticky left-0 bg-white z-10">{item.name}</TableCell>
                     <TableCell><SectorBadge sector={item.sector} /></TableCell>
                     <TableCell className="text-right text-sm">{item.avgSales}</TableCell>
-                    <TableCell className="text-right text-sm font-semibold text-blue-600">{item.maxSales}</TableCell>
-                    <TableCell className="text-right text-sm text-red-600">{item.avgLoss}</TableCell>
                     <TableCell className="text-center">
                       {parseFloat(item.adjustment) > 0 ? (
-                        <span className="flex items-center justify-center gap-1 text-green-600 text-xs">
-                          <TrendingUp className="w-3 h-3" /> +{item.adjustment}%
-                        </span>
+                        <span className="text-green-600 text-xs">+{item.adjustment}%</span>
                       ) : parseFloat(item.adjustment) < 0 ? (
-                        <span className="flex items-center justify-center gap-1 text-red-600 text-xs">
-                          <TrendingDown className="w-3 h-3" /> {item.adjustment}%
-                        </span>
+                        <span className="text-red-600 text-xs">{item.adjustment}%</span>
                       ) : (
                         <span className="text-slate-400 text-xs">—</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-right bg-blue-50">
-                      <span className="flex items-center justify-end gap-1 text-blue-600 font-semibold">
-                        <Sparkles className="w-3 h-3" /> {item.suggested}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right bg-green-50">
-                      <Input
-                        type="number"
-                        value={item.planned}
-                        onChange={(e) => handleQuantityChange(item.name, e.target.value)}
-                        className="w-20 text-right font-bold"
-                      />
+                    {weekDays.map((day, dayIdx) => {
+                      const dayName = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"][day.getDay()];
+                      const shouldProduce = item.productionDays?.includes(dayName);
+                      return (
+                        <TableCell key={dayIdx} className={`text-center ${shouldProduce ? 'bg-blue-50' : 'bg-slate-50'}`}>
+                          {shouldProduce ? (
+                            <Input
+                              type="number"
+                              value={item.dailyPlanned[dayIdx] || 0}
+                              onChange={(e) => handleQuantityChange(item.name, dayIdx, e.target.value)}
+                              className="w-16 text-center text-xs"
+                            />
+                          ) : (
+                            <span className="text-slate-300">—</span>
+                          )}
+                        </TableCell>
+                      );
+                    })}
+                    <TableCell className="text-right bg-green-50 font-bold">
+                      {Object.values(item.dailyPlanned).reduce((sum, val) => sum + val, 0)}
                     </TableCell>
                   </TableRow>
                 ))}
                 {suggestions.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center text-slate-500 py-8">
+                    <TableCell colSpan={12} className="text-center text-slate-500 py-8">
                       Nenhum dado disponível para esta semana
                     </TableCell>
                   </TableRow>

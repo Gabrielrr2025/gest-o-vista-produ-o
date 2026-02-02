@@ -22,7 +22,7 @@ export default function ProductsManager({ products, onRefresh }) {
     name: "",
     sector: "Padaria",
     recipe_yield: 1,
-    unit: "un",
+    unit: "unidade",
     production_days: ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"],
     active: true
   });
@@ -40,7 +40,7 @@ export default function ProductsManager({ products, onRefresh }) {
         name: product.name,
         sector: product.sector,
         recipe_yield: product.recipe_yield || 1,
-        unit: product.unit || "un",
+        unit: product.unit || "unidade",
         production_days: product.production_days || ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"],
         active: product.active !== false
       });
@@ -50,7 +50,7 @@ export default function ProductsManager({ products, onRefresh }) {
         name: "",
         sector: "Padaria",
         recipe_yield: 1,
-        unit: "un",
+        unit: "unidade",
         production_days: ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"],
         active: true
       });
@@ -219,11 +219,19 @@ export default function ProductsManager({ products, onRefresh }) {
               
               <div>
                 <Label>Unidade</Label>
-                <Input
-                  value={formData.unit}
-                  onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                  placeholder="un, kg, dúzia..."
-                />
+                <Select 
+                  value={formData.unit} 
+                  onValueChange={(value) => setFormData({ ...formData, unit: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unidade">Unidade</SelectItem>
+                    <SelectItem value="pacotes">Pacotes</SelectItem>
+                    <SelectItem value="kilo">Kilo</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
