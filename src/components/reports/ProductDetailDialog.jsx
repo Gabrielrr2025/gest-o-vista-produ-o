@@ -65,41 +65,51 @@ export default function ProductDetailDialog({ product, salesRecords, lossRecords
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-3">
-            <span className="text-xl">{product.name}</span>
+          <DialogTitle className="flex items-center gap-3 text-2xl">
+            {product.name}
             <SectorBadge sector={product.sector} />
           </DialogTitle>
+          <p className="text-sm text-slate-500 mt-2">
+            Análise completa do desempenho do produto
+          </p>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="space-y-6 mt-4">
           {/* KPIs */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Card>
-              <CardContent className="p-4">
-                <div className="text-xs text-slate-500">Total Vendas</div>
-                <div className="text-2xl font-bold text-blue-600">{detailData.totalSales}</div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+              <CardContent className="p-5">
+                <div className="text-xs font-medium text-blue-700 uppercase tracking-wide">Total Vendas</div>
+                <div className="text-3xl font-bold text-blue-900 mt-2">{detailData.totalSales.toLocaleString('pt-BR')}</div>
               </CardContent>
             </Card>
-            <Card>
-              <CardContent className="p-4">
-                <div className="text-xs text-slate-500">Total Perdas</div>
-                <div className="text-2xl font-bold text-red-600">{detailData.totalLosses}</div>
+            <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200">
+              <CardContent className="p-5">
+                <div className="text-xs font-medium text-red-700 uppercase tracking-wide">Total Perdas</div>
+                <div className="text-3xl font-bold text-red-900 mt-2">{detailData.totalLosses.toLocaleString('pt-BR')}</div>
               </CardContent>
             </Card>
-            <Card>
-              <CardContent className="p-4">
-                <div className="text-xs text-slate-500">Média Vendas/Sem</div>
-                <div className="text-2xl font-bold text-slate-700">{detailData.avgSales}</div>
+            <Card className="bg-gradient-to-br from-slate-50 to-slate-100 border-slate-200">
+              <CardContent className="p-5">
+                <div className="text-xs font-medium text-slate-700 uppercase tracking-wide">Média Semanal</div>
+                <div className="text-3xl font-bold text-slate-900 mt-2">{detailData.avgSales}</div>
               </CardContent>
             </Card>
-            <Card>
-              <CardContent className="p-4">
-                <div className="text-xs text-slate-500">% Perda Geral</div>
-                <div className={`text-2xl font-bold ${
-                  parseFloat(detailData.overallLossRate) > 10 ? "text-red-600" : 
-                  parseFloat(detailData.overallLossRate) > 5 ? "text-orange-600" : "text-green-600"
+            <Card className={`bg-gradient-to-br border-2 ${
+              parseFloat(detailData.overallLossRate) > 10 ? "from-red-50 to-red-100 border-red-300" : 
+              parseFloat(detailData.overallLossRate) > 5 ? "from-orange-50 to-orange-100 border-orange-300" : 
+              "from-green-50 to-green-100 border-green-300"
+            }`}>
+              <CardContent className="p-5">
+                <div className={`text-xs font-medium uppercase tracking-wide ${
+                  parseFloat(detailData.overallLossRate) > 10 ? "text-red-700" : 
+                  parseFloat(detailData.overallLossRate) > 5 ? "text-orange-700" : "text-green-700"
+                }`}>% Perda Geral</div>
+                <div className={`text-3xl font-bold mt-2 ${
+                  parseFloat(detailData.overallLossRate) > 10 ? "text-red-900" : 
+                  parseFloat(detailData.overallLossRate) > 5 ? "text-orange-900" : "text-green-900"
                 }`}>
                   {detailData.overallLossRate}%
                 </div>
@@ -136,21 +146,45 @@ export default function ProductDetailDialog({ product, salesRecords, lossRecords
           </Card>
 
           {/* Gráfico de Evolução */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Evolução Semanal</CardTitle>
+          <Card className="shadow-md">
+            <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100">
+              <CardTitle className="text-lg font-bold text-slate-900">Evolução Semanal</CardTitle>
+              <p className="text-xs text-slate-600 mt-1">Acompanhe a tendência de vendas e perdas ao longo do tempo</p>
             </CardHeader>
-            <CardContent>
-              <div className="h-64">
+            <CardContent className="pt-6">
+              <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={detailData.timeline}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="week" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip />
-                    <Legend />
-                    <Line type="monotone" dataKey="vendas" stroke="#3b82f6" strokeWidth={2} name="Vendas" />
-                    <Line type="monotone" dataKey="perdas" stroke="#ef4444" strokeWidth={2} name="Perdas" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis dataKey="week" tick={{ fontSize: 12, fill: '#64748b' }} />
+                    <YAxis tick={{ fontSize: 12, fill: '#64748b' }} />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: '#fff', 
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                      }}
+                    />
+                    <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                    <Line 
+                      type="monotone" 
+                      dataKey="vendas" 
+                      stroke="#3b82f6" 
+                      strokeWidth={3} 
+                      name="Vendas"
+                      dot={{ fill: '#3b82f6', r: 5 }}
+                      activeDot={{ r: 7 }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="perdas" 
+                      stroke="#ef4444" 
+                      strokeWidth={3} 
+                      name="Perdas"
+                      dot={{ fill: '#ef4444', r: 5 }}
+                      activeDot={{ r: 7 }}
+                    />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -158,19 +192,33 @@ export default function ProductDetailDialog({ product, salesRecords, lossRecords
           </Card>
 
           {/* Gráfico de Taxa de Perda */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Taxa de Perda por Semana</CardTitle>
+          <Card className="shadow-md">
+            <CardHeader className="bg-gradient-to-r from-orange-50 to-orange-100">
+              <CardTitle className="text-lg font-bold text-slate-900">Taxa de Perda por Semana</CardTitle>
+              <p className="text-xs text-slate-600 mt-1">Percentual de perdas em relação ao total (vendas + perdas)</p>
             </CardHeader>
-            <CardContent>
-              <div className="h-64">
+            <CardContent className="pt-6">
+              <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={detailData.timeline}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="week" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} unit="%" />
-                    <Tooltip formatter={(value) => `${value}%`} />
-                    <Bar dataKey="lossRate" fill="#f59e0b" name="% Perda" radius={[4, 4, 0, 0]} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis dataKey="week" tick={{ fontSize: 12, fill: '#64748b' }} />
+                    <YAxis tick={{ fontSize: 12, fill: '#64748b' }} unit="%" />
+                    <Tooltip 
+                      formatter={(value) => `${value}%`}
+                      contentStyle={{ 
+                        backgroundColor: '#fff', 
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                      }}
+                    />
+                    <Bar 
+                      dataKey="lossRate" 
+                      fill="#f59e0b" 
+                      name="% Perda" 
+                      radius={[8, 8, 0, 0]}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
