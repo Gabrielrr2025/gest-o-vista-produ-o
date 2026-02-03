@@ -64,6 +64,17 @@ export default function ProductsManager({ products, onRefresh }) {
       return;
     }
 
+    // Verificar produto duplicado
+    const duplicate = products.find(p => 
+      p.name.toLowerCase() === formData.name.toLowerCase() && 
+      (!editingProduct || p.id !== editingProduct.id)
+    );
+
+    if (duplicate) {
+      toast.error(`Já existe um produto com o nome "${formData.name}"`);
+      return;
+    }
+
     try {
       if (editingProduct) {
         await base44.entities.Product.update(editingProduct.id, formData);

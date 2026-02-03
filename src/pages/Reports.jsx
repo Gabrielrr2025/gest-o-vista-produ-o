@@ -12,6 +12,7 @@ import DateRangePicker from "../components/common/DateRangePicker";
 import SectorFilter from "../components/common/SectorFilter";
 import SectorBadge, { SECTORS } from "../components/common/SectorBadge";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartPie, Pie, Cell, Legend } from 'recharts';
+import ProductDetailDialog from "../components/reports/ProductDetailDialog";
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
 
@@ -22,6 +23,8 @@ export default function Reports() {
   });
   const [selectedSector, setSelectedSector] = useState(null);
   const [reportType, setReportType] = useState("overview");
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
 
   const { data: salesRecords = [] } = useQuery({
     queryKey: ['salesRecords'],
@@ -305,7 +308,14 @@ export default function Reports() {
               </TableHeader>
               <TableBody>
                 {reportData.byProduct.slice(0, 50).map((row, index) => (
-                  <TableRow key={index}>
+                  <TableRow 
+                    key={index} 
+                    className="hover:bg-slate-100 cursor-pointer"
+                    onClick={() => {
+                      setSelectedProduct(row);
+                      setDetailDialogOpen(true);
+                    }}
+                  >
                     <TableCell className="font-medium">{row.name}</TableCell>
                     <TableCell><SectorBadge sector={row.sector} /></TableCell>
                     <TableCell className="text-right">{row.vendas.toLocaleString('pt-BR')}</TableCell>
@@ -325,6 +335,14 @@ export default function Reports() {
           </div>
         </CardContent>
       </Card>
+
+      <ProductDetailDialog
+        product={selectedProduct}
+        salesRecords={salesRecords}
+        lossRecords={lossRecords}
+        open={detailDialogOpen}
+        onClose={() => setDetailDialogOpen(false)}
+      />
     </div>
   );
 }
