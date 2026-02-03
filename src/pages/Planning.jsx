@@ -275,7 +275,7 @@ export default function Planning() {
                   <TableHead className="text-xs text-center">Ajuste</TableHead>
                   {weekDays.map((day, idx) => (
                     <TableHead key={idx} className="text-xs text-center bg-blue-50">
-                      {format(day, "EEE dd", { locale: ptBR })}
+                      {format(day, "EEE", { locale: ptBR })}
                     </TableHead>
                   ))}
                   <TableHead className="text-xs text-right bg-green-50">Total</TableHead>
