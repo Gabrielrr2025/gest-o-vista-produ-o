@@ -174,7 +174,7 @@ export default function Planning() {
         };
       })
       .sort((a, b) => b.avgSales - a.avgSales);
-  }, [salesRecords, lossRecords, products, selectedWeek, selectedYear, selectedSector, productionPlans, editedQuantities]);
+  }, [salesRecords, lossRecords, products, selectedWeek, selectedYear, selectedSector, productionPlans, editedQuantities, weekDays]);
 
   const handleQuantityChange = (productName, day, value) => {
     const key = `${productName}_${day}`;
