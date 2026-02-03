@@ -110,6 +110,7 @@ export default function PDFImporter({ products, onImportComplete }) {
           setNewProducts(unknownProducts.map(p => ({
             name: p.produto,
             sector: p.setor || "Padaria",
+            unit: "unidade",
             selected: true
           })));
           setSelectedNewProducts(unknownProducts.map(p => p.produto));
@@ -134,6 +135,7 @@ export default function PDFImporter({ products, onImportComplete }) {
         productsToCreate.map(p => ({
           name: p.name,
           sector: p.sector,
+          unit: p.unit || "unidade",
           recipe_yield: 1,
           active: true
         }))
@@ -318,7 +320,9 @@ export default function PDFImporter({ products, onImportComplete }) {
                     }
                   }}
                 />
-                <span className="flex-1 text-sm">{product.name}</span>
+                <div className="flex-1">
+                  <span className="text-sm block">{product.name}</span>
+                </div>
                 <Select
                   value={product.sector}
                   onValueChange={(value) => {
@@ -334,6 +338,23 @@ export default function PDFImporter({ products, onImportComplete }) {
                     {SECTORS.map(sector => (
                       <SelectItem key={sector} value={sector}>{sector}</SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={product.unit || "unidade"}
+                  onValueChange={(value) => {
+                    const updated = [...newProducts];
+                    updated[index].unit = value;
+                    setNewProducts(updated);
+                  }}
+                >
+                  <SelectTrigger className="w-28">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unidade">Unidade</SelectItem>
+                    <SelectItem value="pacotes">Pacotes</SelectItem>
+                    <SelectItem value="kilo">Kilo</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
