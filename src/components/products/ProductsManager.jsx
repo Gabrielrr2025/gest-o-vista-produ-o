@@ -19,6 +19,7 @@ export default function ProductsManager({ products, onRefresh }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [formData, setFormData] = useState({
+    code: "",
     name: "",
     sector: "Padaria",
     recipe_yield: 1,
@@ -64,15 +65,28 @@ export default function ProductsManager({ products, onRefresh }) {
       return;
     }
 
-    // Verificar produto duplicado
-    const duplicate = products.find(p => 
+    // Verificar produto duplicado por nome
+    const duplicateByName = products.find(p => 
       p.name.toLowerCase() === formData.name.toLowerCase() && 
       (!editingProduct || p.id !== editingProduct.id)
     );
 
-    if (duplicate) {
-      toast.error(`Já existe um produto com o nome "${formData.name}"`);
+    if (duplicateByName) {
+      toast.error(`Já existe um produto com o nome "${formData.name}". Use um código único para diferenciar.`);
       return;
+    }
+
+    // Verificar produto duplicado por código (se informado)
+    if (formData.code && formData.code.trim()) {
+      const duplicateByCode = products.find(p => 
+        p.code && p.code.toLowerCase() === formData.code.toLowerCase() && 
+        (!editingProduct || p.id !== editingProduct.id)
+      );
+
+      if (duplicateByCode) {
+        toast.error(`Já existe um produto com o código "${formData.code}"`);
+        return;
+      }
     }
 
     try {

@@ -156,9 +156,14 @@ export default function Planning() {
           const dayName = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"][day.getDay()];
           const shouldProduce = productionDays.includes(dayName);
           const key = `${p.name}_${idx}`;
-          const existingPlan = productionPlans.find(plan => plan.product_name === p.name);
           const dailyQty = shouldProduce ? Math.ceil(productionUnits / productionDays.length) : 0;
-          dailyPlanned[idx] = editedQuantities[key] ?? existingPlan?.planned_quantity ?? dailyQty;
+          
+          // Priorizar: 1) valor editado, 2) quantidade sugerida
+          if (editedQuantities.hasOwnProperty(key)) {
+            dailyPlanned[idx] = editedQuantities[key];
+          } else {
+            dailyPlanned[idx] = dailyQty;
+          }
         });
 
         return {
