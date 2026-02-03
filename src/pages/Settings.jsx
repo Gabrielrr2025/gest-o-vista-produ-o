@@ -7,9 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Settings as SettingsIcon, Save, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import DataReset from "../components/settings/DataReset";
 
 export default function Settings() {
   const queryClient = useQueryClient();
+
+  const handleResetComplete = () => {
+    queryClient.invalidateQueries();
+  };
   
   const [config, setConfig] = useState({
     increase_threshold: 10,
@@ -140,6 +145,8 @@ export default function Settings() {
           </ol>
         </CardContent>
       </Card>
+
+      <DataReset onComplete={handleResetComplete} />
     </div>
   );
 }

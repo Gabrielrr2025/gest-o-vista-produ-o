@@ -38,6 +38,7 @@ export default function ProductsManager({ products, onRefresh }) {
     if (product) {
       setEditingProduct(product);
       setFormData({
+        code: product.code || "",
         name: product.name,
         sector: product.sector,
         recipe_yield: product.recipe_yield || 1,
@@ -48,6 +49,7 @@ export default function ProductsManager({ products, onRefresh }) {
     } else {
       setEditingProduct(null);
       setFormData({
+        code: "",
         name: "",
         sector: "Padaria",
         recipe_yield: 1,
@@ -153,6 +155,7 @@ export default function ProductsManager({ products, onRefresh }) {
             <Table>
               <TableHeader>
                 <TableRow className="bg-slate-50">
+                  <TableHead className="text-xs">Código</TableHead>
                   <TableHead className="text-xs">Nome</TableHead>
                   <TableHead className="text-xs">Setor</TableHead>
                   <TableHead className="text-xs text-center">Rendimento</TableHead>
@@ -163,6 +166,7 @@ export default function ProductsManager({ products, onRefresh }) {
               <TableBody>
                 {filteredProducts.map(product => (
                   <TableRow key={product.id} className="hover:bg-slate-50">
+                    <TableCell className="text-xs text-slate-500">{product.code || "—"}</TableCell>
                     <TableCell className="font-medium text-sm">{product.name}</TableCell>
                     <TableCell><SectorBadge sector={product.sector} /></TableCell>
                     <TableCell className="text-center text-sm">{product.recipe_yield || 1}</TableCell>
@@ -181,7 +185,7 @@ export default function ProductsManager({ products, onRefresh }) {
                 ))}
                 {filteredProducts.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-slate-500 py-8">
+                    <TableCell colSpan={6} className="text-center text-slate-500 py-8">
                       Nenhum produto encontrado
                     </TableCell>
                   </TableRow>
@@ -204,6 +208,16 @@ export default function ProductsManager({ products, onRefresh }) {
           </DialogHeader>
           
           <div className="space-y-4">
+            <div>
+              <Label>Código do Produto (opcional)</Label>
+              <Input
+                value={formData.code || ""}
+                onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                placeholder="Ex: PFRANCES01"
+              />
+              <p className="text-xs text-slate-500 mt-1">Código único para identificação</p>
+            </div>
+
             <div>
               <Label>Nome do Produto</Label>
               <Input
