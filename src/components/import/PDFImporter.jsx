@@ -60,7 +60,7 @@ export default function PDFImporter({ products, onImportComplete }) {
                   },
                   produto: { 
                     type: "string",
-                    description: "Nome do produto limpo, sem código, unidade ou valores. Ex: 'TORTA NOZES C CHOCOLATE' ou 'COOKIES RECHEADO'"
+                    description: "Nome LIMPO do produto, sem código, unidade (KG/UN), valores, preços ou números. Remova prefixos numéricos e códigos. Ex: 'TORTA NOZES C CHOCOLATE' (não '1642 TORTA NOZES'), 'COOKIES RECHEADO' (não '735 COOKIES')"
                   },
                   quantidade: { 
                     type: "number",
@@ -148,7 +148,7 @@ export default function PDFImporter({ products, onImportComplete }) {
     }
   };
 
-  const handleProductMapping = async (mappings, newProductsData) => {
+  const handleProductMapping = async (mappings, newProductsData, removedProducts = new Set()) => {
     try {
       // Criar novos produtos
       const productsToCreate = Object.entries(newProductsData).map(([name, data]) => ({
@@ -167,7 +167,11 @@ export default function PDFImporter({ products, onImportComplete }) {
       }
 
       // Atualizar extractedData com os mapeamentos
-      const updatedItems = extractedData.itens.map(item => {
+      const updatedItems = extractedData.itens.filter(item => {
+        // Remover produtos que foram marcados para ignorar
+        if (removedProducts.has(item.produto)) return false;
+        return true;
+      }).map(item => {
         if (item.isNew) {
           // Verificar se foi mapeado para produto existente
           if (mappings[item.produto]) {

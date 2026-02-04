@@ -29,34 +29,38 @@ export default function DataReset({ onComplete }) {
         base44.entities.ProductionRecord.list()
       ]);
 
-      const deletePromises = [];
-
-      // Deletar produtos
-      products.forEach(p => {
-        deletePromises.push(base44.entities.Product.delete(p.id));
-      });
-
-      // Deletar registros de vendas
-      sales.forEach(s => {
-        deletePromises.push(base44.entities.SalesRecord.delete(s.id));
-      });
-
-      // Deletar registros de perdas
-      losses.forEach(l => {
-        deletePromises.push(base44.entities.LossRecord.delete(l.id));
-      });
+      // Deletar em lotes para evitar timeout
+      const batchSize = 50;
+      
+      // Deletar registros de produção
+      for (let i = 0; i < production.length; i += batchSize) {
+        const batch = production.slice(i, i + batchSize);
+        await Promise.all(batch.map(p => base44.entities.ProductionRecord.delete(p.id)));
+      }
 
       // Deletar planos de produção
-      plans.forEach(p => {
-        deletePromises.push(base44.entities.ProductionPlan.delete(p.id));
-      });
+      for (let i = 0; i < plans.length; i += batchSize) {
+        const batch = plans.slice(i, i + batchSize);
+        await Promise.all(batch.map(p => base44.entities.ProductionPlan.delete(p.id)));
+      }
 
-      // Deletar registros de produção
-      production.forEach(p => {
-        deletePromises.push(base44.entities.ProductionRecord.delete(p.id));
-      });
+      // Deletar registros de perdas
+      for (let i = 0; i < losses.length; i += batchSize) {
+        const batch = losses.slice(i, i + batchSize);
+        await Promise.all(batch.map(l => base44.entities.LossRecord.delete(l.id)));
+      }
 
-      await Promise.all(deletePromises);
+      // Deletar registros de vendas
+      for (let i = 0; i < sales.length; i += batchSize) {
+        const batch = sales.slice(i, i + batchSize);
+        await Promise.all(batch.map(s => base44.entities.SalesRecord.delete(s.id)));
+      }
+
+      // Deletar produtos
+      for (let i = 0; i < products.length; i += batchSize) {
+        const batch = products.slice(i, i + batchSize);
+        await Promise.all(batch.map(p => base44.entities.Product.delete(p.id)));
+      }
 
       toast.success("Todos os dados foram excluídos com sucesso");
       setConfirmDialog(false);

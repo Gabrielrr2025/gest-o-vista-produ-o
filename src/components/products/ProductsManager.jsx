@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Pencil, Search, Package, X } from "lucide-react";
+import { Plus, Pencil, Search, Package, X, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { base44 } from "@/api/base44Client";
 import SectorBadge, { SECTORS } from "../common/SectorBadge";
@@ -16,6 +16,7 @@ import { toast } from "sonner";
 export default function ProductsManager({ products, onRefresh }) {
   const [search, setSearch] = useState("");
   const [filterSector, setFilterSector] = useState("all");
+  const [sortBy, setSortBy] = useState("name");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [formData, setFormData] = useState({
@@ -29,9 +30,19 @@ export default function ProductsManager({ products, onRefresh }) {
   });
 
   const filteredProducts = products.filter(p => {
-    const matchSearch = p.name.toLowerCase().includes(search.toLowerCase());
+    const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) || 
+                        (p.code && p.code.toLowerCase().includes(search.toLowerCase()));
     const matchSector = filterSector === "all" || p.sector === filterSector;
     return matchSearch && matchSector;
+  }).sort((a, b) => {
+    if (sortBy === "name") {
+      return a.name.localeCompare(b.name);
+    } else if (sortBy === "sector") {
+      return a.sector.localeCompare(b.sector);
+    } else if (sortBy === "code") {
+      return (a.code || "").localeCompare(b.code || "");
+    }
+    return 0;
   });
 
   const handleOpenDialog = (product = null) => {
@@ -115,6 +126,20 @@ export default function ProductsManager({ products, onRefresh }) {
     }
   };
 
+  const handleDelete = async (product) => {
+    if (!confirm(`Tem certeza que deseja excluir "${product.name}"? Esta ação não pode ser desfeita.`)) {
+      return;
+    }
+    
+    try {
+      await base44.entities.Product.delete(product.id);
+      toast.success("Produto excluído");
+      onRefresh?.();
+    } catch (error) {
+      toast.error("Erro ao excluir produto");
+    }
+  };
+
   return (
     <>
       <Card className="border-0 shadow-sm">
@@ -149,6 +174,16 @@ export default function ProductsManager({ products, onRefresh }) {
                 ))}
               </SelectContent>
             </Select>
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Ordenar por" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="name">Nome A-Z</SelectItem>
+                <SelectItem value="sector">Setor</SelectItem>
+                <SelectItem value="code">Código</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="border rounded-lg max-h-[400px] overflow-auto">
@@ -177,9 +212,19 @@ export default function ProductsManager({ products, onRefresh }) {
                       />
                     </TableCell>
                     <TableCell className="text-center">
-                      <Button variant="ghost" size="sm" onClick={() => handleOpenDialog(product)}>
-                        <Pencil className="w-4 h-4" />
-                      </Button>
+                      <div className="flex items-center justify-center gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => handleOpenDialog(product)}>
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => handleDelete(product)}
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
