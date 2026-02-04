@@ -127,23 +127,59 @@ export default function PDFImporter({ products, onImportComplete }) {
     }
   };
 
-  const handleCreateNewProducts = async () => {
-    const productsToCreate = newProducts.filter(p => selectedNewProducts.includes(p.name));
-    
+  const handleProductMapping = async (mappings, newProductsData) => {
     try {
-      await base44.entities.Product.bulkCreate(
-        productsToCreate.map(p => ({
-          name: p.name,
-          sector: p.sector,
-          unit: p.unit || "unidade",
-          recipe_yield: 1,
-          active: true
-        }))
-      );
-      toast.success(`${productsToCreate.length} produto(s) criado(s)`);
-      setNewProductsDialog(false);
+      // Criar novos produtos
+      const productsToCreate = Object.entries(newProductsData).map(([name, data]) => ({
+        code: data.code,
+        name: name,
+        sector: data.sector,
+        unit: data.unit,
+        recipe_yield: 1,
+        active: true
+      }));
+
+      let createdProducts = [];
+      if (productsToCreate.length > 0) {
+        createdProducts = await base44.entities.Product.bulkCreate(productsToCreate);
+        toast.success(`${productsToCreate.length} produto(s) criado(s)`);
+      }
+
+      // Atualizar extractedData com os mapeamentos
+      const updatedData = extractedData.map(item => {
+        if (!item.product_exists) {
+          // Verificar se foi mapeado para produto existente
+          if (mappings[item.produto]) {
+            const mappedProduct = products.find(p => p.id === mappings[item.produto]);
+            return {
+              ...item,
+              product_id: mappedProduct.id,
+              product_name: mappedProduct.name,
+              product_exists: true,
+              setor: mappedProduct.sector
+            };
+          }
+          
+          // Verificar se é um novo produto criado
+          const newProduct = createdProducts.find(p => p.name === item.produto);
+          if (newProduct) {
+            return {
+              ...item,
+              product_id: newProduct.id,
+              product_name: newProduct.name,
+              product_exists: true,
+              setor: newProduct.sector
+            };
+          }
+        }
+        return item;
+      });
+
+      setExtractedData(updatedData);
+      await onRefresh?.();
     } catch (error) {
-      toast.error("Erro ao criar produtos");
+      console.error(error);
+      toast.error("Erro ao processar mapeamento");
     }
   };
 
