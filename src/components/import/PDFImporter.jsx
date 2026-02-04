@@ -3,24 +3,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Upload, FileText, Loader2, Check, AlertCircle, Plus } from "lucide-react";
+import { Upload, FileText, Loader2, Check, AlertCircle } from "lucide-react";
 import { base44 } from "@/api/base44Client";
-import { SECTORS } from "../common/SectorBadge";
 import { getWeek, getMonth, getYear, parseISO } from "date-fns";
 import { toast } from "sonner";
+import ProductMapper from "./ProductMapper";
+import { SECTORS } from "../common/SectorBadge";
 
 export default function PDFImporter({ products, onImportComplete }) {
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [extractedData, setExtractedData] = useState(null);
   const [recordType, setRecordType] = useState(null);
-  const [newProductsDialog, setNewProductsDialog] = useState(false);
-  const [newProducts, setNewProducts] = useState([]);
-  const [selectedNewProducts, setSelectedNewProducts] = useState([]);
+  const [unmatchedProducts, setUnmatchedProducts] = useState([]);
+  const [mapperDialog, setMapperDialog] = useState(false);
 
   const handleFileUpload = async (e) => {
     const selectedFile = e.target.files[0];
@@ -40,7 +37,7 @@ export default function PDFImporter({ products, onImportComplete }) {
             tipo_documento: {
               type: "string",
               enum: ["venda", "perda"],
-              description: "Identificar se é relatório de vendas ou de perdas"
+              description: "Se é 'Curva ABC' ou contém 'Valor' = venda. Se é 'Perdas por Departamento' = perda"
             },
             periodo_inicio: {
               type: "string",
@@ -57,19 +54,28 @@ export default function PDFImporter({ products, onImportComplete }) {
               items: {
                 type: "object",
                 properties: {
+                  codigo: { 
+                    type: "string",
+                    description: "Código do produto (ex: 1642, 004111)"
+                  },
                   produto: { 
                     type: "string",
-                    description: "IMPORTANTE: Extrair SOMENTE o nome do produto, sem detalhes adicionais, códigos, preços ou informações extras. Exemplo: 'Pão Francês' ao invés de 'Pão Francês 50g - Cód 123'"
+                    description: "Nome do produto limpo, sem código, unidade ou valores. Ex: 'TORTA NOZES C CHOCOLATE' ou 'COOKIES RECHEADO'"
                   },
-                  quantidade: { type: "number" },
-                  setor: { 
+                  quantidade: { 
+                    type: "number",
+                    description: "Quantidade (Qtde na perda, Qtde na venda)"
+                  },
+                  unidade: {
                     type: "string",
-                    enum: SECTORS
+                    description: "Unidade de medida (KG, UN, etc)"
                   }
-                }
+                },
+                required: ["produto", "quantidade"]
               }
             }
-          }
+          },
+          required: ["tipo_documento", "itens"]
         }
       });
 
@@ -82,20 +88,34 @@ export default function PDFImporter({ products, onImportComplete }) {
         // Função de normalização para matching inteligente
         const normalize = (str) => str.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
         
-        const productNameMap = {};
+        // Criar mapa de produtos existentes
+        const productMap = {};
         products.forEach(p => {
-          productNameMap[normalize(p.name)] = p.name;
+          const normalizedName = normalize(p.name);
+          productMap[normalizedName] = p;
+          
+          // Se tiver código, também mapear por código
+          if (p.code) {
+            const normalizedCode = normalize(p.code);
+            productMap[normalizedCode] = p;
+          }
         });
         
         // Fazer matching e identificar produtos novos
         const itemsWithMatching = extractedItems.map(item => {
           const normalizedProduct = normalize(item.produto);
-          const matchedName = productNameMap[normalizedProduct];
+          const normalizedCode = normalize(item.codigo || "");
+          
+          // Tentar match por nome ou código
+          let matchedProduct = productMap[normalizedProduct] || productMap[normalizedCode];
           
           return {
             ...item,
-            produto: matchedName || item.produto,
-            isNew: !matchedName
+            produto: matchedProduct?.name || item.produto,
+            codigo: item.codigo || "",
+            matched_product_id: matchedProduct?.id,
+            isNew: !matchedProduct,
+            setor: matchedProduct?.sector || "Confeitaria"
           };
         });
         
@@ -106,15 +126,16 @@ export default function PDFImporter({ products, onImportComplete }) {
           itens: itemsWithMatching
         });
 
+        // Se há produtos não encontrados, abrir diálogo de mapeamento
         if (unknownProducts.length > 0) {
-          setNewProducts(unknownProducts.map(p => ({
+          setUnmatchedProducts(unknownProducts.map(p => ({
             name: p.produto,
-            sector: p.setor || "Padaria",
-            unit: "unidade",
-            selected: true
+            code: p.codigo || "",
+            sector: "Confeitaria",
+            unit: p.unidade?.toLowerCase() === 'kg' ? 'kilo' : 'unidade',
+            quantity: p.quantidade
           })));
-          setSelectedNewProducts(unknownProducts.map(p => p.produto));
-          setNewProductsDialog(true);
+          setMapperDialog(true);
         }
       } else {
         toast.error("Erro ao extrair dados do PDF");
@@ -131,7 +152,7 @@ export default function PDFImporter({ products, onImportComplete }) {
     try {
       // Criar novos produtos
       const productsToCreate = Object.entries(newProductsData).map(([name, data]) => ({
-        code: data.code,
+        code: data.code || "",
         name: name,
         sector: data.sector,
         unit: data.unit,
@@ -146,16 +167,16 @@ export default function PDFImporter({ products, onImportComplete }) {
       }
 
       // Atualizar extractedData com os mapeamentos
-      const updatedData = extractedData.map(item => {
-        if (!item.product_exists) {
+      const updatedItems = extractedData.itens.map(item => {
+        if (item.isNew) {
           // Verificar se foi mapeado para produto existente
           if (mappings[item.produto]) {
             const mappedProduct = products.find(p => p.id === mappings[item.produto]);
             return {
               ...item,
-              product_id: mappedProduct.id,
-              product_name: mappedProduct.name,
-              product_exists: true,
+              produto: mappedProduct.name,
+              matched_product_id: mappedProduct.id,
+              isNew: false,
               setor: mappedProduct.sector
             };
           }
@@ -165,9 +186,9 @@ export default function PDFImporter({ products, onImportComplete }) {
           if (newProduct) {
             return {
               ...item,
-              product_id: newProduct.id,
-              product_name: newProduct.name,
-              product_exists: true,
+              produto: newProduct.name,
+              matched_product_id: newProduct.id,
+              isNew: false,
               setor: newProduct.sector
             };
           }
@@ -175,8 +196,12 @@ export default function PDFImporter({ products, onImportComplete }) {
         return item;
       });
 
-      setExtractedData(updatedData);
-      await onRefresh?.();
+      setExtractedData({
+        ...extractedData,
+        itens: updatedItems
+      });
+      
+      onImportComplete?.();
     } catch (error) {
       console.error(error);
       toast.error("Erro ao processar mapeamento");
@@ -186,6 +211,13 @@ export default function PDFImporter({ products, onImportComplete }) {
   const handleImport = async () => {
     if (!extractedData || !recordType) return;
     
+    // Verificar se ainda há produtos não mapeados
+    const stillUnmatched = extractedData.itens.filter(item => item.isNew);
+    if (stillUnmatched.length > 0) {
+      toast.error("Ainda há produtos não mapeados. Por favor, mapeie todos antes de importar.");
+      return;
+    }
+    
     setLoading(true);
     
     try {
@@ -194,8 +226,9 @@ export default function PDFImporter({ products, onImportComplete }) {
         const dateObj = parseISO(date);
         
         return {
+          product_id: item.matched_product_id,
           product_name: item.produto,
-          sector: item.setor || "Padaria",
+          sector: item.setor,
           quantity: item.quantidade,
           date: date,
           week_number: getWeek(dateObj),
@@ -206,10 +239,10 @@ export default function PDFImporter({ products, onImportComplete }) {
 
       if (recordType === "venda") {
         await base44.entities.SalesRecord.bulkCreate(records);
-        toast.success(`${records.length} registro(s) de venda importado(s)`);
+        toast.success(`${records.length} registro(s) de venda importado(s) para o histórico`);
       } else {
         await base44.entities.LossRecord.bulkCreate(records);
-        toast.success(`${records.length} registro(s) de perda importado(s)`);
+        toast.success(`${records.length} registro(s) de perda importado(s) para o histórico`);
       }
 
       setFile(null);
@@ -217,6 +250,7 @@ export default function PDFImporter({ products, onImportComplete }) {
       setRecordType(null);
       onImportComplete?.();
     } catch (error) {
+      console.error(error);
       toast.error("Erro ao importar registros");
     } finally {
       setLoading(false);
@@ -231,6 +265,9 @@ export default function PDFImporter({ products, onImportComplete }) {
             <Upload className="w-5 h-5" />
             Importar PDF do ERP Lince
           </CardTitle>
+          <p className="text-sm text-slate-500 mt-1">
+            Relatórios de vendas (Curva ABC) e perdas (Perdas por Departamento)
+          </p>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="border-2 border-dashed border-slate-200 rounded-lg p-6 text-center hover:border-slate-300 transition-colors">
@@ -274,7 +311,7 @@ export default function PDFImporter({ products, onImportComplete }) {
                   </span>
                 </div>
                 <div className="text-sm text-slate-600">
-                  Período: {extractedData.periodo_inicio} - {extractedData.periodo_fim}
+                  Período: {extractedData.periodo_inicio} até {extractedData.periodo_fim}
                 </div>
                 <div className="text-sm text-slate-600">
                   {extractedData.itens?.length} item(s)
@@ -285,6 +322,7 @@ export default function PDFImporter({ products, onImportComplete }) {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-slate-50">
+                      <TableHead className="text-xs">Código</TableHead>
                       <TableHead className="text-xs">Produto</TableHead>
                       <TableHead className="text-xs">Setor</TableHead>
                       <TableHead className="text-xs text-right">Quantidade</TableHead>
@@ -294,17 +332,18 @@ export default function PDFImporter({ products, onImportComplete }) {
                   <TableBody>
                     {extractedData.itens?.map((item, index) => (
                       <TableRow key={index}>
+                        <TableCell className="text-xs text-slate-500">{item.codigo || "—"}</TableCell>
                         <TableCell className="text-sm">{item.produto}</TableCell>
                         <TableCell className="text-sm">{item.setor}</TableCell>
                         <TableCell className="text-sm text-right">{item.quantidade}</TableCell>
                         <TableCell className="text-center">
                           {item.isNew ? (
                             <span className="text-xs text-orange-600 flex items-center justify-center gap-1">
-                              <AlertCircle className="w-3 h-3" /> Novo
+                              <AlertCircle className="w-3 h-3" /> Não mapeado
                             </span>
                           ) : (
                             <span className="text-xs text-green-600 flex items-center justify-center gap-1">
-                              <Check className="w-3 h-3" /> OK
+                              <Check className="w-3 h-3" /> Pronto
                             </span>
                           )}
                         </TableCell>
@@ -316,7 +355,7 @@ export default function PDFImporter({ products, onImportComplete }) {
 
               <Button 
                 onClick={handleImport} 
-                disabled={loading}
+                disabled={loading || extractedData.itens.some(item => item.isNew)}
                 className="w-full bg-slate-900 hover:bg-slate-800"
               >
                 {loading ? (
@@ -324,89 +363,20 @@ export default function PDFImporter({ products, onImportComplete }) {
                 ) : (
                   <Check className="w-4 h-4 mr-2" />
                 )}
-                Confirmar Importação
+                Importar para o Histórico
               </Button>
             </div>
           )}
         </CardContent>
       </Card>
 
-      <Dialog open={newProductsDialog} onOpenChange={setNewProductsDialog}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Plus className="w-5 h-5" />
-              Produtos Não Cadastrados
-            </DialogTitle>
-            <DialogDescription>
-              Encontramos {newProducts.length} produto(s) que não estão cadastrados. Deseja criar automaticamente?
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="max-h-64 overflow-auto space-y-2">
-            {newProducts.map((product, index) => (
-              <div key={index} className="flex items-center gap-3 p-2 border rounded-lg">
-                <Checkbox
-                  checked={selectedNewProducts.includes(product.name)}
-                  onCheckedChange={(checked) => {
-                    if (checked) {
-                      setSelectedNewProducts([...selectedNewProducts, product.name]);
-                    } else {
-                      setSelectedNewProducts(selectedNewProducts.filter(n => n !== product.name));
-                    }
-                  }}
-                />
-                <div className="flex-1">
-                  <span className="text-sm block">{product.name}</span>
-                </div>
-                <Select
-                  value={product.sector}
-                  onValueChange={(value) => {
-                    const updated = [...newProducts];
-                    updated[index].sector = value;
-                    setNewProducts(updated);
-                  }}
-                >
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SECTORS.map(sector => (
-                      <SelectItem key={sector} value={sector}>{sector}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={product.unit || "unidade"}
-                  onValueChange={(value) => {
-                    const updated = [...newProducts];
-                    updated[index].unit = value;
-                    setNewProducts(updated);
-                  }}
-                >
-                  <SelectTrigger className="w-28">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="unidade">Unidade</SelectItem>
-                    <SelectItem value="pacotes">Pacotes</SelectItem>
-                    <SelectItem value="kilo">Kilo</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            ))}
-          </div>
-
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setNewProductsDialog(false)}>
-              Ignorar
-            </Button>
-            <Button onClick={handleCreateNewProducts} disabled={selectedNewProducts.length === 0}>
-              Criar {selectedNewProducts.length} Produto(s)
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ProductMapper
+        open={mapperDialog}
+        onClose={() => setMapperDialog(false)}
+        unmatchedProducts={unmatchedProducts}
+        existingProducts={products}
+        onMap={handleProductMapping}
+      />
     </>
   );
 }
