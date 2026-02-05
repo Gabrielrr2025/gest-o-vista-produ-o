@@ -12,6 +12,14 @@ Deno.serve(async (req) => {
 
         const { startDate, endDate } = await req.json();
 
+        // Log temporário para validar host
+        console.log('=== POSTGRES CONFIG ===');
+        console.log('Host:', Deno.env.get('POSTGRES_HOST'));
+        console.log('Port:', Deno.env.get('POSTGRES_PORT'));
+        console.log('Database:', Deno.env.get('POSTGRES_DATABASE'));
+        console.log('User:', Deno.env.get('POSTGRES_USER'));
+        console.log('======================');
+
         // Conectar ao PostgreSQL
         const sql = postgres({
             host: Deno.env.get('POSTGRES_HOST'),
