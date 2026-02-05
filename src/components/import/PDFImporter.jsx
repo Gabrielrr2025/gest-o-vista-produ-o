@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Upload, FileText, Loader2, Check, AlertCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { base44 } from "@/api/base44Client";
 import { getWeek, getMonth, getYear, parseISO } from "date-fns";
 import { toast } from "sonner";
@@ -18,6 +19,8 @@ export default function PDFImporter({ products, onImportComplete }) {
   const [recordType, setRecordType] = useState(null);
   const [unmatchedProducts, setUnmatchedProducts] = useState([]);
   const [mapperDialog, setMapperDialog] = useState(false);
+  const [duplicateDialog, setDuplicateDialog] = useState(false);
+  const [duplicates, setDuplicates] = useState([]);
 
   const handleFileUpload = async (e) => {
     const selectedFile = e.target.files[0];
@@ -221,7 +224,40 @@ export default function PDFImporter({ products, onImportComplete }) {
       toast.error("Ainda há produtos não mapeados. Por favor, mapeie todos antes de importar.");
       return;
     }
-    
+
+    // Verificar duplicatas
+    const isSalesReport = recordType === "venda";
+    const existingRecords = isSalesReport 
+      ? await base44.entities.SalesRecord.list()
+      : await base44.entities.LossRecord.list();
+
+    const duplicateItems = [];
+    extractedData.itens.forEach(item => {
+      const dateStr = extractedData.periodo_inicio || new Date().toISOString().split('T')[0];
+      const existing = existingRecords.find(r => 
+        r.product_id === item.matched_product_id &&
+        r.date === dateStr
+      );
+      if (existing) {
+        duplicateItems.push({
+          ...item,
+          existingQuantity: existing.quantity,
+          newQuantity: item.quantidade,
+          existingRecordId: existing.id
+        });
+      }
+    });
+
+    if (duplicateItems.length > 0) {
+      setDuplicates(duplicateItems);
+      setDuplicateDialog(true);
+      return;
+    }
+
+    await performImport(false);
+  };
+
+  const performImport = async (sumDuplicates) => {
     setLoading(true);
     
     try {
@@ -381,6 +417,49 @@ export default function PDFImporter({ products, onImportComplete }) {
         existingProducts={products}
         onMap={handleProductMapping}
       />
+
+      <Dialog open={duplicateDialog} onOpenChange={setDuplicateDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-orange-500" />
+              Registros Duplicados Detectados
+            </DialogTitle>
+            <p className="text-sm text-slate-600 mt-2">
+              Encontramos {duplicates.length} produto(s) que já possuem registros para esta data.
+            </p>
+          </DialogHeader>
+
+          <div className="max-h-64 overflow-auto space-y-2">
+            {duplicates.map((dup, idx) => (
+              <div key={idx} className="border rounded-lg p-3 bg-slate-50">
+                <div className="font-medium text-sm">{dup.produto}</div>
+                <div className="text-xs text-slate-600 mt-1">
+                  Quantidade existente: {dup.existingQuantity} | Nova quantidade: {dup.newQuantity}
+                </div>
+                <div className="text-xs text-blue-600 mt-1">
+                  Se somar: {dup.existingQuantity + dup.newQuantity}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDuplicateDialog(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => performImport(false)}
+            >
+              Ignorar Duplicados
+            </Button>
+            <Button onClick={() => performImport(true)}>
+              Somar Quantidades
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

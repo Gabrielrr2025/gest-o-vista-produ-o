@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, FileSpreadsheet, BarChart2, PieChart } from "lucide-react";
+import { Download, FileSpreadsheet, BarChart2, PieChart, Search, ArrowUpDown } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { subDays, isWithinInterval, parseISO, format, getWeek } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import DateRangePicker from "../components/common/DateRangePicker";
@@ -25,6 +26,8 @@ export default function Reports() {
   const [reportType, setReportType] = useState("overview");
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [productSearch, setProductSearch] = useState("");
+  const [productSortOrder, setProductSortOrder] = useState("desc"); // desc = maior venda primeiro, asc = alfabético
 
   const { data: salesRecords = [] } = useQuery({
     queryKey: ['salesRecords'],
@@ -100,14 +103,34 @@ export default function Reports() {
       byProduct[r.product_name].perdas += r.quantity || 0;
     });
 
+    const productList = Object.values(byProduct)
+      .map(p => ({ ...p, lossRate: ((p.perdas / (p.vendas + p.perdas)) * 100).toFixed(1) }));
+
     return {
       bySector,
       byWeek: Object.values(byWeek).sort((a, b) => parseInt(a.week.slice(1)) - parseInt(b.week.slice(1))),
-      byProduct: Object.values(byProduct)
-        .map(p => ({ ...p, lossRate: ((p.perdas / (p.vendas + p.perdas)) * 100).toFixed(1) }))
-        .sort((a, b) => b.vendas - a.vendas)
+      byProduct: productList
     };
   }, [filteredData]);
+
+  const filteredProducts = useMemo(() => {
+    let filtered = reportData.byProduct;
+    
+    // Aplicar busca
+    if (productSearch) {
+      const search = productSearch.toLowerCase();
+      filtered = filtered.filter(p => p.name.toLowerCase().includes(search));
+    }
+
+    // Aplicar ordenação
+    if (productSortOrder === "asc") {
+      filtered = [...filtered].sort((a, b) => a.name.localeCompare(b.name));
+    } else {
+      filtered = [...filtered].sort((a, b) => b.vendas - a.vendas);
+    }
+
+    return filtered;
+  }, [reportData.byProduct, productSearch, productSortOrder]);
 
   const exportReport = () => {
     let headers, rows;
@@ -316,15 +339,36 @@ export default function Reports() {
 
       <Card className="border-0 shadow-lg">
         <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100">
-          <CardTitle className="text-lg font-bold text-slate-900">Detalhamento por Produto</CardTitle>
-          <p className="text-xs text-slate-600 mt-1">Clique em qualquer produto para ver análise detalhada</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-lg font-bold text-slate-900">Detalhamento por Produto</CardTitle>
+              <p className="text-xs text-slate-600 mt-1">Clique em qualquer produto para ver análise detalhada</p>
+            </div>
+            <div className="relative w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input
+                placeholder="Buscar produto..."
+                value={productSearch}
+                onChange={(e) => setProductSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           <div className="max-h-[400px] overflow-auto">
             <Table>
               <TableHeader>
                 <TableRow className="bg-slate-50">
-                  <TableHead>Produto</TableHead>
+                  <TableHead>
+                    <button 
+                      className="flex items-center gap-1 hover:text-slate-900"
+                      onClick={() => setProductSortOrder(productSortOrder === "asc" ? "desc" : "asc")}
+                    >
+                      Produto
+                      <ArrowUpDown className="w-3 h-3" />
+                    </button>
+                  </TableHead>
                   <TableHead>Setor</TableHead>
                   <TableHead className="text-right">Vendas</TableHead>
                   <TableHead className="text-right">Perdas</TableHead>
@@ -332,7 +376,7 @@ export default function Reports() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {reportData.byProduct.slice(0, 50).map((row, index) => (
+                {filteredProducts.map((row, index) => (
                   <TableRow 
                     key={index} 
                     className="hover:bg-slate-100 cursor-pointer"

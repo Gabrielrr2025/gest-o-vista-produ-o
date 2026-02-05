@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ClipboardList, Save, TrendingUp, TrendingDown, Sparkles } from "lucide-react";
+import { ClipboardList, Save, Plus } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import SectorBadge, { SECTORS } from "../components/common/SectorBadge";
 import { getWeek, getYear, parseISO, startOfWeek, endOfWeek, format, eachDayOfInterval, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -20,6 +21,9 @@ export default function Planning() {
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [selectedSector, setSelectedSector] = useState("all");
   const [editedQuantities, setEditedQuantities] = useState({});
+  const [manualProducts, setManualProducts] = useState([]);
+  const [addProductDialog, setAddProductDialog] = useState(false);
+  const [selectedProductToAdd, setSelectedProductToAdd] = useState("");
 
   const queryClient = useQueryClient();
 
@@ -113,6 +117,21 @@ export default function Planning() {
         productMap[key].lossHistory[record.week_number] += record.quantity || 0;
       });
 
+    // Adicionar produtos manuais
+    manualProducts.forEach(prodName => {
+      if (!productMap[prodName]) {
+        const product = products.find(p => p.name === prodName);
+        if (product) {
+          productMap[prodName] = {
+            name: prodName,
+            sector: product.sector,
+            salesHistory: [],
+            lossHistory: []
+          };
+        }
+      }
+    });
+
     return Object.values(productMap)
       .filter(p => selectedSector === "all" || p.sector === selectedSector)
       .map(p => {
@@ -187,6 +206,15 @@ export default function Planning() {
       ...prev,
       [key]: parseInt(value) || 0
     }));
+  };
+
+  const handleAddProduct = () => {
+    if (!selectedProductToAdd) return;
+    if (!manualProducts.includes(selectedProductToAdd)) {
+      setManualProducts([...manualProducts, selectedProductToAdd]);
+    }
+    setAddProductDialog(false);
+    setSelectedProductToAdd("");
   };
 
   const handleSave = () => {
@@ -265,9 +293,14 @@ export default function Planning() {
             <ClipboardList className="w-5 h-5" />
             Pedido de Produção - Semana {selectedWeek}
           </CardTitle>
-          <Button onClick={handleSave} disabled={savePlanMutation.isPending}>
-            <Save className="w-4 h-4 mr-1" /> Salvar Planejamento
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setAddProductDialog(true)}>
+              <Plus className="w-4 h-4 mr-1" /> Adicionar Produto
+            </Button>
+            <Button onClick={handleSave} disabled={savePlanMutation.isPending}>
+              <Save className="w-4 h-4 mr-1" /> Salvar Planejamento
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           <div className="border rounded-lg max-h-[600px] overflow-auto">
@@ -336,6 +369,38 @@ export default function Planning() {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={addProductDialog} onOpenChange={setAddProductDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Adicionar Produto ao Planejamento</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Select value={selectedProductToAdd} onValueChange={setSelectedProductToAdd}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecionar produto..." />
+              </SelectTrigger>
+              <SelectContent>
+                {products
+                  .filter(p => !suggestions.find(s => s.name === p.name))
+                  .map(p => (
+                    <SelectItem key={p.id} value={p.name}>
+                      {p.name} ({p.sector})
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddProductDialog(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleAddProduct} disabled={!selectedProductToAdd}>
+              Adicionar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
