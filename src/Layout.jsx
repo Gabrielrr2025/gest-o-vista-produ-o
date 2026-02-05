@@ -122,7 +122,7 @@ export default function Layout({ children, currentPageName }) {
           </nav>
 
           {/* Footer */}
-          <div className="p-4 border-t border-[hsl(var(--border-light))] space-y-3">
+          <div className="p-4 border-t border-[hsl(var(--border-light))]">
             <Button
               variant="outline"
               size="sm"
@@ -141,16 +141,6 @@ export default function Layout({ children, currentPageName }) {
                 </>
               )}
             </Button>
-            <div className="bg-[hsl(var(--bg-secondary))] rounded-lg p-3.5 border border-[hsl(var(--border-light))]">
-              <p className="text-xs text-[hsl(var(--text-tertiary))] mb-2 font-medium">Setores Ativos</p>
-              <div className="flex flex-wrap gap-1.5">
-                {["Padaria", "Salgados", "Confeitaria"].map(sector => (
-                  <span key={sector} className="text-xs bg-[hsl(var(--bg-tertiary))] border border-[hsl(var(--border-light))] px-2.5 py-1 rounded-md text-[hsl(var(--text-secondary))] font-medium">
-                    {sector}
-                  </span>
-                ))}
-              </div>
-            </div>
           </div>
         </div>
       </aside>

@@ -52,19 +52,19 @@
 /* Custom refined theme variables */
 :root {
   /* Light Mode - Professional & Clean */
-  --bg-primary: 240 10% 98%;
-  --bg-secondary: 240 10% 96%;
+  --bg-primary: 240 10% 97%;
+  --bg-secondary: 240 15% 95%;
   --bg-tertiary: 0 0% 100%;
   
-  --text-primary: 220 16% 22%;
-  --text-secondary: 220 10% 46%;
-  --text-tertiary: 220 8% 64%;
+  --text-primary: 220 18% 20%;
+  --text-secondary: 220 12% 45%;
+  --text-tertiary: 220 10% 60%;
   
-  --border-light: 220 13% 91%;
-  --border-medium: 220 13% 85%;
+  --border-light: 220 15% 88%;
+  --border-medium: 220 15% 82%;
   
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.08);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
   
   --accent-primary: 189 94% 43%;
@@ -73,20 +73,20 @@
 
 .dark {
   /* Dark Mode - Balanced & Modern */
-  --bg-primary: 222 47% 11%;
-  --bg-secondary: 217 33% 17%;
-  --bg-tertiary: 215 28% 22%;
+  --bg-primary: 220 20% 10%;
+  --bg-secondary: 220 18% 15%;
+  --bg-tertiary: 220 16% 19%;
   
-  --text-primary: 210 40% 98%;
-  --text-secondary: 215 20% 78%;
-  --text-tertiary: 215 16% 62%;
+  --text-primary: 210 40% 96%;
+  --text-secondary: 215 18% 72%;
+  --text-tertiary: 215 14% 58%;
   
-  --border-light: 215 25% 27%;
-  --border-medium: 215 25% 32%;
+  --border-light: 220 18% 24%;
+  --border-medium: 220 18% 28%;
   
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5);
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.4);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.5);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.6);
   
   --accent-primary: 189 94% 43%;
   --accent-primary-hover: 217 91% 70%;
