@@ -10,15 +10,15 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-primary text-primary-foreground shadow hover:bg-primary/90 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600",
+          "bg-[hsl(var(--text-primary))] text-white shadow-sm hover:opacity-90 transition-all",
         destructive:
-          "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
+          "bg-red-600 text-white shadow-sm hover:bg-red-700 transition-all",
         outline:
-          "border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600",
+          "border border-[hsl(var(--border-medium))] bg-transparent text-[hsl(var(--text-primary))] shadow-sm hover:bg-[hsl(var(--bg-secondary))] transition-all",
         secondary:
-          "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80 dark:bg-slate-700 dark:text-white",
-        ghost: "hover:bg-accent hover:text-accent-foreground dark:hover:bg-slate-700 dark:text-white",
-        link: "text-primary underline-offset-4 hover:underline dark:text-slate-300",
+          "bg-[hsl(var(--bg-secondary))] text-[hsl(var(--text-primary))] shadow-sm hover:bg-[hsl(var(--bg-tertiary))] border border-[hsl(var(--border-light))] transition-all",
+        ghost: "hover:bg-[hsl(var(--bg-secondary))] text-[hsl(var(--text-secondary))] hover:text-[hsl(var(--text-primary))] transition-all",
+        link: "text-orange-600 underline-offset-4 hover:underline",
       },
       size: {
         default: "h-9 px-4 py-2",

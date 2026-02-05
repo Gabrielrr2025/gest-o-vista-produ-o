@@ -45,21 +45,21 @@ export default function Layout({ children, currentPageName }) {
   }, [darkMode]);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors">
+    <div className="min-h-screen bg-[hsl(var(--bg-primary))] transition-colors duration-200">
       {/* Mobile Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 z-50 flex items-center justify-between px-4">
+      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-[hsl(var(--bg-tertiary))] border-b border-[hsl(var(--border-light))] z-50 flex items-center justify-between px-4 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
             <ChefHat className="w-5 h-5 text-white" />
           </div>
-          <span className="font-bold text-slate-900 dark:text-white">Gestão à Vista</span>
+          <span className="font-bold text-[hsl(var(--text-primary))]">Gestão à Vista</span>
         </div>
         <div className="flex items-center gap-2">
           <Button 
             variant="ghost" 
             size="icon"
             onClick={() => setDarkMode(!darkMode)}
-            className="dark:text-white"
+            className="text-[hsl(var(--text-secondary))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-secondary))]"
           >
             {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
           </Button>
@@ -79,20 +79,20 @@ export default function Layout({ children, currentPageName }) {
 
       {/* Sidebar */}
       <aside className={`
-        fixed top-0 left-0 h-full w-64 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 z-50
+        fixed top-0 left-0 h-full w-64 bg-[hsl(var(--bg-tertiary))] border-r border-[hsl(var(--border-light))] z-50 shadow-lg
         transform transition-transform duration-300 ease-in-out
         lg:translate-x-0
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="h-16 flex items-center gap-3 px-5 border-b border-slate-100 dark:border-slate-700">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-200">
+          <div className="h-16 flex items-center gap-3 px-5 border-b border-[hsl(var(--border-light))]">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-md">
               <ChefHat className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="font-bold text-slate-900 dark:text-white leading-tight">Gestão à Vista</h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Produção</p>
+              <h1 className="font-bold text-[hsl(var(--text-primary))] leading-tight">Gestão à Vista</h1>
+              <p className="text-xs text-[hsl(var(--text-tertiary))]">Produção</p>
             </div>
           </div>
 
@@ -122,12 +122,12 @@ export default function Layout({ children, currentPageName }) {
           </nav>
 
           {/* Footer */}
-          <div className="p-4 border-t border-slate-100 dark:border-slate-700 space-y-3">
+          <div className="p-4 border-t border-[hsl(var(--border-light))] space-y-3">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setDarkMode(!darkMode)}
-              className="w-full dark:bg-slate-700 dark:text-white dark:border-slate-600"
+              className="w-full border-[hsl(var(--border-medium))] hover:bg-[hsl(var(--bg-secondary))]"
             >
               {darkMode ? (
                 <>
@@ -141,11 +141,11 @@ export default function Layout({ children, currentPageName }) {
                 </>
               )}
             </Button>
-            <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-700 dark:to-slate-600 rounded-xl p-4">
-              <p className="text-xs text-slate-500 dark:text-slate-300 mb-1">Setores Ativos</p>
-              <div className="flex flex-wrap gap-1">
+            <div className="bg-[hsl(var(--bg-secondary))] rounded-lg p-3.5 border border-[hsl(var(--border-light))]">
+              <p className="text-xs text-[hsl(var(--text-tertiary))] mb-2 font-medium">Setores Ativos</p>
+              <div className="flex flex-wrap gap-1.5">
                 {["Padaria", "Salgados", "Confeitaria"].map(sector => (
-                  <span key={sector} className="text-xs bg-white dark:bg-slate-800 px-2 py-1 rounded-full text-slate-600 dark:text-slate-300">
+                  <span key={sector} className="text-xs bg-[hsl(var(--bg-tertiary))] border border-[hsl(var(--border-light))] px-2.5 py-1 rounded-md text-[hsl(var(--text-secondary))] font-medium">
                     {sector}
                   </span>
                 ))}
