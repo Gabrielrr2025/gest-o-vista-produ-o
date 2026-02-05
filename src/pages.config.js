@@ -51,7 +51,6 @@ import Calendar from './pages/Calendar';
 import Dashboard from './pages/Dashboard';
 import History from './pages/History';
 import Import from './pages/Import';
-import Planning from './pages/Planning';
 import Production from './pages/Production';
 import Products from './pages/Products';
 import Reports from './pages/Reports';
@@ -64,7 +63,6 @@ export const PAGES = {
     "Dashboard": Dashboard,
     "History": History,
     "Import": Import,
-    "Planning": Planning,
     "Production": Production,
     "Products": Products,
     "Reports": Reports,

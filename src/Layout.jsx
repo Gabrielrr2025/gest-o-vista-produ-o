@@ -18,7 +18,6 @@ import {
 
 const navigation = [
   { name: "Dashboard", page: "Dashboard", icon: LayoutDashboard },
-  { name: "Planejamento", page: "Planning", icon: ClipboardList },
   { name: "Produtos", page: "Products", icon: Package },
   { name: "Calendário", page: "Calendar", icon: CalendarDays },
   { name: "Relatórios", page: "Reports", icon: FileSpreadsheet },

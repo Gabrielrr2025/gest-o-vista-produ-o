@@ -225,25 +225,31 @@ export default function PDFImporter({ products, onImportComplete }) {
       return;
     }
 
-    // Verificar duplicatas
+    // Verificar duplicatas por semana
     const isSalesReport = recordType === "venda";
     const existingRecords = isSalesReport 
       ? await base44.entities.SalesRecord.list()
       : await base44.entities.LossRecord.list();
 
+    const dateStr = extractedData.periodo_inicio || new Date().toISOString().split('T')[0];
+    const dateObj = parseISO(dateStr);
+    const weekNumber = getWeek(dateObj);
+    const year = getYear(dateObj);
+
     const duplicateItems = [];
     extractedData.itens.forEach(item => {
-      const dateStr = extractedData.periodo_inicio || new Date().toISOString().split('T')[0];
       const existing = existingRecords.find(r => 
         r.product_id === item.matched_product_id &&
-        r.date === dateStr
+        r.week_number === weekNumber &&
+        r.year === year
       );
       if (existing) {
         duplicateItems.push({
           ...item,
           existingQuantity: existing.quantity,
           newQuantity: item.quantidade,
-          existingRecordId: existing.id
+          existingRecordId: existing.id,
+          existingDate: existing.date
         });
       }
     });
@@ -254,15 +260,18 @@ export default function PDFImporter({ products, onImportComplete }) {
       return;
     }
 
-    await performImport(false);
+    await performImport("ignore");
   };
 
-  const performImport = async (sumDuplicates) => {
+  const performImport = async (mode) => {
+    // mode: "ignore", "sum", "replace"
     setLoading(true);
     
     try {
       const date = extractedData.periodo_inicio || new Date().toISOString().split('T')[0];
       const dateObj = parseISO(date);
+      const weekNumber = getWeek(dateObj);
+      const year = getYear(dateObj);
       
       const isSalesReport = recordType === "venda";
       const existingRecords = isSalesReport 
@@ -272,7 +281,8 @@ export default function PDFImporter({ products, onImportComplete }) {
       for (const item of extractedData.itens) {
         const existing = existingRecords.find(r => 
           r.product_id === item.matched_product_id &&
-          r.date === date
+          r.week_number === weekNumber &&
+          r.year === year
         );
 
         const recordData = {
@@ -281,14 +291,21 @@ export default function PDFImporter({ products, onImportComplete }) {
           sector: item.setor,
           quantity: parseFloat(item.quantidade || 0),
           date: date,
-          week_number: getWeek(dateObj),
+          week_number: weekNumber,
           month: getMonth(dateObj) + 1,
-          year: getYear(dateObj)
+          year: year
         };
 
-        if (existing && sumDuplicates) {
+        if (existing && mode === "sum") {
           // Somar quantidades
           recordData.quantity = existing.quantity + recordData.quantity;
+          if (isSalesReport) {
+            await base44.entities.SalesRecord.update(existing.id, recordData);
+          } else {
+            await base44.entities.LossRecord.update(existing.id, recordData);
+          }
+        } else if (existing && mode === "replace") {
+          // Substituir
           if (isSalesReport) {
             await base44.entities.SalesRecord.update(existing.id, recordData);
           } else {
@@ -444,10 +461,10 @@ export default function PDFImporter({ products, onImportComplete }) {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertCircle className="w-5 h-5 text-orange-500" />
-              Registros Duplicados Detectados
+              Registros Duplicados Detectados (Mesma Semana)
             </DialogTitle>
             <p className="text-sm text-slate-600 mt-2">
-              Encontramos {duplicates.length} produto(s) que já possuem registros para esta data.
+              Encontramos {duplicates.length} produto(s) que já possuem registros na mesma semana.
             </p>
           </DialogHeader>
 
@@ -456,10 +473,16 @@ export default function PDFImporter({ products, onImportComplete }) {
               <div key={idx} className="border rounded-lg p-3 bg-slate-50">
                 <div className="font-medium text-sm">{dup.produto}</div>
                 <div className="text-xs text-slate-600 mt-1">
-                  Quantidade existente: {dup.existingQuantity} | Nova quantidade: {dup.newQuantity}
+                  Registro existente ({dup.existingDate}): {dup.existingQuantity}
                 </div>
-                <div className="text-xs text-blue-600 mt-1">
+                <div className="text-xs text-slate-600">
+                  Novo registro: {dup.newQuantity}
+                </div>
+                <div className="text-xs text-green-600 mt-1">
                   Se somar: {dup.existingQuantity + dup.newQuantity}
+                </div>
+                <div className="text-xs text-blue-600">
+                  Se substituir: {dup.newQuantity}
                 </div>
               </div>
             ))}
@@ -471,11 +494,11 @@ export default function PDFImporter({ products, onImportComplete }) {
             </Button>
             <Button 
               variant="outline"
-              onClick={() => performImport(false)}
+              onClick={() => performImport("replace")}
             >
-              Ignorar Duplicados
+              Substituir
             </Button>
-            <Button onClick={() => performImport(true)}>
+            <Button onClick={() => performImport("sum")}>
               Somar Quantidades
             </Button>
           </DialogFooter>
