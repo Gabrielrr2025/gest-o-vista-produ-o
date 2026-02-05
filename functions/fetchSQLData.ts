@@ -85,10 +85,21 @@ Deno.serve(async (req) => {
         }
 
     } catch (error) {
-        console.error('Erro ao buscar dados SQL:', error);
+        console.error('=== ERRO SQL COMPLETO ===');
+        console.error('Nome:', error.name);
+        console.error('Mensagem:', error.message);
+        console.error('Stack:', error.stack);
+        console.error('Código:', error.code);
+        console.error('Detalhes:', error.detail);
+        console.error('Erro completo:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
+        console.error('========================');
+        
         return Response.json({ 
             error: 'Erro ao buscar dados do banco de dados',
-            details: error.message 
+            details: error.message,
+            errorName: error.name,
+            errorCode: error.code,
+            errorStack: error.stack
         }, { status: 500 });
     }
 });
