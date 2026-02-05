@@ -95,11 +95,14 @@ Deno.serve(async (req) => {
         console.error('========================');
         
         return Response.json({ 
+            success: false,
             error: 'Erro ao buscar dados do banco de dados',
-            details: error.message,
+            errorMessage: error.message,
             errorName: error.name,
             errorCode: error.code,
-            errorStack: error.stack
-        }, { status: 500 });
+            errorStack: error.stack,
+            errorDetails: error.detail,
+            fullError: JSON.stringify(error, Object.getOwnPropertyNames(error))
+        }, { status: 200 });
     }
 });

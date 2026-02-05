@@ -31,7 +31,15 @@ export default function SQLImporter({ products, onImportComplete }) {
       });
 
       if (!response.data.success) {
-        throw new Error(response.data.error || 'Erro ao buscar dados');
+        const errorInfo = {
+          message: response.data.errorMessage || response.data.error || 'Erro ao buscar dados',
+          name: response.data.errorName,
+          code: response.data.errorCode,
+          stack: response.data.errorStack,
+          details: response.data.errorDetails,
+          full: response.data.fullError
+        };
+        throw new Error(JSON.stringify(errorInfo, null, 2));
       }
 
       const { salesData, lossData, totalRecords } = response.data;
