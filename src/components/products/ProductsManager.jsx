@@ -18,6 +18,8 @@ export default function ProductsManager({ products, onRefresh }) {
   const [filterSector, setFilterSector] = useState("all");
   const [sortBy, setSortBy] = useState("name");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteDialog, setDeleteDialog] = useState(false);
+  const [productToDelete, setProductToDelete] = useState(null);
   const [editingProduct, setEditingProduct] = useState(null);
   const [formData, setFormData] = useState({
     code: "",
@@ -126,18 +128,21 @@ export default function ProductsManager({ products, onRefresh }) {
     }
   };
 
-  const handleDelete = async (product) => {
-    if (!confirm(`Tem certeza que deseja excluir "${product.name}"? Todos os registros relacionados (vendas, perdas, planos) também serão excluídos. Esta ação não pode ser desfeita.`)) {
-      return;
-    }
+  const handleDeleteClick = (product) => {
+    setProductToDelete(product);
+    setDeleteDialog(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!productToDelete) return;
     
     try {
       // Primeiro, deletar todos os registros relacionados
       const [sales, losses, plans, production] = await Promise.all([
-        base44.entities.SalesRecord.filter({ product_id: product.id }),
-        base44.entities.LossRecord.filter({ product_id: product.id }),
-        base44.entities.ProductionPlan.filter({ product_id: product.id }),
-        base44.entities.ProductionRecord.filter({ product_id: product.id })
+        base44.entities.SalesRecord.filter({ product_id: productToDelete.id }),
+        base44.entities.LossRecord.filter({ product_id: productToDelete.id }),
+        base44.entities.ProductionPlan.filter({ product_id: productToDelete.id }),
+        base44.entities.ProductionRecord.filter({ product_id: productToDelete.id })
       ]);
 
       // Deletar registros relacionados
@@ -149,9 +154,11 @@ export default function ProductsManager({ products, onRefresh }) {
       ]);
 
       // Depois deletar o produto
-      await base44.entities.Product.delete(product.id);
+      await base44.entities.Product.delete(productToDelete.id);
       
       toast.success("Produto e registros relacionados excluídos");
+      setDeleteDialog(false);
+      setProductToDelete(null);
       onRefresh?.();
     } catch (error) {
       console.error(error);
@@ -238,7 +245,7 @@ export default function ProductsManager({ products, onRefresh }) {
                         <Button 
                           variant="ghost" 
                           size="sm" 
-                          onClick={() => handleDelete(product)}
+                          onClick={() => handleDeleteClick(product)}
                           className="text-red-500 hover:text-red-700 hover:bg-red-50"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -376,6 +383,28 @@ export default function ProductsManager({ products, onRefresh }) {
             </Button>
             <Button onClick={handleSave}>
               {editingProduct ? "Salvar" : "Criar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteDialog} onOpenChange={setDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-red-900">Excluir Produto</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-slate-600">
+            Tem certeza que deseja excluir <strong>"{productToDelete?.name}"</strong>?
+          </p>
+          <p className="text-sm text-slate-600">
+            Todos os registros relacionados (vendas, perdas, planos) também serão excluídos. Esta ação não pode ser desfeita.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialog(false)}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteConfirm}>
+              Excluir
             </Button>
           </DialogFooter>
         </DialogContent>

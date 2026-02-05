@@ -134,9 +134,12 @@ export default function ProductMapper({
                       Quantidade no PDF: {product.quantity} {product.unit}
                     </div>
                     {topSuggestions.length > 0 && topSuggestions[0].score > 0.3 && (
-                      <div className="text-xs text-blue-600 mt-1">
-                        💡 Sugestão: {topSuggestions[0].product.name} ({Math.round(topSuggestions[0].score * 100)}% similar)
-                      </div>
+                      <button 
+                        onClick={() => handleMap(product.name, topSuggestions[0].product.id)}
+                        className="text-xs text-blue-600 hover:text-blue-800 mt-1 flex items-center gap-1"
+                      >
+                        💡 Sugestão: <span className="underline">{topSuggestions[0].product.name}</span> ({Math.round(topSuggestions[0].score * 100)}% similar) - clique para aplicar
+                      </button>
                     )}
                   </div>
                   <div className="flex items-center gap-2">

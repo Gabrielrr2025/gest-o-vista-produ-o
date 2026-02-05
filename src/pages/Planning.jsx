@@ -342,9 +342,10 @@ export default function Planning() {
                           {shouldProduce ? (
                             <Input
                               type="number"
+                              min="0"
                               value={item.dailyPlanned[dayIdx] || 0}
                               onChange={(e) => handleQuantityChange(item.name, dayIdx, e.target.value)}
-                              className="w-16 text-center text-xs"
+                              className="w-16 text-center text-xs h-8"
                             />
                           ) : (
                             <span className="text-slate-300">—</span>
