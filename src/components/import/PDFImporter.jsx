@@ -355,7 +355,6 @@ export default function PDFImporter({ products, onImportComplete }) {
               onChange={handleFileUpload}
               className="hidden"
               id="pdf-upload"
-              disabled={loading}
             />
             <Label htmlFor="pdf-upload" className="cursor-pointer">
               {loading ? (
@@ -433,7 +432,7 @@ export default function PDFImporter({ products, onImportComplete }) {
 
               <Button 
                 onClick={handleImport} 
-                disabled={loading || extractedData.itens.some(item => item.isNew)}
+                disabled={extractedData.itens.some(item => item.isNew)}
                 className="w-full bg-slate-900 hover:bg-slate-800"
               >
                 {loading ? (

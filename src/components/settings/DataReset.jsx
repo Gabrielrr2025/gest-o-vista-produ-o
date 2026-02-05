@@ -80,6 +80,22 @@ export default function DataReset({ onComplete }) {
         await Promise.all(batch.map(p => base44.entities.Product.delete(p.id)));
       }
 
+      // Deletar eventos de calendário e configurações
+      const [events, configs] = await Promise.all([
+        base44.entities.CalendarEvent.list(),
+        base44.entities.SystemConfig.list()
+      ]);
+
+      for (let i = 0; i < events.length; i += batchSize) {
+        const batch = events.slice(i, i + batchSize);
+        await Promise.all(batch.map(e => base44.entities.CalendarEvent.delete(e.id)));
+      }
+
+      for (let i = 0; i < configs.length; i += batchSize) {
+        const batch = configs.slice(i, i + batchSize);
+        await Promise.all(batch.map(c => base44.entities.SystemConfig.delete(c.id)));
+      }
+
       await new Promise(resolve => setTimeout(resolve, 800));
       
       toast.success("Todos os dados foram excluídos com sucesso");
@@ -229,7 +245,9 @@ export default function DataReset({ onComplete }) {
               </AnimatePresence>
 
               <div className="absolute bottom-8 left-0 right-0 text-center">
-                <p className="text-sm text-slate-600 font-medium">Excluindo dados...</p>
+                <p className="text-sm text-slate-600 font-medium">
+                  {deletingItems.length < 5 ? "Excluindo dados..." : "✓ Exclusão Concluída"}
+                </p>
               </div>
             </div>
           )}
