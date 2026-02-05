@@ -19,7 +19,7 @@ Deno.serve(async (req) => {
             database: Deno.env.get('POSTGRES_DATABASE'),
             username: Deno.env.get('POSTGRES_USER'),
             password: Deno.env.get('POSTGRES_PASSWORD'),
-            ssl: 'require'
+            ssl: { rejectUnauthorized: false }
         });
 
         try {
