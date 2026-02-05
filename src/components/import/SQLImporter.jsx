@@ -184,7 +184,9 @@ export default function SQLImporter({ products, onImportComplete }) {
                   <AlertCircle className="w-5 h-5" />
                   Erro na Importação
                 </div>
-                <p className="text-sm text-red-700 dark:text-red-300">{result.error}</p>
+                <pre className="text-xs text-red-700 dark:text-red-300 overflow-auto max-h-64 whitespace-pre-wrap font-mono">
+                  {result.error}
+                </pre>
               </>
             )}
           </div>
