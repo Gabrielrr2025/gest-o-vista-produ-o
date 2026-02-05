@@ -20,13 +20,10 @@ Deno.serve(async (req) => {
         console.log('User:', Deno.env.get('POSTGRES_USER'));
         console.log('======================');
 
-        // Conectar ao PostgreSQL
-        const sql = postgres({
-            host: Deno.env.get('POSTGRES_HOST'),
-            port: parseInt(Deno.env.get('POSTGRES_PORT') || '5432'),
-            database: Deno.env.get('POSTGRES_DATABASE'),
-            username: Deno.env.get('POSTGRES_USER'),
-            password: Deno.env.get('POSTGRES_PASSWORD'),
+        // Conectar ao PostgreSQL usando connection string com SSL
+        const connectionString = `postgres://${Deno.env.get('POSTGRES_USER')}:${Deno.env.get('POSTGRES_PASSWORD')}@${Deno.env.get('POSTGRES_HOST')}:${Deno.env.get('POSTGRES_PORT') || '5432'}/${Deno.env.get('POSTGRES_DATABASE')}?sslmode=require`;
+        
+        const sql = postgres(connectionString, {
             ssl: { rejectUnauthorized: false }
         });
 
