@@ -18,7 +18,7 @@ const buttonVariants = cva(
         secondary:
           "bg-[hsl(var(--bg-secondary))] text-[hsl(var(--text-primary))] shadow-sm hover:bg-[hsl(var(--bg-tertiary))] border border-[hsl(var(--border-light))] transition-all",
         ghost: "hover:bg-[hsl(var(--bg-secondary))] text-[hsl(var(--text-secondary))] hover:text-[hsl(var(--text-primary))] transition-all",
-        link: "text-orange-600 underline-offset-4 hover:underline",
+        link: "text-cyan-600 underline-offset-4 hover:underline",
       },
       size: {
         default: "h-9 px-4 py-2",

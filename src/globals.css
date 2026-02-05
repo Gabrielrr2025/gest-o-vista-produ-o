@@ -67,8 +67,8 @@
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
   
-  --accent-orange: 24 95% 53%;
-  --accent-orange-hover: 24 95% 48%;
+  --accent-primary: 189 94% 43%;
+  --accent-primary-hover: 217 91% 60%;
 }
 
 .dark {
@@ -88,8 +88,8 @@
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5);
   
-  --accent-orange: 24 95% 53%;
-  --accent-orange-hover: 24 95% 58%;
+  --accent-primary: 189 94% 43%;
+  --accent-primary-hover: 217 91% 70%;
 }
 
 @layer base {
