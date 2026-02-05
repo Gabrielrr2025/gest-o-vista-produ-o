@@ -127,16 +127,35 @@ export default function ProductsManager({ products, onRefresh }) {
   };
 
   const handleDelete = async (product) => {
-    if (!confirm(`Tem certeza que deseja excluir "${product.name}"? Esta ação não pode ser desfeita.`)) {
+    if (!confirm(`Tem certeza que deseja excluir "${product.name}"? Todos os registros relacionados (vendas, perdas, planos) também serão excluídos. Esta ação não pode ser desfeita.`)) {
       return;
     }
     
     try {
+      // Primeiro, deletar todos os registros relacionados
+      const [sales, losses, plans, production] = await Promise.all([
+        base44.entities.SalesRecord.filter({ product_id: product.id }),
+        base44.entities.LossRecord.filter({ product_id: product.id }),
+        base44.entities.ProductionPlan.filter({ product_id: product.id }),
+        base44.entities.ProductionRecord.filter({ product_id: product.id })
+      ]);
+
+      // Deletar registros relacionados
+      await Promise.all([
+        ...sales.map(s => base44.entities.SalesRecord.delete(s.id)),
+        ...losses.map(l => base44.entities.LossRecord.delete(l.id)),
+        ...plans.map(p => base44.entities.ProductionPlan.delete(p.id)),
+        ...production.map(p => base44.entities.ProductionRecord.delete(p.id))
+      ]);
+
+      // Depois deletar o produto
       await base44.entities.Product.delete(product.id);
-      toast.success("Produto excluído");
+      
+      toast.success("Produto e registros relacionados excluídos");
       onRefresh?.();
     } catch (error) {
-      toast.error("Erro ao excluir produto");
+      console.error(error);
+      toast.error("Erro ao excluir produto. Tente novamente.");
     }
   };
 
