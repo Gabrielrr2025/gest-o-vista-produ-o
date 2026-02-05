@@ -261,30 +261,51 @@ export default function PDFImporter({ products, onImportComplete }) {
     setLoading(true);
     
     try {
-      const records = extractedData.itens.map(item => {
-        const date = extractedData.periodo_inicio || new Date().toISOString().split('T')[0];
-        const dateObj = parseISO(date);
-        
-        return {
+      const date = extractedData.periodo_inicio || new Date().toISOString().split('T')[0];
+      const dateObj = parseISO(date);
+      
+      const isSalesReport = recordType === "venda";
+      const existingRecords = isSalesReport 
+        ? await base44.entities.SalesRecord.list()
+        : await base44.entities.LossRecord.list();
+
+      for (const item of extractedData.itens) {
+        const existing = existingRecords.find(r => 
+          r.product_id === item.matched_product_id &&
+          r.date === date
+        );
+
+        const recordData = {
           product_id: item.matched_product_id,
           product_name: item.produto,
           sector: item.setor,
-          quantity: item.quantidade,
+          quantity: parseFloat(item.quantidade || 0),
           date: date,
           week_number: getWeek(dateObj),
           month: getMonth(dateObj) + 1,
           year: getYear(dateObj)
         };
-      });
 
-      if (recordType === "venda") {
-        await base44.entities.SalesRecord.bulkCreate(records);
-        toast.success(`${records.length} registro(s) de venda importado(s) para o histórico`);
-      } else {
-        await base44.entities.LossRecord.bulkCreate(records);
-        toast.success(`${records.length} registro(s) de perda importado(s) para o histórico`);
+        if (existing && sumDuplicates) {
+          // Somar quantidades
+          recordData.quantity = existing.quantity + recordData.quantity;
+          if (isSalesReport) {
+            await base44.entities.SalesRecord.update(existing.id, recordData);
+          } else {
+            await base44.entities.LossRecord.update(existing.id, recordData);
+          }
+        } else if (!existing) {
+          // Criar novo registro
+          if (isSalesReport) {
+            await base44.entities.SalesRecord.create(recordData);
+          } else {
+            await base44.entities.LossRecord.create(recordData);
+          }
+        }
       }
 
+      toast.success(`Registros de ${recordType} importados para o histórico`);
+      setDuplicateDialog(false);
       setFile(null);
       setExtractedData(null);
       setRecordType(null);
