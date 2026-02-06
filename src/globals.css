@@ -52,24 +52,24 @@ css
 
 /* Custom refined theme variables */
 :root {
-  /* Light Mode - Professional & Clean */
-  --bg-primary: 240 10% 97%;
-  --bg-secondary: 240 15% 95%;
+  /* Light Mode - Green Professional Theme */
+  --bg-primary: 160 20% 97%;
+  --bg-secondary: 160 15% 94%;
   --bg-tertiary: 0 0% 100%;
   
-  --text-primary: 220 18% 20%;
-  --text-secondary: 220 12% 45%;
-  --text-tertiary: 220 10% 60%;
+  --text-primary: 160 30% 15%;
+  --text-secondary: 160 15% 40%;
+  --text-tertiary: 160 10% 55%;
   
-  --border-light: 220 15% 88%;
-  --border-medium: 220 15% 82%;
+  --border-light: 160 20% 88%;
+  --border-medium: 160 20% 82%;
   
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.04);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.08);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
   
-  --accent-primary: 189 94% 43%;
-  --accent-primary-hover: 217 91% 60%;
+  --accent-primary: 160 70% 40%;
+  --accent-primary-hover: 160 70% 35%;
 }
 
 .dark {

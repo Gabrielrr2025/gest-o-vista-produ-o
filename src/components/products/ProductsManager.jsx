@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Pencil, Search, Package, X, Trash2 } from "lucide-react";
+import { Plus, Pencil, Search, Package, X, Trash2, Filter } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { base44 } from "@/api/base44Client";
 import SectorBadge, { SECTORS } from "../common/SectorBadge";
@@ -166,109 +166,118 @@ export default function ProductsManager({ products, onRefresh }) {
     }
   };
 
+  const WEEK_DAYS_SHORT = ["D", "S", "T", "Q", "Q", "S", "S"];
+  const WEEK_DAYS_MAP = {
+    "Domingo": 0,
+    "Segunda": 1,
+    "Terça": 2,
+    "Quarta": 3,
+    "Quinta": 4,
+    "Sexta": 5,
+    "Sábado": 6
+  };
+
   return (
     <>
-      <Card className="border-0 shadow-sm">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-base font-semibold text-slate-800 flex items-center gap-2">
-            <Package className="w-5 h-5" />
-            Produtos Cadastrados
-          </CardTitle>
-          <Button size="sm" onClick={() => handleOpenDialog()}>
-            <Plus className="w-4 h-4 mr-1" /> Novo Produto
-          </Button>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex gap-3 flex-wrap">
-            <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <Input
-                placeholder="Buscar produto..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-              />
-            </div>
+      <div className="space-y-4">
+        <div className="flex gap-3 flex-wrap items-center">
+          <div className="relative flex-1 min-w-[250px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Input
+              placeholder="Buscar produtos..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-slate-500" />
             <Select value={filterSector} onValueChange={setFilterSector}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Setor" />
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Todos os setores" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos Setores</SelectItem>
+                <SelectItem value="all">Todos os setores</SelectItem>
                 {SECTORS.map(sector => (
                   <SelectItem key={sector} value={sector}>{sector}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Ordenar por" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="name">Nome A-Z</SelectItem>
-                <SelectItem value="sector">Setor</SelectItem>
-                <SelectItem value="code">Código</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
+        </div>
 
-          <div className="border rounded-lg max-h-[400px] overflow-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-slate-50">
-                  <TableHead className="text-xs">Código</TableHead>
-                  <TableHead className="text-xs">Nome</TableHead>
-                  <TableHead className="text-xs">Setor</TableHead>
-                  <TableHead className="text-xs text-center">Rendimento</TableHead>
-                  <TableHead className="text-xs text-center">Ativo</TableHead>
-                  <TableHead className="text-xs text-center">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredProducts.map(product => (
+        <div className="border rounded-lg overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-slate-50">
+                <TableHead className="text-xs font-semibold text-slate-700">Produto</TableHead>
+                <TableHead className="text-xs font-semibold text-slate-700">Setor</TableHead>
+                <TableHead className="text-xs font-semibold text-slate-700 text-center">Rendimento</TableHead>
+                <TableHead className="text-xs font-semibold text-slate-700 text-center">Unidade Venda</TableHead>
+                <TableHead className="text-xs font-semibold text-slate-700 text-center">Dias de Produção</TableHead>
+                <TableHead className="text-xs font-semibold text-slate-700 text-center">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredProducts.map(product => {
+                const productionDaysIndices = (product.production_days || []).map(day => WEEK_DAYS_MAP[day]);
+                
+                return (
                   <TableRow key={product.id} className="hover:bg-slate-50">
-                    <TableCell className="text-xs text-slate-500">{product.code || "—"}</TableCell>
                     <TableCell className="font-medium text-sm">{product.name}</TableCell>
                     <TableCell><SectorBadge sector={product.sector} /></TableCell>
-                    <TableCell className="text-center text-sm">{product.recipe_yield || 1}</TableCell>
+                    <TableCell className="text-center text-sm">{product.recipe_yield || 1} Kg</TableCell>
+                    <TableCell className="text-center text-sm">{product.unit || "unidade"}</TableCell>
                     <TableCell className="text-center">
-                      <Switch
-                        checked={product.active !== false}
-                        onCheckedChange={() => toggleActive(product)}
-                      />
+                      <div className="flex items-center justify-center gap-1">
+                        {WEEK_DAYS_SHORT.map((day, idx) => (
+                          <div
+                            key={idx}
+                            className={`w-6 h-6 rounded flex items-center justify-center text-xs font-medium ${
+                              productionDaysIndices.includes(idx)
+                                ? "bg-slate-700 text-white"
+                                : "bg-slate-200 text-slate-400"
+                            }`}
+                          >
+                            {day}
+                          </div>
+                        ))}
+                      </div>
                     </TableCell>
                     <TableCell className="text-center">
                       <div className="flex items-center justify-center gap-1">
-                        <Button variant="ghost" size="sm" onClick={() => handleOpenDialog(product)}>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => handleOpenDialog(product)}
+                          className="h-8 w-8 p-0"
+                        >
                           <Pencil className="w-4 h-4" />
                         </Button>
                         <Button 
                           variant="ghost" 
                           size="sm" 
                           onClick={() => handleDeleteClick(product)}
-                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                          className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
-                {filteredProducts.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center text-slate-500 py-8">
-                      Nenhum produto encontrado
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-          <div className="text-sm text-slate-500">
-            {filteredProducts.length} produto(s)
-          </div>
-        </CardContent>
-      </Card>
+                );
+              })}
+              {filteredProducts.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-slate-500 py-8">
+                    Nenhum produto encontrado
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
