@@ -13,7 +13,7 @@ import { base44 } from "@/api/base44Client";
 import SectorBadge, { SECTORS } from "../common/SectorBadge";
 import { toast } from "sonner";
 
-export default function ProductsManager({ products, onRefresh, showAddButton = false, externalDialogOpen, setExternalDialogOpen }) {
+export default function ProductsManager({ products, onRefresh, showAddButton = false }) {
   const [search, setSearch] = useState("");
   const [filterSector, setFilterSector] = useState("all");
   const [sortBy, setSortBy] = useState("name");
@@ -64,32 +64,38 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
       setFormData({
         code: "",
         name: "",
-        sector: "Padaria",
+        sector: "",
         recipe_yield: 1,
-        unit: "unidade",
-        production_days: ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"],
+        unit: "",
+        production_days: [],
         active: true
       });
     }
-    if (setExternalDialogOpen) {
-      setExternalDialogOpen(true);
-    } else {
-      setDialogOpen(true);
-    }
+    setDialogOpen(true);
   };
 
-  React.useEffect(() => {
-    if (externalDialogOpen !== undefined) {
-      setDialogOpen(externalDialogOpen);
-      if (externalDialogOpen === false) {
-        setEditingProduct(null);
-      }
-    }
-  }, [externalDialogOpen]);
-
   const handleSave = async () => {
+    // Validação: Nome obrigatório
     if (!formData.name.trim()) {
       toast.error("Nome é obrigatório");
+      return;
+    }
+
+    // Validação: Setor obrigatório
+    if (!formData.sector) {
+      toast.error("Selecione um setor");
+      return;
+    }
+
+    // Validação: Unidade obrigatória
+    if (!formData.unit) {
+      toast.error("Selecione a unidade (KG ou UN)");
+      return;
+    }
+
+    // Validação: Pelo menos 1 dia de produção
+    if (!formData.production_days || formData.production_days.length === 0) {
+      toast.error("Selecione pelo menos um dia de produção");
       return;
     }
 
@@ -100,36 +106,34 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
     );
 
     if (duplicateByName) {
-      toast.error(`Já existe um produto com o nome "${formData.name}". Use um código único para diferenciar.`);
+      toast.error("Já existe um produto com este nome");
       return;
     }
 
-    // Verificar produto duplicado por código (se informado)
-    if (formData.code && formData.code.trim()) {
-      const duplicateByCode = products.find(p => 
-        p.code && p.code.toLowerCase() === formData.code.toLowerCase() && 
-        (!editingProduct || p.id !== editingProduct.id)
-      );
+    // Se está desativando o produto, verificar se há planejamento futuro
+    if (editingProduct && editingProduct.active && !formData.active) {
+      const futurePlans = await base44.entities.ProductionPlan.filter({ 
+        product_id: editingProduct.id,
+        status: "planejado"
+      });
 
-      if (duplicateByCode) {
-        toast.error(`Já existe um produto com o código "${formData.code}"`);
-        return;
+      if (futurePlans.length > 0) {
+        const confirmed = window.confirm(
+          "Este produto tem produção planejada. Deseja continuar?"
+        );
+        if (!confirmed) return;
       }
     }
 
     try {
       if (editingProduct) {
         await base44.entities.Product.update(editingProduct.id, formData);
-        toast.success("Produto atualizado");
+        toast.success("Produto salvo com sucesso!");
       } else {
         await base44.entities.Product.create(formData);
-        toast.success("Produto criado");
+        toast.success("Produto salvo com sucesso!");
       }
-      if (setExternalDialogOpen) {
-        setExternalDialogOpen(false);
-      } else {
-        setDialogOpen(false);
-      }
+      setDialogOpen(false);
       onRefresh?.();
     } catch (error) {
       toast.error("Erro ao salvar produto");
@@ -326,13 +330,7 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
         </div>
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={(open) => {
-        if (setExternalDialogOpen) {
-          setExternalDialogOpen(open);
-        } else {
-          setDialogOpen(open);
-        }
-      }}>
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
@@ -352,7 +350,7 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
             </div>
 
             <div>
-              <Label>Nome do Produto</Label>
+              <Label>Nome do Produto *</Label>
               <Input
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -361,13 +359,13 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
             </div>
 
             <div>
-              <Label>Setor</Label>
+              <Label>Setor *</Label>
               <Select 
                 value={formData.sector} 
                 onValueChange={(value) => setFormData({ ...formData, sector: value })}
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Selecione o setor" />
                 </SelectTrigger>
                 <SelectContent>
                   {SECTORS.map(sector => (
@@ -390,13 +388,13 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
               </div>
               
               <div>
-                <Label>Unidade</Label>
+                <Label>Unidade *</Label>
                 <Select 
                   value={formData.unit} 
                   onValueChange={(value) => setFormData({ ...formData, unit: value })}
                 >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Selecione a unidade" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="unidade">Unidade</SelectItem>
@@ -408,7 +406,7 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
             </div>
 
             <div>
-              <Label>Dias de Produção</Label>
+              <Label>Dias de Produção *</Label>
               <div className="flex flex-wrap gap-2 mt-2">
                 {["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"].map(day => (
                   <div key={day} className="flex items-center gap-1">
@@ -440,16 +438,10 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => {
-              if (setExternalDialogOpen) {
-                setExternalDialogOpen(false);
-              } else {
-                setDialogOpen(false);
-              }
-            }}>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button variant="outline" onClick={handleSave}>
+            <Button onClick={handleSave}>
               {editingProduct ? "Salvar" : "Criar"}
             </Button>
           </DialogFooter>
