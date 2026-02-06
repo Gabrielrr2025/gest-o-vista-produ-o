@@ -16,9 +16,13 @@ import AutoSQLSync from "../components/import/AutoSQLSync";
 const DIAS_SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 export default function Planning() {
-  const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 0 }));
+  // Inicializar com a próxima semana (futura)
+  const [currentWeekStart, setCurrentWeekStart] = useState(addWeeks(startOfWeek(new Date(), { weekStartsOn: 0 }), 1));
   const [selectedSector, setSelectedSector] = useState("all");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedProduct, setSelectedProduct] = useState(null);
   const [plannedQuantities, setPlannedQuantities] = useState({});
+  const [lastUpdate, setLastUpdate] = useState(new Date());
 
   const weekNumber = getWeek(currentWeekStart);
   const year = getYear(currentWeekStart);
@@ -133,9 +137,29 @@ export default function Planning() {
   }, [products, salesRecords, lossRecords, calendarEvents, currentWeekStart, weekDays]);
 
   const filteredPlanning = useMemo(() => {
-    if (selectedSector === "all") return planningData;
-    return planningData.filter(p => p.product.sector === selectedSector);
-  }, [planningData, selectedSector]);
+    let filtered = planningData;
+    
+    // Filtrar por setor
+    if (selectedSector !== "all") {
+      filtered = filtered.filter(p => p.product.sector === selectedSector);
+    }
+    
+    // Filtrar por busca
+    if (searchTerm.trim()) {
+      const search = searchTerm.toLowerCase();
+      filtered = filtered.filter(p => 
+        p.product.name.toLowerCase().includes(search) ||
+        p.product.code?.toLowerCase().includes(search)
+      );
+    }
+    
+    return filtered;
+  }, [planningData, selectedSector, searchTerm]);
+
+  // Verificar se a semana é passada ou atual
+  const today = new Date();
+  const isWeekInPast = currentWeekStart < startOfWeek(today, { weekStartsOn: 0 });
+  const isCurrentWeek = format(currentWeekStart, 'yyyy-MM-dd') === format(startOfWeek(today, { weekStartsOn: 0 }), 'yyyy-MM-dd');
 
   const handleQuantityChange = (productId, dayIndex, value) => {
     setPlannedQuantities(prev => ({
@@ -221,7 +245,16 @@ export default function Planning() {
 
   const handleRecalculate = () => {
     setPlannedQuantities({});
+    setLastUpdate(new Date());
     toast.success("Valores recalculados");
+  };
+
+  const handleProductClick = (item) => {
+    setSelectedProduct(item);
+  };
+
+  const handleClosePanel = () => {
+    setSelectedProduct(null);
   };
 
   const handleExport = () => {
@@ -245,23 +278,17 @@ export default function Planning() {
 
   return (
     <div className="space-y-6">
+      {/* CABEÇALHO */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">Planejamento de Produção</h1>
-            <p className="text-sm text-slate-500 mt-1">Planeje a produção semanal por produto</p>
-          </div>
-          <AutoSQLSync 
-            startDate={format(subWeeks(currentWeekStart, 4), 'yyyy-MM-dd')}
-            endDate={format(weekEnd, 'yyyy-MM-dd')}
-            onSyncComplete={() => {
-              salesQuery.refetch();
-              lossQuery.refetch();
-            }}
-          />
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Planejamento de Produção</h1>
+          <p className="text-sm text-slate-500 mt-1">Planeje a produção semanal por produto</p>
+          <p className="text-xs text-slate-400 mt-1">
+            Última atualização: {format(lastUpdate, "HH:mm")}
+          </p>
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => window.print()}>
             <Printer className="w-4 h-4 mr-1" /> Imprimir
           </Button>
@@ -271,47 +298,74 @@ export default function Planning() {
           <Button variant="outline" size="sm" onClick={handleRecalculate}>
             <RefreshCw className="w-4 h-4 mr-1" /> Recalcular
           </Button>
-          <Button size="sm" onClick={handleSavePlanning}>
-            <Save className="w-4 h-4 mr-1" /> Salvar
-          </Button>
         </div>
       </div>
 
-      <Card className="border-0 shadow-sm">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="outline" size="icon" onClick={() => setCurrentWeekStart(subWeeks(currentWeekStart, 1))}>
-              <ChevronLeft className="w-4 h-4" />
-            </Button>
-            <div>
-              <div className="text-lg font-bold text-slate-900">Semana {weekNumber} - {year}</div>
-              <div className="text-sm text-slate-500">
-                {format(currentWeekStart, "dd/MM", { locale: ptBR })} - {format(weekEnd, "dd/MM", { locale: ptBR })}
-              </div>
-            </div>
-            <Button variant="outline" size="icon" onClick={() => setCurrentWeekStart(addWeeks(currentWeekStart, 1))}>
-              <ChevronRight className="w-4 h-4" />
-            </Button>
-          </div>
+      {/* LAYOUT PRINCIPAL: 70% Tabela + 30% Painel Lateral */}
+      <div className="flex gap-4">
+        {/* TABELA PRINCIPAL - 70% */}
+        <div className={`transition-all duration-300 ${selectedProduct ? 'w-[70%]' : 'w-full'}`}>
 
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-slate-500" />
-            <Select value={selectedSector} onValueChange={setSelectedSector}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Todos os setores" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os setores</SelectItem>
-                <SelectItem value="Padaria">Padaria</SelectItem>
-                <SelectItem value="Salgados">Salgados</SelectItem>
-                <SelectItem value="Confeitaria">Confeitaria</SelectItem>
-                <SelectItem value="Minimercado">Minimercado</SelectItem>
-                <SelectItem value="Restaurante">Restaurante</SelectItem>
-                <SelectItem value="Frios">Frios</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardHeader>
+          <Card className="border-0 shadow-sm">
+            <CardHeader>
+              {/* NAVEGAÇÃO DE SEMANA */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    onClick={() => setCurrentWeekStart(subWeeks(currentWeekStart, 1))}
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  <div>
+                    <div className="text-lg font-bold text-slate-900">Semana {weekNumber} - {year}</div>
+                    <div className="text-sm text-slate-500">
+                      {format(currentWeekStart, "dd/MM", { locale: ptBR })} - {format(weekEnd, "dd/MM", { locale: ptBR })}
+                    </div>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    onClick={() => setCurrentWeekStart(addWeeks(currentWeekStart, 1))}
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
+
+                {/* Alerta se semana passada/atual */}
+                {(isWeekInPast || isCurrentWeek) && (
+                  <div className="bg-amber-50 border border-amber-200 text-amber-700 px-3 py-1.5 rounded text-sm">
+                    {isWeekInPast ? "⚠️ Semana passada - Edição bloqueada" : "⚠️ Semana atual - Edição bloqueada"}
+                  </div>
+                )}
+              </div>
+
+              {/* FILTROS */}
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <Input
+                    placeholder="Buscar produto..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+                <Select value={selectedSector} onValueChange={setSelectedSector}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Todos os setores" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os setores</SelectItem>
+                    <SelectItem value="Padaria">Padaria</SelectItem>
+                    <SelectItem value="Salgados">Salgados</SelectItem>
+                    <SelectItem value="Confeitaria">Confeitaria</SelectItem>
+                    <SelectItem value="Minimercado">Minimercado</SelectItem>
+                    <SelectItem value="Restaurante">Restaurante</SelectItem>
+                    <SelectItem value="Frios">Frios</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
@@ -338,7 +392,11 @@ export default function Planning() {
                   const diff = totalPlanned - item.total;
                   
                   return (
-                    <TableRow key={item.product.id} className="hover:bg-slate-50">
+                    <TableRow 
+                      key={item.product.id} 
+                      className={`hover:bg-slate-50 cursor-pointer transition-colors ${selectedProduct?.product.id === item.product.id ? 'bg-blue-50' : ''}`}
+                      onClick={() => handleProductClick(item)}
+                    >
                       <TableCell className="font-medium text-sm sticky left-0 bg-white z-10">{item.product.name}</TableCell>
                       <TableCell><SectorBadge sector={item.product.sector} /></TableCell>
                       <TableCell className="text-center text-xs text-slate-600">
@@ -354,7 +412,9 @@ export default function Planning() {
                             min="0"
                             value={plannedQuantities[`${item.product.id}-${idx}`] ?? qty}
                             onChange={(e) => handleQuantityChange(item.product.id, idx, e.target.value)}
-                            className="h-8 text-center text-sm w-full"
+                            onClick={(e) => e.stopPropagation()}
+                            disabled={isWeekInPast || isCurrentWeek}
+                            className={`h-8 text-center text-sm w-full ${(isWeekInPast || isCurrentWeek) ? 'bg-slate-100 cursor-not-allowed' : ''}`}
                           />
                         </TableCell>
                       ))}
@@ -383,6 +443,127 @@ export default function Planning() {
           </div>
         </CardContent>
       </Card>
+        </div>
+
+        {/* PAINEL LATERAL - 30% */}
+        {selectedProduct && (
+          <div className="w-[30%] animate-in slide-in-from-right duration-300">
+            <Card className="border-0 shadow-lg h-full">
+              <CardHeader className="flex flex-row items-center justify-between pb-3">
+                <CardTitle className="text-lg">Detalhes do Produto</CardTitle>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={handleClosePanel}
+                  className="h-8 w-8"
+                >
+                  ×
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Informações do Produto */}
+                <div>
+                  <h3 className="font-bold text-slate-900 text-lg mb-1">
+                    {selectedProduct.product.name}
+                  </h3>
+                  {selectedProduct.product.code && (
+                    <p className="text-xs text-slate-500">
+                      Código: {selectedProduct.product.code}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Setor:</span>
+                    <SectorBadge sector={selectedProduct.product.sector} />
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Rendimento:</span>
+                    <span className="font-medium">
+                      {selectedProduct.product.recipe_yield} {selectedProduct.product.unit}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Unidade:</span>
+                    <span className="font-medium">{selectedProduct.product.unit}</span>
+                  </div>
+                </div>
+
+                <div className="border-t pt-3">
+                  <h4 className="text-sm font-semibold text-slate-700 mb-2">Dias de Produção</h4>
+                  <div className="flex flex-wrap gap-1">
+                    {["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"].map(day => {
+                      const isProduction = selectedProduct.product.production_days?.includes(day);
+                      return (
+                        <span
+                          key={day}
+                          className={`px-2 py-1 rounded text-xs ${
+                            isProduction 
+                              ? 'bg-slate-700 text-white' 
+                              : 'bg-slate-100 text-slate-400'
+                          }`}
+                        >
+                          {day.slice(0, 3)}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="border-t pt-3">
+                  <h4 className="text-sm font-semibold text-slate-700 mb-2">Estatísticas da Semana</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Média diária:</span>
+                      <span className="font-medium">
+                        {Math.round(selectedProduct.avgByWeekday / 7)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Total projetado:</span>
+                      <span className="font-medium">{selectedProduct.total}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Total planejado:</span>
+                      <span className="font-bold text-blue-600">
+                        {selectedProduct.projectedByDay.reduce((sum, _, idx) => 
+                          sum + (plannedQuantities[`${selectedProduct.product.id}-${idx}`] || selectedProduct.projectedByDay[idx]), 0
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t pt-3">
+                  <h4 className="text-sm font-semibold text-slate-700 mb-2">Planejamento por Dia</h4>
+                  <div className="space-y-1.5">
+                    {weekDays.map((day, idx) => {
+                      const qty = selectedProduct.projectedByDay[idx];
+                      const planned = plannedQuantities[`${selectedProduct.product.id}-${idx}`] ?? qty;
+                      return (
+                        <div key={idx} className="flex justify-between text-sm">
+                          <span className="text-slate-600">
+                            {format(day, "EEE dd/MM", { locale: ptBR })}:
+                          </span>
+                          <span className={`font-medium ${planned !== qty ? 'text-blue-600' : ''}`}>
+                            {planned}
+                            {planned !== qty && (
+                              <span className="text-xs text-slate-500 ml-1">
+                                (era {qty})
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
