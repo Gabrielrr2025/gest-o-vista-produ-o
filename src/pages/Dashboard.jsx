@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { subDays, isWithinInterval, parseISO } from "date-fns";
 import { ShoppingCart, AlertTriangle, TrendingUp, Target, Package, BarChart3 } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import KPICard from "../components/common/KPICard";
 import DateRangePicker from "../components/common/DateRangePicker";
 import SectorFilter from "../components/common/SectorFilter";
