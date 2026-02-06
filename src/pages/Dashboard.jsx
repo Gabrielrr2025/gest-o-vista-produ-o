@@ -14,7 +14,7 @@ import AssertivityVsSalesChart from "../components/dashboard/AssertivityVsSalesC
 
 export default function Dashboard() {
   const [dateRange, setDateRange] = useState({
-    from: subDays(new Date(), 29),
+    from: subDays(new Date(), 30),
     to: new Date()
   });
   const [selectedSector, setSelectedSector] = useState(null);
@@ -32,12 +32,24 @@ export default function Dashboard() {
       return records.filter(record => !selectedSector || record.sector === selectedSector);
     };
 
+    // Filtrar por data também
+    const startTime = dateRange.from ? new Date(dateRange.from).getTime() : null;
+    const endTime = dateRange.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : null;
+
+    const filterByDate = (records) => {
+      if (!startTime || !endTime) return records;
+      return records.filter(record => {
+        const recordTime = new Date(record.date).getTime();
+        return recordTime >= startTime && recordTime <= endTime;
+      });
+    };
+
     return {
-      sales: filterBySector(sqlData.sales),
-      losses: filterBySector(sqlData.losses),
+      sales: filterByDate(filterBySector(sqlData.sales)),
+      losses: filterByDate(filterBySector(sqlData.losses)),
       production: filterBySector(productionRecords)
     };
-  }, [sqlData, productionRecords, selectedSector]);
+  }, [sqlData, productionRecords, selectedSector, dateRange]);
 
   const kpis = useMemo(() => {
     const totalSales = filteredData.sales.reduce((sum, r) => sum + (r.quantity || 0), 0);
