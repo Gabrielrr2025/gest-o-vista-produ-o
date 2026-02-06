@@ -14,6 +14,7 @@ import MiniSparkline from "../components/dashboard/MiniSparkline";
 import WeekNavigator, { getWeekBounds } from "../components/dashboard/WeekNavigator";
 import TopSellingProducts from "../components/dashboard/TopSellingProducts";
 import LossAnalysis from "../components/dashboard/LossAnalysis";
+import WeekAlerts from "../components/dashboard/WeekAlerts";
 
 export default function Dashboard() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -253,6 +254,15 @@ export default function Dashboard() {
           productMap={productMap}
         />
       </div>
+
+      <WeekAlerts 
+        salesData={filteredData.sales}
+        lossData={filteredData.losses}
+        historicalLossData={historicalData}
+        productionData={filteredData.production}
+        productMap={productMap}
+        dateRange={dateRange}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* KPIs Unidades */}
