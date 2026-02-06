@@ -56,7 +56,7 @@ export default function Products() {
         </div>
       </div>
 
-      <ProductsManager products={products} onRefresh={handleRefresh} />
+      <ProductsManager products={products} onRefresh={handleRefresh} showAddButton />
     </div>
   );
 }

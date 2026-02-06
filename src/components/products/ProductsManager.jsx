@@ -13,7 +13,7 @@ import { base44 } from "@/api/base44Client";
 import SectorBadge, { SECTORS } from "../common/SectorBadge";
 import { toast } from "sonner";
 
-export default function ProductsManager({ products, onRefresh }) {
+export default function ProductsManager({ products, onRefresh, showAddButton = false }) {
   const [search, setSearch] = useState("");
   const [filterSector, setFilterSector] = useState("all");
   const [sortBy, setSortBy] = useState("name");
@@ -227,6 +227,12 @@ export default function ProductsManager({ products, onRefresh }) {
               </SelectContent>
             </Select>
           </div>
+          {showAddButton && (
+            <Button onClick={() => handleOpenDialog()} className="bg-[hsl(var(--accent-primary))] hover:bg-[hsl(var(--accent-primary-hover))] text-white">
+              <Plus className="w-4 h-4 mr-2" />
+              Adicionar Produto
+            </Button>
+          )}
         </div>
 
         <div className="border rounded-lg overflow-hidden">
