@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertTriangle } from "lucide-react";
+import { subDays } from "date-fns";
 
 export default function WeekAlerts({ 
   salesData, 
@@ -115,8 +116,7 @@ export default function WeekAlerts({
 
     // 3. ALERTA DE SEM VENDAS 🟠
     const today = dateRange.to || new Date();
-    const fourDaysAgo = new Date(today);
-    fourDaysAgo.setDate(fourDaysAgo.getDate() - 4);
+    const fourDaysAgo = subDays(today, 4);
 
     productMap.forEach((product, productName) => {
       const lastSale = productSales[productName];
