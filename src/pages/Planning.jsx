@@ -90,9 +90,19 @@ export default function Planning() {
                (event.sector === "Todos" || event.sector === product.sector);
       });
 
-      // Aplicar impacto dos eventos
+      // Aplicar impacto dos eventos e verificar se o produto é produzido neste dia
       const projectedByDay = weekDays.map((day, idx) => {
-        let baseQty = avgByWeekday[day.getDay()];
+        const dayOfWeek = day.getDay();
+        const dayNames = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+        const dayName = dayNames[dayOfWeek];
+        
+        // Verificar se o produto é produzido neste dia
+        const productionDays = product.production_days || [];
+        if (!productionDays.includes(dayName)) {
+          return 0; // Não produzir neste dia
+        }
+        
+        let baseQty = avgByWeekday[dayOfWeek];
         
         // Verificar se tem evento neste dia
         const dayEvent = weekEvents.find(e => 
