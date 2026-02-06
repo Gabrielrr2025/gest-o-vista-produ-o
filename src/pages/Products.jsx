@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Download, Plus } from "lucide-react";
 import { format, subDays } from "date-fns";
-import { Badge } from "@/components/ui/badge";
 import ProductsManager from "../components/products/ProductsManager";
 import SQLDataProvider from "../components/import/SQLDataProvider";
+import UnmappedProductsSuggestion from "../components/products/UnmappedProductsSuggestion";
 
 export default function Products() {
   const queryClient = useQueryClient();
@@ -86,10 +86,11 @@ export default function Products() {
         </div>
       </div>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
-        <strong>Integração SQL ativa:</strong> Dados de vendas e perdas vêm diretamente da VIEW SQL. 
-        Produtos com <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">dados</Badge> possuem histórico nos últimos 90 dias.
-      </div>
+      <UnmappedProductsSuggestion 
+        sqlData={sqlData}
+        products={products}
+        onProductCreated={handleRefresh}
+      />
 
       <ProductsManager 
         products={enrichedProducts} 
