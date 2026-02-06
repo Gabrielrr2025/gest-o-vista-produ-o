@@ -221,6 +221,12 @@ export default function Dashboard() {
         </div>
       </div>
 
+      <TopSellingProducts 
+        salesData={filteredData.sales} 
+        productMap={productMap}
+        selectedSector={selectedSector}
+      />
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* KPIs Unidades */}
         <div>
