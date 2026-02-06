@@ -122,11 +122,11 @@ export default function History() {
                       </TableCell>
                       <TableCell className="text-right text-sm">{record.quantity}</TableCell>
                       <TableCell className="text-sm">
-                        {format(new Date(record.date), "dd/MM/yyyy", { locale: ptBR })}
+                        {record.date && !isNaN(new Date(record.date)) ? format(new Date(record.date), "dd/MM/yyyy", { locale: ptBR }) : '-'}
                       </TableCell>
-                      <TableCell className="text-sm">S{record.week_number}</TableCell>
+                      <TableCell className="text-sm">S{record.week_number || '-'}</TableCell>
                       <TableCell className="text-sm text-slate-500">
-                        {format(new Date(record.created_date), "dd/MM HH:mm", { locale: ptBR })}
+                        {record.created_date && !isNaN(new Date(record.created_date)) ? format(new Date(record.created_date), "dd/MM HH:mm", { locale: ptBR }) : '-'}
                       </TableCell>
                       <TableCell className="text-center">
                         <button 

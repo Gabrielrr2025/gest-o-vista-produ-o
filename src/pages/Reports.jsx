@@ -42,10 +42,14 @@ export default function Reports() {
   const filteredData = useMemo(() => {
     const filterByDateAndSector = (records) => {
       return records.filter(record => {
-        const recordDate = parseISO(record.date);
-        const inDateRange = isWithinInterval(recordDate, { start: dateRange.from, end: dateRange.to });
-        const inSector = !selectedSector || record.sector === selectedSector;
-        return inDateRange && inSector;
+        try {
+          const recordDate = parseISO(record.date);
+          const inDateRange = isWithinInterval(recordDate, { start: dateRange.from, end: dateRange.to });
+          const inSector = !selectedSector || record.sector === selectedSector;
+          return inDateRange && inSector;
+        } catch {
+          return false;
+        }
       });
     };
 
