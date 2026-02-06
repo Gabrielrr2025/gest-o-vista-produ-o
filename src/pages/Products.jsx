@@ -10,7 +10,6 @@ import UnmappedProductsSuggestion from "../components/products/UnmappedProductsS
 
 export default function Products() {
   const queryClient = useQueryClient();
-  const [showAddDialog, setShowAddDialog] = useState(false);
   const [sqlData, setSqlData] = useState({ sales: [], losses: [] });
 
   const { data: products = [] } = useQuery({
@@ -71,10 +70,6 @@ export default function Products() {
             endDate={format(new Date(), 'yyyy-MM-dd')}
             onDataLoaded={setSqlData}
           />
-          <Button variant="outline" onClick={() => setShowAddDialog(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            Adicionar Produto
-          </Button>
           <Button variant="outline" onClick={() => window.print()}>
             <Download className="w-4 h-4 mr-2" />
             Imprimir
@@ -95,9 +90,7 @@ export default function Products() {
       <ProductsManager 
         products={enrichedProducts} 
         onRefresh={handleRefresh}
-        showAddButton={false}
-        externalDialogOpen={showAddDialog}
-        setExternalDialogOpen={setShowAddDialog}
+        showAddButton={true}
       />
     </div>
   );
