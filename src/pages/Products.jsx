@@ -1,17 +1,37 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
-import { Download, Printer, Plus } from "lucide-react";
+import { Download, Plus } from "lucide-react";
+import { format, subDays } from "date-fns";
+import { Badge } from "@/components/ui/badge";
 import ProductsManager from "../components/products/ProductsManager";
+import SQLDataProvider from "../components/import/SQLDataProvider";
 
 export default function Products() {
   const queryClient = useQueryClient();
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [sqlData, setSqlData] = useState({ sales: [], losses: [] });
 
   const { data: products = [] } = useQuery({
     queryKey: ['products'],
     queryFn: () => base44.entities.Product.list()
+  });
+
+  // Enriquecer produtos com dados da VIEW SQL
+  const enrichedProducts = products.map(product => {
+    const productSales = sqlData.sales.filter(s => s.product_id === product.id);
+    const productLosses = sqlData.losses.filter(l => l.product_id === product.id);
+    
+    const totalSales = productSales.reduce((sum, s) => sum + (s.quantity || 0), 0);
+    const totalLosses = productLosses.reduce((sum, l) => sum + (l.quantity || 0), 0);
+    
+    return {
+      ...product,
+      sql_sales: totalSales,
+      sql_losses: totalLosses,
+      sql_has_data: totalSales > 0 || totalLosses > 0
+    };
   });
 
   const handleRefresh = () => {
@@ -46,6 +66,11 @@ export default function Products() {
           <p className="text-sm text-slate-500 mt-1">Gerencie o catálogo de produtos por setor</p>
         </div>
         <div className="flex items-center gap-2">
+          <SQLDataProvider 
+            startDate={format(subDays(new Date(), 90), 'yyyy-MM-dd')}
+            endDate={format(new Date(), 'yyyy-MM-dd')}
+            onDataLoaded={setSqlData}
+          />
           <Button variant="outline" onClick={() => setShowAddDialog(true)}>
             <Plus className="w-4 h-4 mr-2" />
             Adicionar Produto
@@ -61,8 +86,13 @@ export default function Products() {
         </div>
       </div>
 
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+        <strong>Integração SQL ativa:</strong> Dados de vendas e perdas vêm diretamente da VIEW SQL. 
+        Produtos com <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">dados</Badge> possuem histórico nos últimos 90 dias.
+      </div>
+
       <ProductsManager 
-        products={products} 
+        products={enrichedProducts} 
         onRefresh={handleRefresh}
         showAddButton={false}
         externalDialogOpen={showAddDialog}

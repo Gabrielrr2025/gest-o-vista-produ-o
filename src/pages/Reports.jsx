@@ -2,15 +2,14 @@ import React, { useState, useMemo } from 'react';
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Filter, FileText } from "lucide-react";
-import { subDays, isWithinInterval, parseISO, format } from "date-fns";
+import { subDays, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import DateRangePicker from "../components/common/DateRangePicker";
 import SectorBadge from "../components/common/SectorBadge";
-import AutoSQLSync from "../components/import/AutoSQLSync";
+import SQLDataProvider from "../components/import/SQLDataProvider";
 
 export default function Reports() {
   const [dateRange, setDateRange] = useState({
@@ -19,46 +18,26 @@ export default function Reports() {
   });
   const [selectedSector, setSelectedSector] = useState(null);
   const [reportType, setReportType] = useState("resumo");
-
-  const salesQuery = useQuery({
-    queryKey: ['salesRecords'],
-    queryFn: () => base44.entities.SalesRecord.list()
-  });
-
-  const lossQuery = useQuery({
-    queryKey: ['lossRecords'],
-    queryFn: () => base44.entities.LossRecord.list()
-  });
+  const [sqlData, setSqlData] = useState({ sales: [], losses: [] });
 
   const productionQuery = useQuery({
     queryKey: ['productionRecords'],
     queryFn: () => base44.entities.ProductionRecord.list()
   });
 
-  const salesRecords = salesQuery.data || [];
-  const lossRecords = lossQuery.data || [];
   const productionRecords = productionQuery.data || [];
 
   const filteredData = useMemo(() => {
-    const filterByDateAndSector = (records) => {
-      return records.filter(record => {
-        try {
-          const recordDate = parseISO(record.date);
-          const inDateRange = isWithinInterval(recordDate, { start: dateRange.from, end: dateRange.to });
-          const inSector = !selectedSector || record.sector === selectedSector;
-          return inDateRange && inSector;
-        } catch {
-          return false;
-        }
-      });
+    const filterBySector = (records) => {
+      return records.filter(record => !selectedSector || record.sector === selectedSector);
     };
 
     return {
-      sales: filterByDateAndSector(salesRecords),
-      losses: filterByDateAndSector(lossRecords),
-      production: filterByDateAndSector(productionRecords)
+      sales: filterBySector(sqlData.sales),
+      losses: filterBySector(sqlData.losses),
+      production: filterBySector(productionRecords)
     };
-  }, [salesRecords, lossRecords, productionRecords, dateRange, selectedSector]);
+  }, [sqlData, productionRecords, selectedSector]);
 
   const reportData = useMemo(() => {
     const totalSales = filteredData.sales.reduce((sum, s) => sum + (s.quantity || 0), 0);
@@ -126,14 +105,10 @@ export default function Reports() {
           <h1 className="text-2xl font-bold text-slate-900">Relatórios</h1>
           <p className="text-sm text-slate-500 mt-1">Análise de desempenho e métricas</p>
         </div>
-        <AutoSQLSync 
+        <SQLDataProvider 
           startDate={dateRange.from ? format(dateRange.from, 'yyyy-MM-dd') : null}
           endDate={dateRange.to ? format(dateRange.to, 'yyyy-MM-dd') : null}
-          onSyncComplete={() => {
-            salesQuery.refetch();
-            lossQuery.refetch();
-            productionQuery.refetch();
-          }}
+          onDataLoaded={setSqlData}
         />
       </div>
 

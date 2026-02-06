@@ -51,11 +51,11 @@ import Calendar from './pages/Calendar';
 import Dashboard from './pages/Dashboard';
 import History from './pages/History';
 import Import from './pages/Import';
+import Planning from './pages/Planning';
 import Production from './pages/Production';
 import Products from './pages/Products';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
-import Planning from './pages/Planning';
 import __Layout from './Layout.jsx';
 
 
@@ -64,11 +64,11 @@ export const PAGES = {
     "Dashboard": Dashboard,
     "History": History,
     "Import": Import,
+    "Planning": Planning,
     "Production": Production,
     "Products": Products,
     "Reports": Reports,
     "Settings": Settings,
-    "Planning": Planning,
 }
 
 export const pagesConfig = {
