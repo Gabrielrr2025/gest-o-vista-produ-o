@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { subDays, isWithinInterval, parseISO } from "date-fns";
+import { subDays, isWithinInterval, parseISO, format } from "date-fns";
 import { ShoppingCart, AlertTriangle, TrendingUp, Target, Package, BarChart3 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import KPICard from "../components/common/KPICard";
@@ -19,6 +19,23 @@ export default function Dashboard() {
     to: new Date()
   });
   const [selectedSector, setSelectedSector] = useState(null);
+
+  const queryClient = useQueryClient();
+  
+  const salesQuery = useQuery({
+    queryKey: ['salesRecords'],
+    queryFn: () => base44.entities.SalesRecord.list()
+  });
+  
+  const lossQuery = useQuery({
+    queryKey: ['lossRecords'],
+    queryFn: () => base44.entities.LossRecord.list()
+  });
+  
+  const productionQuery = useQuery({
+    queryKey: ['productionRecords'],
+    queryFn: () => base44.entities.ProductionRecord.list()
+  });
 
   const salesRecords = salesQuery.data || [];
   const lossRecords = lossQuery.data || [];
@@ -70,23 +87,6 @@ export default function Dashboard() {
       lossRate
     };
   }, [filteredData]);
-
-  const queryClient = useQueryClient();
-  
-  const salesQuery = useQuery({
-    queryKey: ['salesRecords'],
-    queryFn: () => base44.entities.SalesRecord.list()
-  });
-  
-  const lossQuery = useQuery({
-    queryKey: ['lossRecords'],
-    queryFn: () => base44.entities.LossRecord.list()
-  });
-  
-  const productionQuery = useQuery({
-    queryKey: ['productionRecords'],
-    queryFn: () => base44.entities.ProductionRecord.list()
-  });
 
   return (
     <div className="space-y-6">
