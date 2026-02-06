@@ -66,11 +66,6 @@ Deno.serve(async (req) => {
                 totalRecords: results.length
             });
 
-        } catch (queryError) {
-            await sql.end();
-            throw queryError;
-        }
-
     } catch (error) {
         console.error('=== ERRO SQL COMPLETO ===');
         console.error('Nome:', error.name);
