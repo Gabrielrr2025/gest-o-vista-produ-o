@@ -52,45 +52,51 @@ css
 
 /* Custom refined theme variables */
 :root {
-  /* Light Mode - Green Professional Theme */
-  --bg-primary: 160 20% 97%;
-  --bg-secondary: 160 15% 94%;
-  --bg-tertiary: 0 0% 100%;
+  /* Light Mode - Professional Brown Theme */
+  --bg-primary: 0 0% 98%;
+  --bg-secondary: 30 33% 94%;
+  --bg-tertiary: 30 33% 94%;
   
-  --text-primary: 160 30% 15%;
-  --text-secondary: 160 15% 40%;
-  --text-tertiary: 160 10% 55%;
+  --text-primary: 20 30% 24%;
+  --text-secondary: 20 20% 40%;
+  --text-tertiary: 20 10% 55%;
   
-  --border-light: 160 20% 88%;
-  --border-medium: 160 20% 82%;
+  --border-light: 30 15% 88%;
+  --border-medium: 30 15% 80%;
   
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.04);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.08);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.12);
   
-  --accent-primary: 160 70% 40%;
-  --accent-primary-hover: 160 70% 35%;
+  --accent-primary: 38 92% 50%;
+  --accent-primary-hover: 38 92% 45%;
+  
+  --success: 142 71% 24%;
+  --error: 0 74% 42%;
 }
 
 .dark {
-  /* Dark Mode - Balanced & Modern */
-  --bg-primary: 220 20% 10%;
-  --bg-secondary: 220 18% 15%;
-  --bg-tertiary: 220 16% 19%;
+  /* Dark Mode - Brown Professional */
+  --bg-primary: 20 25% 9%;
+  --bg-secondary: 12 25% 13%;
+  --bg-tertiary: 12 25% 13%;
   
-  --text-primary: 210 40% 96%;
-  --text-secondary: 215 18% 72%;
-  --text-tertiary: 215 14% 58%;
+  --text-primary: 30 33% 94%;
+  --text-secondary: 30 20% 72%;
+  --text-tertiary: 30 15% 58%;
   
-  --border-light: 220 18% 24%;
-  --border-medium: 220 18% 28%;
+  --border-light: 20 20% 20%;
+  --border-medium: 20 20% 25%;
   
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.4);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.5);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.6);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.5);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.6);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.7);
   
-  --accent-primary: 189 94% 43%;
-  --accent-primary-hover: 217 91% 70%;
+  --accent-primary: 38 92% 50%;
+  --accent-primary-hover: 38 92% 55%;
+  
+  --success: 142 71% 45%;
+  --error: 0 85% 60%;
 }
 
 @layer base {

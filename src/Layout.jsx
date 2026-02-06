@@ -36,7 +36,7 @@ export default function Layout({ children, currentPageName }) {
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-[hsl(var(--bg-tertiary))] border-b border-[hsl(var(--border-light))] z-50 flex items-center justify-between px-4 shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+          <div className="w-9 h-9 rounded-xl bg-[#4E342E] flex items-center justify-center">
             <ChefHat className="w-5 h-5 text-white" />
           </div>
           <span className="font-bold text-[hsl(var(--text-primary))]">Gestão à Vista</span>
@@ -64,7 +64,7 @@ export default function Layout({ children, currentPageName }) {
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="h-16 flex items-center gap-3 px-5 border-b border-[hsl(var(--border-light))]">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-md">
+            <div className="w-10 h-10 rounded-xl bg-[#4E342E] flex items-center justify-center shadow-md">
               <ChefHat className="w-6 h-6 text-white" />
             </div>
             <div>
@@ -86,8 +86,8 @@ export default function Layout({ children, currentPageName }) {
                     flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium
                     transition-all duration-200
                     ${isActive 
-                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-200' 
-                      : 'text-slate-600 hover:bg-emerald-50 hover:text-emerald-900'
+                      ? 'bg-[#F59E0B] text-white shadow-md' 
+                      : 'text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-secondary))] hover:text-[hsl(var(--text-primary))]'
                     }
                   `}
                 >
