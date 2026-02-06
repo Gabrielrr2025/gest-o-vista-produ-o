@@ -1,16 +1,13 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import PDFImporter from "../components/import/PDFImporter";
-import SQLImporter from "../components/import/SQLImporter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { FileText, Clock, Database, FileUp } from "lucide-react";
+import { FileText, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 export default function Import() {
-  const [dataSource, setDataSource] = useState('pdf'); // 'pdf' ou 'sql'
   const queryClient = useQueryClient();
 
   const { data: products = [] } = useQuery({
@@ -43,36 +40,24 @@ export default function Import() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-[hsl(var(--text-primary))]">Importar Dados</h1>
-        <p className="text-sm text-[hsl(var(--text-secondary))] mt-1">Importe dados via PDF ou conexão direta com PostgreSQL</p>
+        <p className="text-sm text-[hsl(var(--text-secondary))] mt-1">Importe dados complementares via PDF (fallback manual)</p>
       </div>
 
-      <div className="flex gap-2 p-1 bg-[hsl(var(--bg-secondary))] rounded-lg border border-[hsl(var(--border-light))] w-fit">
-        <Button
-          variant={dataSource === 'pdf' ? 'default' : 'ghost'}
-          size="sm"
-          onClick={() => setDataSource('pdf')}
-          className={dataSource === 'pdf' ? 'bg-gradient-to-r from-cyan-500 to-blue-600' : ''}
-        >
-          <FileUp className="w-4 h-4 mr-2" />
-          Importar PDF
-        </Button>
-        <Button
-          variant={dataSource === 'sql' ? 'default' : 'ghost'}
-          size="sm"
-          onClick={() => setDataSource('sql')}
-          className={dataSource === 'sql' ? 'bg-gradient-to-r from-cyan-500 to-blue-600' : ''}
-        >
-          <Database className="w-4 h-4 mr-2" />
-          PostgreSQL
-        </Button>
-      </div>
+      <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900/50">
+        <CardContent className="p-5">
+          <h4 className="font-semibold text-[hsl(var(--text-primary))] mb-2 flex items-center gap-2">
+            <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            Importação SQL Automática Ativa
+          </h4>
+          <p className="text-sm text-[hsl(var(--text-secondary))]">
+            Os dados de vendas e perdas são carregados automaticamente da VIEW SQL em todas as telas (Dashboard, Relatórios, Planejamento). 
+            Use a importação PDF abaixo apenas como fallback em casos especiais.
+          </p>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {dataSource === 'pdf' ? (
-          <PDFImporter products={products} onImportComplete={handleImportComplete} />
-        ) : (
-          <SQLImporter products={products} onImportComplete={handleImportComplete} />
-        )}
+        <PDFImporter products={products} onImportComplete={handleImportComplete} />
 
         <Card>
           <CardHeader>
@@ -123,10 +108,9 @@ export default function Import() {
           <ol className="list-decimal list-inside space-y-2 text-sm text-[hsl(var(--text-secondary))]">
             <li>Faça upload do PDF exportado do ERP Lince (relatório de vendas ou perdas)</li>
             <li>O sistema identifica automaticamente o tipo de relatório e extrai os dados</li>
-            <li>Produtos novos podem ser cadastrados automaticamente (modo PDF)</li>
+            <li>Produtos novos podem ser cadastrados automaticamente</li>
             <li>Os dados são integrados aos dashboards e relatórios em tempo real</li>
-            <li>Escolha entre PDF (análise local) ou PostgreSQL (conexão direta com view SQL)</li>
-            <li className="font-medium text-cyan-700 dark:text-cyan-300">💡 A importação continua mesmo se você navegar para outra aba</li>
+            <li className="font-medium text-cyan-700 dark:text-cyan-300">💡 Use apenas como fallback - dados SQL são carregados automaticamente</li>
           </ol>
         </CardContent>
       </Card>
