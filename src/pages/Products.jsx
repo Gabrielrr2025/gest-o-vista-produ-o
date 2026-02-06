@@ -1,12 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
-import { Download, Printer } from "lucide-react";
+import { Download, Printer, Plus } from "lucide-react";
 import ProductsManager from "../components/products/ProductsManager";
 
 export default function Products() {
   const queryClient = useQueryClient();
+  const [showAddDialog, setShowAddDialog] = useState(false);
 
   const { data: products = [] } = useQuery({
     queryKey: ['products'],
@@ -45,6 +46,10 @@ export default function Products() {
           <p className="text-sm text-slate-500 mt-1">Gerencie o catálogo de produtos por setor</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button onClick={() => setShowAddDialog(true)} className="bg-[hsl(var(--accent-primary))] hover:bg-[hsl(var(--accent-primary-hover))] text-white">
+            <Plus className="w-4 h-4 mr-2" />
+            Adicionar Produto
+          </Button>
           <Button variant="outline" onClick={() => window.print()}>
             <Download className="w-4 h-4 mr-2" />
             Imprimir
@@ -56,7 +61,12 @@ export default function Products() {
         </div>
       </div>
 
-      <ProductsManager products={products} onRefresh={handleRefresh} showAddButton />
+      <ProductsManager 
+        products={products} 
+        onRefresh={handleRefresh} 
+        externalDialogOpen={showAddDialog}
+        setExternalDialogOpen={setShowAddDialog}
+      />
     </div>
   );
 }
