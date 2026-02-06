@@ -13,12 +13,14 @@ import AssertivityVsSalesChart from "../components/dashboard/AssertivityVsSalesC
 import MiniSparkline from "../components/dashboard/MiniSparkline";
 import WeekNavigator, { getWeekBounds } from "../components/dashboard/WeekNavigator";
 import TopSellingProducts from "../components/dashboard/TopSellingProducts";
+import LossAnalysis from "../components/dashboard/LossAnalysis";
 
 export default function Dashboard() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedSector, setSelectedSector] = useState("all");
   const [sqlData, setSqlData] = useState({ sales: [], losses: [] });
   const [previousPeriodData, setPreviousPeriodData] = useState({ sales: [], losses: [] });
+  const [historicalData, setHistoricalData] = useState([]);
 
   const dateRange = useMemo(() => {
     const bounds = getWeekBounds(currentDate);
@@ -30,6 +32,12 @@ export default function Dashboard() {
     const bounds = getWeekBounds(prevWeekDate);
     return { from: bounds.start, to: bounds.end };
   }, [currentDate]);
+
+  const historicalDateRange = useMemo(() => {
+    const fourWeeksAgo = subWeeks(currentDate, 4);
+    const bounds = getWeekBounds(fourWeeksAgo);
+    return { from: bounds.start, to: dateRange.from };
+  }, [currentDate, dateRange]);
 
   const productionQuery = useQuery({
     queryKey: ['productionRecords'],
@@ -204,6 +212,17 @@ export default function Dashboard() {
             endDate={previousDateRange.to ? format(previousDateRange.to, 'yyyy-MM-dd') : null}
             onDataLoaded={setPreviousPeriodData}
           />
+          <SQLDataProvider 
+            startDate={historicalDateRange.from ? format(historicalDateRange.from, 'yyyy-MM-dd') : null}
+            endDate={historicalDateRange.to ? format(historicalDateRange.to, 'yyyy-MM-dd') : null}
+            onDataLoaded={(data) => {
+              const combined = [
+                ...data.sales.map(s => ({ ...s, type: 'sale' })),
+                ...data.losses.map(l => ({ ...l, type: 'loss' }))
+              ];
+              setHistoricalData(combined);
+            }}
+          />
           <Select value={selectedSector} onValueChange={setSelectedSector}>
             <SelectTrigger className="w-40">
               <SelectValue placeholder="Setor" />
@@ -221,11 +240,19 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <TopSellingProducts 
-        salesData={filteredData.sales} 
-        productMap={productMap}
-        selectedSector={selectedSector}
-      />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <TopSellingProducts 
+          salesData={filteredData.sales} 
+          productMap={productMap}
+          selectedSector={selectedSector}
+        />
+        <LossAnalysis 
+          salesData={filteredData.sales}
+          lossData={filteredData.losses}
+          historicalLossData={historicalData}
+          productMap={productMap}
+        />
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* KPIs Unidades */}
