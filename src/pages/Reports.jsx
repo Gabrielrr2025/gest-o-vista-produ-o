@@ -199,69 +199,65 @@ export default function Reports() {
 
       {reportType === "overview" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="border-0 shadow-lg">
-            <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100">
-              <CardTitle className="text-lg font-bold text-slate-900">Distribuição por Setor</CardTitle>
-              <p className="text-xs text-slate-600 mt-1">Proporção de vendas entre os setores</p>
+          <Card className="border-0 shadow-lg bg-gradient-to-br from-slate-900 to-slate-800 text-white">
+            <CardHeader>
+              <CardTitle className="text-lg font-bold">Distribuição por Setor</CardTitle>
+              <p className="text-xs text-slate-300 mt-1">Proporção de vendas entre os setores</p>
             </CardHeader>
             <CardContent className="pt-6">
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RechartPie>
-                    <Pie
-                      data={reportData.bySector}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={true}
-                      label={({ sector, percent }) => `${sector} (${(percent * 100).toFixed(0)}%)`}
-                      outerRadius={100}
-                      fill="#8884d8"
-                      dataKey="vendas"
-                    >
-                      {reportData.bySector.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: '#fff', 
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '8px',
-                        boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-                      }}
-                    />
-                  </RechartPie>
-                </ResponsiveContainer>
-              </div>
+              <ResponsiveContainer width="100%" height={320}>
+                <RechartPie>
+                  <Pie
+                    data={reportData.bySector}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={true}
+                    label={({ sector, percent }) => `${sector} (${(percent * 100).toFixed(0)}%)`}
+                    outerRadius={100}
+                    fill="#8884d8"
+                    dataKey="vendas"
+                  >
+                    {reportData.bySector.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: '#1e293b', 
+                      border: '1px solid #334155',
+                      borderRadius: '8px',
+                      color: '#fff'
+                    }}
+                  />
+                </RechartPie>
+              </ResponsiveContainer>
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-lg">
-            <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100">
-              <CardTitle className="text-lg font-bold text-slate-900">Vendas vs Perdas por Semana</CardTitle>
-              <p className="text-xs text-slate-600 mt-1">Comparação entre vendas e perdas ao longo das semanas</p>
+          <Card className="border-0 shadow-lg bg-gradient-to-br from-slate-900 to-slate-800 text-white">
+            <CardHeader>
+              <CardTitle className="text-lg font-bold">Vendas vs Perdas por Semana</CardTitle>
+              <p className="text-xs text-slate-300 mt-1">Comparação entre vendas e perdas ao longo das semanas</p>
             </CardHeader>
             <CardContent className="pt-6">
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={reportData.byWeek}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                    <XAxis dataKey="week" tick={{ fontSize: 12, fill: '#64748b' }} />
-                    <YAxis tick={{ fontSize: 12, fill: '#64748b' }} />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: '#fff', 
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '8px',
-                        boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-                      }}
-                    />
-                    <Legend wrapperStyle={{ paddingTop: '10px' }} />
-                    <Bar dataKey="vendas" fill="#3b82f6" name="Vendas" radius={[8, 8, 0, 0]} />
-                    <Bar dataKey="perdas" fill="#ef4444" name="Perdas" radius={[8, 8, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+              <ResponsiveContainer width="100%" height={320}>
+                <BarChart data={reportData.byWeek}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                  <XAxis dataKey="week" tick={{ fontSize: 12, fill: '#94a3b8' }} />
+                  <YAxis tick={{ fontSize: 12, fill: '#94a3b8' }} />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: '#1e293b', 
+                      border: '1px solid #334155',
+                      borderRadius: '8px',
+                      color: '#fff'
+                    }}
+                  />
+                  <Legend wrapperStyle={{ paddingTop: '10px' }} iconType="circle" />
+                  <Bar dataKey="vendas" fill="#3b82f6" name="Vendas" radius={[8, 8, 0, 0]} />
+                  <Bar dataKey="perdas" fill="#ef4444" name="Perdas" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             </CardContent>
           </Card>
         </div>
@@ -307,32 +303,30 @@ export default function Reports() {
       )}
 
       {reportType === "week" && (
-        <Card className="border-0 shadow-lg">
-          <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100">
-            <CardTitle className="text-lg font-bold text-slate-900">Relatório por Semana</CardTitle>
-            <p className="text-xs text-slate-600 mt-1">Desempenho semanal de vendas e perdas</p>
+        <Card className="border-0 shadow-lg bg-gradient-to-br from-slate-900 to-slate-800 text-white">
+          <CardHeader>
+            <CardTitle className="text-lg font-bold">Relatório por Semana</CardTitle>
+            <p className="text-xs text-slate-300 mt-1">Desempenho semanal de vendas e perdas</p>
           </CardHeader>
           <CardContent className="pt-6">
-            <div className="h-96">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={reportData.byWeek}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="week" tick={{ fontSize: 12, fill: '#64748b' }} />
-                  <YAxis tick={{ fontSize: 12, fill: '#64748b' }} />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: '#fff', 
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '8px',
-                      boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-                    }}
-                  />
-                  <Legend wrapperStyle={{ paddingTop: '10px' }} />
-                  <Bar dataKey="vendas" fill="#3b82f6" name="Vendas" radius={[8, 8, 0, 0]} />
-                  <Bar dataKey="perdas" fill="#ef4444" name="Perdas" radius={[8, 8, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            <ResponsiveContainer width="100%" height={380}>
+              <BarChart data={reportData.byWeek}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                <XAxis dataKey="week" tick={{ fontSize: 12, fill: '#94a3b8' }} />
+                <YAxis tick={{ fontSize: 12, fill: '#94a3b8' }} />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#1e293b', 
+                    border: '1px solid #334155',
+                    borderRadius: '8px',
+                    color: '#fff'
+                  }}
+                />
+                <Legend wrapperStyle={{ paddingTop: '10px' }} iconType="circle" />
+                <Bar dataKey="vendas" fill="#3b82f6" name="Vendas" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="perdas" fill="#ef4444" name="Perdas" radius={[8, 8, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
       )}
