@@ -13,7 +13,7 @@ Deno.serve(async (req) => {
         const { startDate, endDate } = await req.json();
 
         // Connection string do Neon
-        const DATABASE_URL = `postgresql://${Deno.env.get('POSTGRES_USER')}:${Deno.env.get('POSTGRES_PASSWORD')}@${Deno.env.get('POSTGRES_HOST')}/${Deno.env.get('POSTGRES_DATABASE')}?sslmode=require`;
+        const DATABASE_URL = Deno.env.get('POSTGRES_CONNECTION_URL');
         
         const sql = neon(DATABASE_URL);
 
