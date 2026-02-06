@@ -29,7 +29,7 @@ export default function Products() {
       p.active !== false ? "Sim" : "Não"
     ]);
 
-    const csvContent = [headers, ...rows].map(row => row.join(",")).join("\n");
+    const csvContent = [headers, ...rows].map(row => row.join(";")).join("\n");
     const blob = new Blob(["\ufeff" + csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);

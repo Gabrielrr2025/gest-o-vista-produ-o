@@ -5,29 +5,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, FileSpreadsheet, BarChart2, PieChart, Search, ArrowUpDown } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { subDays, isWithinInterval, parseISO, format, getWeek } from "date-fns";
+import { Filter, FileText } from "lucide-react";
+import { subDays, isWithinInterval, parseISO, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import DateRangePicker from "../components/common/DateRangePicker";
-import SectorFilter from "../components/common/SectorFilter";
-import SectorBadge, { SECTORS } from "../components/common/SectorBadge";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartPie, Pie, Cell, Legend } from 'recharts';
-import ProductDetailDialog from "../components/reports/ProductDetailDialog";
-
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
+import SectorBadge from "../components/common/SectorBadge";
 
 export default function Reports() {
   const [dateRange, setDateRange] = useState({
-    from: subDays(new Date(), 29),
+    from: subDays(new Date(), 30),
     to: new Date()
   });
   const [selectedSector, setSelectedSector] = useState(null);
-  const [reportType, setReportType] = useState("overview");
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
-  const [productSearch, setProductSearch] = useState("");
-  const [productSortOrder, setProductSortOrder] = useState("desc"); // desc = maior venda primeiro, asc = alfabético
+  const [reportType, setReportType] = useState("resumo");
 
   const { data: salesRecords = [] } = useQuery({
     queryKey: ['salesRecords'],
@@ -37,6 +27,11 @@ export default function Reports() {
   const { data: lossRecords = [] } = useQuery({
     queryKey: ['lossRecords'],
     queryFn: () => base44.entities.LossRecord.list()
+  });
+
+  const { data: productionRecords = [] } = useQuery({
+    queryKey: ['productionRecords'],
+    queryFn: () => base44.entities.ProductionRecord.list()
   });
 
   const filteredData = useMemo(() => {
@@ -55,361 +50,240 @@ export default function Reports() {
 
     return {
       sales: filterByDateAndSector(salesRecords),
-      losses: filterByDateAndSector(lossRecords)
+      losses: filterByDateAndSector(lossRecords),
+      production: filterByDateAndSector(productionRecords)
     };
-  }, [salesRecords, lossRecords, dateRange, selectedSector]);
+  }, [salesRecords, lossRecords, productionRecords, dateRange, selectedSector]);
 
   const reportData = useMemo(() => {
-    // By Sector
-    const bySector = SECTORS.map(sector => {
-      const sectorSales = filteredData.sales.filter(r => r.sector === sector);
-      const sectorLosses = filteredData.losses.filter(r => r.sector === sector);
-      const totalSales = sectorSales.reduce((sum, r) => sum + (r.quantity || 0), 0);
-      const totalLosses = sectorLosses.reduce((sum, r) => sum + (r.quantity || 0), 0);
-      return {
-        sector,
-        vendas: totalSales,
-        perdas: totalLosses,
-        total: totalSales + totalLosses,
-        lossRate: totalSales + totalLosses > 0 ? ((totalLosses / (totalSales + totalLosses)) * 100).toFixed(1) : 0
-      };
-    }).filter(s => s.total > 0);
+    const totalSales = filteredData.sales.reduce((sum, s) => sum + (s.quantity || 0), 0);
+    const totalLosses = filteredData.losses.reduce((sum, l) => sum + (l.quantity || 0), 0);
+    const lossRate = totalSales + totalLosses > 0 ? (totalLosses / (totalSales + totalLosses)) * 100 : 0;
+    
+    const productionWithData = filteredData.production.filter(p => p.assertiveness != null);
+    const avgAssertivity = productionWithData.length > 0
+      ? productionWithData.reduce((sum, p) => sum + (p.assertiveness || 0), 0) / productionWithData.length
+      : 100;
 
-    // By Week
-    const byWeek = {};
-    [...filteredData.sales, ...filteredData.losses].forEach(record => {
-      const week = `S${record.week_number || getWeek(parseISO(record.date))}`;
-      if (!byWeek[week]) {
-        byWeek[week] = { week, vendas: 0, perdas: 0 };
+    // Performance por setor
+    const sectorPerformance = {};
+    const sectors = ['Padaria', 'Salgados', 'Confeitaria', 'Minimercado', 'Restaurante', 'Frios'];
+    
+    sectors.forEach(sector => {
+      const sectorSales = filteredData.sales.filter(s => s.sector === sector);
+      const sectorLosses = filteredData.losses.filter(l => l.sector === sector);
+      const sectorProduction = filteredData.production.filter(p => p.sector === sector);
+      
+      const sales = sectorSales.reduce((sum, s) => sum + (s.quantity || 0), 0);
+      const losses = sectorLosses.reduce((sum, l) => sum + (l.quantity || 0), 0);
+      const orders = sales + losses;
+      
+      const productionWithAssert = sectorProduction.filter(p => p.assertiveness != null);
+      const assertivity = productionWithAssert.length > 0
+        ? productionWithAssert.reduce((sum, p) => sum + (p.assertiveness || 0), 0) / productionWithAssert.length
+        : 0;
+      
+      sectorPerformance[sector] = { sales, losses, orders, assertivity };
+    });
+
+    // Top produtos
+    const productStats = {};
+    filteredData.sales.forEach(s => {
+      if (!productStats[s.product_name]) {
+        productStats[s.product_name] = { name: s.product_name, sector: s.sector, sales: 0, losses: 0 };
       }
+      productStats[s.product_name].sales += s.quantity || 0;
     });
-    filteredData.sales.forEach(r => {
-      const week = `S${r.week_number || getWeek(parseISO(r.date))}`;
-      byWeek[week].vendas += r.quantity || 0;
-    });
-    filteredData.losses.forEach(r => {
-      const week = `S${r.week_number || getWeek(parseISO(r.date))}`;
-      byWeek[week].perdas += r.quantity || 0;
-    });
-
-    // By Product
-    const byProduct = {};
-    filteredData.sales.forEach(r => {
-      if (!byProduct[r.product_name]) {
-        byProduct[r.product_name] = { name: r.product_name, sector: r.sector, vendas: 0, perdas: 0 };
+    
+    filteredData.losses.forEach(l => {
+      if (!productStats[l.product_name]) {
+        productStats[l.product_name] = { name: l.product_name, sector: l.sector, sales: 0, losses: 0 };
       }
-      byProduct[r.product_name].vendas += r.quantity || 0;
-    });
-    filteredData.losses.forEach(r => {
-      if (!byProduct[r.product_name]) {
-        byProduct[r.product_name] = { name: r.product_name, sector: r.sector, vendas: 0, perdas: 0 };
-      }
-      byProduct[r.product_name].perdas += r.quantity || 0;
+      productStats[l.product_name].losses += l.quantity || 0;
     });
 
-    const productList = Object.values(byProduct)
-      .map(p => ({ ...p, lossRate: ((p.perdas / (p.vendas + p.perdas)) * 100).toFixed(1) }));
+    const topProducts = Object.values(productStats)
+      .map(p => ({
+        ...p,
+        lossRate: p.sales + p.losses > 0 ? (p.losses / (p.sales + p.losses)) * 100 : 0,
+        assertivity: 100 - (p.sales + p.losses > 0 ? (p.losses / (p.sales + p.losses)) * 100 : 0)
+      }))
+      .sort((a, b) => b.sales - a.sales)
+      .slice(0, 10);
 
-    return {
-      bySector,
-      byWeek: Object.values(byWeek).sort((a, b) => parseInt(a.week.slice(1)) - parseInt(b.week.slice(1))),
-      byProduct: productList
-    };
+    return { totalSales, totalLosses, lossRate, avgAssertivity, sectorPerformance, topProducts };
   }, [filteredData]);
-
-  const filteredProducts = useMemo(() => {
-    let filtered = reportData.byProduct;
-    
-    // Aplicar busca
-    if (productSearch) {
-      const search = productSearch.toLowerCase();
-      filtered = filtered.filter(p => p.name.toLowerCase().includes(search));
-    }
-
-    // Aplicar ordenação
-    if (productSortOrder === "asc") {
-      filtered = [...filtered].sort((a, b) => a.name.localeCompare(b.name));
-    } else {
-      filtered = [...filtered].sort((a, b) => b.vendas - a.vendas);
-    }
-
-    return filtered;
-  }, [reportData.byProduct, productSearch, productSortOrder]);
-
-  const exportReport = () => {
-    let headers, rows;
-    
-    if (reportType === "sector") {
-      headers = ["Setor", "Vendas", "Perdas", "Total", "% Perda"];
-      rows = reportData.bySector.map(s => [s.sector, s.vendas, s.perdas, s.total, s.lossRate + "%"]);
-    } else if (reportType === "week") {
-      headers = ["Semana", "Vendas", "Perdas"];
-      rows = reportData.byWeek.map(w => [w.week, w.vendas, w.perdas]);
-    } else {
-      headers = ["Produto", "Setor", "Vendas", "Perdas", "% Perda"];
-      rows = reportData.byProduct.map(p => [p.name, p.sector, p.vendas, p.perdas, p.lossRate + "%"]);
-    }
-
-    const csvContent = [headers, ...rows].map(row => row.join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `relatorio_${reportType}_${format(new Date(), "yyyy-MM-dd")}.csv`;
-    link.click();
-  };
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Relatórios</h1>
-          <p className="text-sm text-slate-500 mt-1">Análise detalhada de vendas, perdas e desempenho</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <DateRangePicker dateRange={dateRange} setDateRange={setDateRange} />
-          <Button variant="outline" onClick={exportReport}>
-            <Download className="w-4 h-4 mr-1" /> Exportar CSV
-          </Button>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900">Relatórios</h1>
+        <p className="text-sm text-slate-500 mt-1">Análise de desempenho e métricas</p>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <SectorFilter selectedSector={selectedSector} setSelectedSector={setSelectedSector} />
-        
-        <div className="flex gap-2">
-          <Button
-            variant={reportType === "overview" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setReportType("overview")}
-          >
-            <BarChart2 className="w-4 h-4 mr-1" /> Visão Geral
-          </Button>
-          <Button
-            variant={reportType === "sector" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setReportType("sector")}
-          >
-            <PieChart className="w-4 h-4 mr-1" /> Por Setor
-          </Button>
-          <Button
-            variant={reportType === "week" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setReportType("week")}
-          >
-            <FileSpreadsheet className="w-4 h-4 mr-1" /> Por Semana
-          </Button>
-        </div>
-      </div>
+      {/* Filtros */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Filter className="w-5 h-5 text-slate-600" />
+            <CardTitle className="text-lg">Filtros do Relatório</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="text-sm font-medium text-slate-700 mb-2 block">Período</label>
+              <DateRangePicker dateRange={dateRange} setDateRange={setDateRange} />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-slate-700 mb-2 block">Setor</label>
+              <Select value={selectedSector || "all"} onValueChange={(v) => setSelectedSector(v === "all" ? null : v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Todos os setores" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os setores</SelectItem>
+                  <SelectItem value="Padaria">Padaria</SelectItem>
+                  <SelectItem value="Salgados">Salgados</SelectItem>
+                  <SelectItem value="Confeitaria">Confeitaria</SelectItem>
+                  <SelectItem value="Minimercado">Minimercado</SelectItem>
+                  <SelectItem value="Restaurante">Restaurante</SelectItem>
+                  <SelectItem value="Frios">Frios</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-slate-700 mb-2 block">Tipo de Relatório</label>
+              <Select value={reportType} onValueChange={setReportType}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="resumo">Resumo Executivo</SelectItem>
+                  <SelectItem value="detalhado">Detalhado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-      {reportType === "overview" && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="border-0 shadow-lg bg-gradient-to-br from-slate-900 to-slate-800 text-white">
-            <CardHeader>
-              <CardTitle className="text-lg font-bold">Distribuição por Setor</CardTitle>
-              <p className="text-xs text-slate-300 mt-1">Proporção de vendas entre os setores</p>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <ResponsiveContainer width="100%" height={320}>
-                <RechartPie>
-                  <Pie
-                    data={reportData.bySector}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={true}
-                    label={({ sector, percent }) => `${sector} (${(percent * 100).toFixed(0)}%)`}
-                    outerRadius={100}
-                    fill="#8884d8"
-                    dataKey="vendas"
-                  >
-                    {reportData.bySector.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: '#1e293b', 
-                      border: '1px solid #334155',
-                      borderRadius: '8px',
-                      color: '#fff'
-                    }}
-                  />
-                </RechartPie>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
+      {/* Pré-visualização */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <FileText className="w-5 h-5 text-slate-600" />
+            <CardTitle className="text-lg">Pré-visualização do Relatório</CardTitle>
+          </div>
+          <p className="text-sm text-slate-500">
+            Período: {format(dateRange.from, "dd 'de' MMM", { locale: ptBR })} - {format(dateRange.to, "dd 'de' MMM', ' yyyy", { locale: ptBR })}
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Resumo do Período */}
+          <div>
+            <h3 className="font-semibold text-slate-900 mb-4">Resumo do Período</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-slate-100 rounded-lg p-4">
+                <div className="text-sm text-slate-600 mb-1">Total Vendas</div>
+                <div className="text-2xl font-bold text-slate-900">{reportData.totalSales}</div>
+              </div>
+              <div className="bg-slate-100 rounded-lg p-4">
+                <div className="text-sm text-slate-600 mb-1">Total Perdas</div>
+                <div className="text-2xl font-bold text-red-600">{reportData.totalLosses}</div>
+              </div>
+              <div className="bg-slate-100 rounded-lg p-4">
+                <div className="text-sm text-slate-600 mb-1">Taxa de Perda</div>
+                <div className="text-2xl font-bold text-slate-900">
+                  {isNaN(reportData.lossRate) ? "N/A" : `${reportData.lossRate.toFixed(1)}%`}
+                </div>
+              </div>
+              <div className="bg-slate-100 rounded-lg p-4">
+                <div className="text-sm text-slate-600 mb-1">Assertividade</div>
+                <div className="text-2xl font-bold text-green-600">
+                  {reportData.avgAssertivity.toFixed(0)}%
+                </div>
+                <div className="text-xs text-slate-500 mt-1">pedido / (venda + perda)</div>
+              </div>
+            </div>
+          </div>
 
-          <Card className="border-0 shadow-lg bg-gradient-to-br from-slate-900 to-slate-800 text-white">
-            <CardHeader>
-              <CardTitle className="text-lg font-bold">Vendas vs Perdas por Semana</CardTitle>
-              <p className="text-xs text-slate-300 mt-1">Comparação entre vendas e perdas ao longo das semanas</p>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <ResponsiveContainer width="100%" height={320}>
-                <BarChart data={reportData.byWeek}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                  <XAxis dataKey="week" tick={{ fontSize: 12, fill: '#94a3b8' }} />
-                  <YAxis tick={{ fontSize: 12, fill: '#94a3b8' }} />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: '#1e293b', 
-                      border: '1px solid #334155',
-                      borderRadius: '8px',
-                      color: '#fff'
-                    }}
-                  />
-                  <Legend wrapperStyle={{ paddingTop: '10px' }} iconType="circle" />
-                  <Bar dataKey="vendas" fill="#3b82f6" name="Vendas" radius={[8, 8, 0, 0]} />
-                  <Bar dataKey="perdas" fill="#ef4444" name="Perdas" radius={[8, 8, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {reportType === "sector" && (
-        <Card className="border-0 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-base">Relatório por Setor</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
+          {/* Performance por Setor */}
+          <div>
+            <h3 className="font-semibold text-slate-900 mb-4">Performance por Setor</h3>
             <Table>
               <TableHeader>
-                <TableRow className="bg-slate-50">
+                <TableRow>
                   <TableHead>Setor</TableHead>
                   <TableHead className="text-right">Vendas</TableHead>
                   <TableHead className="text-right">Perdas</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                  <TableHead className="text-right">% Perda</TableHead>
+                  <TableHead className="text-right">Pedidos</TableHead>
+                  <TableHead className="text-right">Assertividade</TableHead>
+                  <TableHead className="text-right">Tendência</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {reportData.bySector.map((row, index) => (
-                  <TableRow key={index}>
-                    <TableCell><SectorBadge sector={row.sector} /></TableCell>
-                    <TableCell className="text-right font-medium">{row.vendas.toLocaleString('pt-BR')}</TableCell>
-                    <TableCell className="text-right text-red-600">{row.perdas.toLocaleString('pt-BR')}</TableCell>
-                    <TableCell className="text-right">{row.total.toLocaleString('pt-BR')}</TableCell>
+                {Object.entries(reportData.sectorPerformance).map(([sector, data]) => (
+                  <TableRow key={sector}>
+                    <TableCell><SectorBadge sector={sector} /></TableCell>
+                    <TableCell className="text-right">{data.sales}</TableCell>
+                    <TableCell className="text-right text-red-600">{data.losses}</TableCell>
+                    <TableCell className="text-right">{data.orders}</TableCell>
                     <TableCell className="text-right">
-                      <span className={`font-medium ${
-                        parseFloat(row.lossRate) > 10 ? "text-red-600" : 
-                        parseFloat(row.lossRate) > 5 ? "text-orange-600" : "text-green-600"
-                      }`}>
-                        {row.lossRate}%
-                      </span>
+                      {data.assertivity > 0 ? `${data.assertivity.toFixed(1)}%` : '-'}
                     </TableCell>
+                    <TableCell className="text-right text-slate-500">-</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
-          </CardContent>
-        </Card>
-      )}
-
-      {reportType === "week" && (
-        <Card className="border-0 shadow-lg bg-gradient-to-br from-slate-900 to-slate-800 text-white">
-          <CardHeader>
-            <CardTitle className="text-lg font-bold">Relatório por Semana</CardTitle>
-            <p className="text-xs text-slate-300 mt-1">Desempenho semanal de vendas e perdas</p>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <ResponsiveContainer width="100%" height={380}>
-              <BarChart data={reportData.byWeek}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                <XAxis dataKey="week" tick={{ fontSize: 12, fill: '#94a3b8' }} />
-                <YAxis tick={{ fontSize: 12, fill: '#94a3b8' }} />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: '#1e293b', 
-                    border: '1px solid #334155',
-                    borderRadius: '8px',
-                    color: '#fff'
-                  }}
-                />
-                <Legend wrapperStyle={{ paddingTop: '10px' }} iconType="circle" />
-                <Bar dataKey="vendas" fill="#3b82f6" name="Vendas" radius={[8, 8, 0, 0]} />
-                <Bar dataKey="perdas" fill="#ef4444" name="Perdas" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      )}
-
-      <Card className="border-0 shadow-lg">
-        <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-lg font-bold text-slate-900">Detalhamento por Produto</CardTitle>
-              <p className="text-xs text-slate-600 mt-1">Clique em qualquer produto para ver análise detalhada</p>
-            </div>
-            <div className="relative w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <Input
-                placeholder="Buscar produto..."
-                value={productSearch}
-                onChange={(e) => setProductSearch(e.target.value)}
-                className="pl-9"
-              />
-            </div>
           </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="max-h-[400px] overflow-auto">
+
+          {/* Top Produtos */}
+          <div>
+            <h3 className="font-semibold text-slate-900 mb-4">Top Produtos</h3>
             <Table>
               <TableHeader>
-                <TableRow className="bg-slate-50">
-                  <TableHead>
-                    <button 
-                      className="flex items-center gap-1 hover:text-slate-900"
-                      onClick={() => setProductSortOrder(productSortOrder === "asc" ? "desc" : "asc")}
-                    >
-                      Produto
-                      <ArrowUpDown className="w-3 h-3" />
-                    </button>
-                  </TableHead>
+                <TableRow>
+                  <TableHead className="w-12">#</TableHead>
+                  <TableHead>Produto</TableHead>
                   <TableHead>Setor</TableHead>
                   <TableHead className="text-right">Vendas</TableHead>
                   <TableHead className="text-right">Perdas</TableHead>
-                  <TableHead className="text-right">% Perda</TableHead>
+                  <TableHead className="text-right">Taxa Perda</TableHead>
+                  <TableHead className="text-right">Assertividade</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredProducts.map((row, index) => (
-                  <TableRow 
-                    key={index} 
-                    className="hover:bg-slate-100 cursor-pointer"
-                    onClick={() => {
-                      setSelectedProduct(row);
-                      setDetailDialogOpen(true);
-                    }}
-                  >
-                    <TableCell className="font-medium">{row.name}</TableCell>
-                    <TableCell><SectorBadge sector={row.sector} /></TableCell>
-                    <TableCell className="text-right">{row.vendas.toLocaleString('pt-BR')}</TableCell>
-                    <TableCell className="text-right text-red-600">{row.perdas.toLocaleString('pt-BR')}</TableCell>
+                {reportData.topProducts.map((product, idx) => (
+                  <TableRow key={idx}>
+                    <TableCell className="font-medium">{idx + 1}</TableCell>
+                    <TableCell className="font-medium">{product.name}</TableCell>
+                    <TableCell><SectorBadge sector={product.sector} /></TableCell>
+                    <TableCell className="text-right">{product.sales}</TableCell>
+                    <TableCell className="text-right text-red-600">{product.losses}</TableCell>
                     <TableCell className="text-right">
-                      <span className={`font-medium ${
-                        parseFloat(row.lossRate) > 10 ? "text-red-600" : 
-                        parseFloat(row.lossRate) > 5 ? "text-orange-600" : "text-green-600"
-                      }`}>
-                        {row.lossRate}%
+                      <span className={product.lossRate > 10 ? "text-red-600" : product.lossRate > 5 ? "text-yellow-600" : "text-green-600"}>
+                        {product.lossRate.toFixed(1)}%
                       </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {product.assertivity.toFixed(1)}%
                     </TableCell>
                   </TableRow>
                 ))}
+                {reportData.topProducts.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center text-slate-500 py-8">
+                      Nenhum dado disponível
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </div>
         </CardContent>
       </Card>
-
-      <ProductDetailDialog
-        product={selectedProduct}
-        salesRecords={salesRecords}
-        lossRecords={lossRecords}
-        open={detailDialogOpen}
-        onClose={() => setDetailDialogOpen(false)}
-      />
     </div>
   );
 }

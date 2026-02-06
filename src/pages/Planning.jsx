@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronLeft, ChevronRight, Printer, Download, RefreshCw, Save, Filter } from "lucide-react";
+import { ChevronLeft, ChevronRight, Printer, Download, RefreshCw, Save, Filter, FileDown } from "lucide-react";
 import { startOfWeek, endOfWeek, format, addWeeks, subWeeks, getWeek, getYear, eachDayOfInterval, parseISO, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import SectorBadge from "../components/common/SectorBadge";
@@ -131,7 +131,78 @@ export default function Planning() {
   };
 
   const handleSavePlanning = async () => {
-    toast.success("Planejamento salvo com sucesso!");
+    try {
+      // Gerar PDF do planejamento
+      const { jsPDF } = await import('jspdf');
+      const doc = new jsPDF('l', 'mm', 'a4');
+      
+      // Título
+      doc.setFontSize(18);
+      doc.text(`Planejamento de Produção - Semana ${weekNumber}/${year}`, 15, 15);
+      doc.setFontSize(10);
+      doc.text(`${format(currentWeekStart, "dd/MM/yyyy", { locale: ptBR })} - ${format(weekEnd, "dd/MM/yyyy", { locale: ptBR })}`, 15, 22);
+      
+      // Tabela
+      let y = 30;
+      doc.setFontSize(9);
+      
+      // Headers
+      const headers = ["Produto", "Setor", "Rend.", "Média", ...DIAS_SEMANA, "Total"];
+      let x = 15;
+      headers.forEach((header, idx) => {
+        const width = idx === 0 ? 40 : idx === 1 ? 25 : idx === 2 || idx === 3 ? 15 : 18;
+        doc.text(header, x, y);
+        x += width;
+      });
+      
+      y += 7;
+      
+      // Dados
+      filteredPlanning.forEach(item => {
+        if (y > 180) {
+          doc.addPage();
+          y = 20;
+        }
+        
+        x = 15;
+        doc.text(item.product.name.substring(0, 20), x, y);
+        x += 40;
+        doc.text(item.product.sector.substring(0, 10), x, y);
+        x += 25;
+        doc.text(`${item.product.recipe_yield}`, x, y);
+        x += 15;
+        doc.text(`${Math.round(item.avgByWeekday / 7)}`, x, y);
+        x += 15;
+        
+        item.projectedByDay.forEach((qty, idx) => {
+          const val = plannedQuantities[`${item.product.id}-${idx}`] ?? qty;
+          doc.text(val.toString(), x, y);
+          x += 18;
+        });
+        
+        const totalPlanned = item.projectedByDay.reduce((sum, _, idx) => 
+          sum + (plannedQuantities[`${item.product.id}-${idx}`] || item.projectedByDay[idx]), 0
+        );
+        doc.text(totalPlanned.toString(), x, y);
+        
+        y += 6;
+      });
+      
+      // Salvar PDF
+      const pdfBlob = doc.output('blob');
+      const file = new File([pdfBlob], `planejamento_semana${weekNumber}_${year}.pdf`, { type: 'application/pdf' });
+      
+      // Upload usando Core integration
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      
+      toast.success("Planejamento salvo! Acesse em Histórico para baixar.");
+    } catch (error) {
+      toast.error("Erro ao salvar planejamento");
+      console.error(error);
+    }
   };
 
   const handleRecalculate = () => {
