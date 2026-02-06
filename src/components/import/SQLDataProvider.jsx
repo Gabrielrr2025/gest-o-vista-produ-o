@@ -9,7 +9,7 @@ import { toast } from "sonner";
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
 
 export default function SQLDataProvider({ startDate, endDate, onDataLoaded }) {
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [lastSync, setLastSync] = useState(null);
   const [cacheKey, setCacheKey] = useState(null);
 
