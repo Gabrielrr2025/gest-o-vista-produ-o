@@ -30,12 +30,23 @@ export default function Planning() {
     queryFn: () => base44.entities.Product.list()
   });
 
+  const salesQuery = useQuery({
+    queryKey: ['salesRecords'],
+    queryFn: () => base44.entities.SalesRecord.list()
+  });
 
+  const lossQuery = useQuery({
+    queryKey: ['lossRecords'],
+    queryFn: () => base44.entities.LossRecord.list()
+  });
 
   const { data: calendarEvents = [] } = useQuery({
     queryKey: ['calendarEvents'],
     queryFn: () => base44.entities.CalendarEvent.list()
   });
+
+  const salesRecords = salesQuery.data || [];
+  const lossRecords = lossQuery.data || [];
 
   const planningData = useMemo(() => {
     const activeProducts = products.filter(p => p.active !== false);
@@ -231,19 +242,6 @@ export default function Planning() {
     link.download = `planejamento_semana${weekNumber}_${year}.csv`;
     link.click();
   };
-
-  const salesQuery = useQuery({
-    queryKey: ['salesRecords'],
-    queryFn: () => base44.entities.SalesRecord.list()
-  });
-
-  const lossQuery = useQuery({
-    queryKey: ['lossRecords'],
-    queryFn: () => base44.entities.LossRecord.list()
-  });
-
-  const salesRecords = salesQuery.data || [];
-  const lossRecords = lossQuery.data || [];
 
   return (
     <div className="space-y-6">

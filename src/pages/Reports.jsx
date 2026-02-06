@@ -20,7 +20,24 @@ export default function Reports() {
   const [selectedSector, setSelectedSector] = useState(null);
   const [reportType, setReportType] = useState("resumo");
 
+  const salesQuery = useQuery({
+    queryKey: ['salesRecords'],
+    queryFn: () => base44.entities.SalesRecord.list()
+  });
 
+  const lossQuery = useQuery({
+    queryKey: ['lossRecords'],
+    queryFn: () => base44.entities.LossRecord.list()
+  });
+
+  const productionQuery = useQuery({
+    queryKey: ['productionRecords'],
+    queryFn: () => base44.entities.ProductionRecord.list()
+  });
+
+  const salesRecords = salesQuery.data || [];
+  const lossRecords = lossQuery.data || [];
+  const productionRecords = productionQuery.data || [];
 
   const filteredData = useMemo(() => {
     const filterByDateAndSector = (records) => {
@@ -101,25 +118,6 @@ export default function Reports() {
 
     return { totalSales, totalLosses, lossRate, avgAssertivity, sectorPerformance, topProducts };
   }, [filteredData]);
-
-  const salesQuery = useQuery({
-    queryKey: ['salesRecords'],
-    queryFn: () => base44.entities.SalesRecord.list()
-  });
-
-  const lossQuery = useQuery({
-    queryKey: ['lossRecords'],
-    queryFn: () => base44.entities.LossRecord.list()
-  });
-
-  const productionQuery = useQuery({
-    queryKey: ['productionRecords'],
-    queryFn: () => base44.entities.ProductionRecord.list()
-  });
-
-  const salesRecords = salesQuery.data || [];
-  const lossRecords = lossQuery.data || [];
-  const productionRecords = productionQuery.data || [];
 
   return (
     <div className="space-y-6">
