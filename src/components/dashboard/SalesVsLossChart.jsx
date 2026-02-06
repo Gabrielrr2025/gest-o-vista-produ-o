@@ -26,10 +26,19 @@ export default function SalesVsLossChart({ salesData, lossData }) {
 
     return Object.values(grouped)
       .sort((a, b) => new Date(a.date) - new Date(b.date))
-      .map(item => ({
-        ...item,
-        date: format(parseISO(item.date), "dd/MM", { locale: ptBR })
-      }));
+      .map(item => {
+        try {
+          return {
+            ...item,
+            date: format(parseISO(item.date), "dd/MM", { locale: ptBR })
+          };
+        } catch {
+          return {
+            ...item,
+            date: item.date
+          };
+        }
+      });
   }, [salesData, lossData]);
 
   return (
