@@ -13,7 +13,7 @@ import { base44 } from "@/api/base44Client";
 import SectorBadge, { SECTORS } from "../common/SectorBadge";
 import { toast } from "sonner";
 
-export default function ProductsManager({ products, onRefresh, externalDialogOpen, setExternalDialogOpen }) {
+export default function ProductsManager({ products, onRefresh, showAddButton = false }) {
   const [search, setSearch] = useState("");
   const [filterSector, setFilterSector] = useState("all");
   const [sortBy, setSortBy] = useState("name");
@@ -71,22 +71,8 @@ export default function ProductsManager({ products, onRefresh, externalDialogOpe
         active: true
       });
     }
-    if (setExternalDialogOpen) {
-      setExternalDialogOpen(true);
-    } else {
-      setDialogOpen(true);
-    }
+    setDialogOpen(true);
   };
-
-  // Sincronizar com estado externo quando disponível
-  React.useEffect(() => {
-    if (externalDialogOpen !== undefined) {
-      setDialogOpen(externalDialogOpen);
-      if (externalDialogOpen === false) {
-        setEditingProduct(null);
-      }
-    }
-  }, [externalDialogOpen]);
 
   const handleSave = async () => {
     if (!formData.name.trim()) {
@@ -126,11 +112,7 @@ export default function ProductsManager({ products, onRefresh, externalDialogOpe
         await base44.entities.Product.create(formData);
         toast.success("Produto criado");
       }
-      if (setExternalDialogOpen) {
-        setExternalDialogOpen(false);
-      } else {
-        setDialogOpen(false);
-      }
+      setDialogOpen(false);
       onRefresh?.();
     } catch (error) {
       toast.error("Erro ao salvar produto");
@@ -245,7 +227,12 @@ export default function ProductsManager({ products, onRefresh, externalDialogOpe
               </SelectContent>
             </Select>
           </div>
-
+          {showAddButton && (
+            <Button onClick={() => handleOpenDialog()} className="bg-[hsl(var(--accent-primary))] hover:bg-[hsl(var(--accent-primary-hover))] text-white">
+              <Plus className="w-4 h-4 mr-2" />
+              Adicionar Produto
+            </Button>
+          )}
         </div>
 
         <div className="border rounded-lg overflow-hidden">
@@ -322,13 +309,7 @@ export default function ProductsManager({ products, onRefresh, externalDialogOpe
         </div>
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={(open) => {
-        if (setExternalDialogOpen) {
-          setExternalDialogOpen(open);
-        } else {
-          setDialogOpen(open);
-        }
-      }}>
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
@@ -436,16 +417,10 @@ export default function ProductsManager({ products, onRefresh, externalDialogOpe
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => {
-              if (setExternalDialogOpen) {
-                setExternalDialogOpen(false);
-              } else {
-                setDialogOpen(false);
-              }
-            }}>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleSave}>
+            <Button variant="outline" onClick={handleSave}>
               {editingProduct ? "Salvar" : "Criar"}
             </Button>
           </DialogFooter>
