@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import KPICard from "../components/common/KPICard";
 import DateRangePicker from "../components/common/DateRangePicker";
 import SectorFilter from "../components/common/SectorFilter";
+import AutoSQLSync from "../components/import/AutoSQLSync";
 import SalesVsLossChart from "../components/dashboard/SalesVsLossChart";
 import AssertivityBySectorChart from "../components/dashboard/AssertivityBySectorChart";
 import TopProductsBySector from "../components/dashboard/TopProductsBySector";
