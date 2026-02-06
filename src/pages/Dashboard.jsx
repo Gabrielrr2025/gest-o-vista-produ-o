@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { subDays, format } from "date-fns";
-import { ShoppingCart, AlertTriangle, Target, BarChart3, Weight, Package } from "lucide-react";
+import { subDays, format, startOfWeek, endOfWeek } from "date-fns";
+import { ShoppingCart, AlertTriangle, Target, BarChart3, Weight, Package, TrendingUp, TrendingDown } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import SectorFilter from "../components/common/SectorFilter";
@@ -11,16 +11,23 @@ import SalesVsLossChart from "../components/dashboard/SalesVsLossChart";
 import AssertivityBySectorChart from "../components/dashboard/AssertivityBySectorChart";
 import TopProductsBySector from "../components/dashboard/TopProductsBySector";
 import AssertivityVsSalesChart from "../components/dashboard/AssertivityVsSalesChart";
+import MiniSparkline from "../components/dashboard/MiniSparkline";
 
 export default function Dashboard() {
   const [weeksBack, setWeeksBack] = useState(1);
   const [selectedSector, setSelectedSector] = useState(null);
   const [sqlData, setSqlData] = useState({ sales: [], losses: [] });
+  const [previousPeriodData, setPreviousPeriodData] = useState({ sales: [], losses: [] });
 
   const dateRange = useMemo(() => ({
     from: subDays(new Date(), (weeksBack * 7) - 1),
     to: new Date()
   }), [weeksBack]);
+
+  const previousDateRange = useMemo(() => ({
+    from: subDays(dateRange.from, weeksBack * 7),
+    to: subDays(dateRange.from, 1)
+  }), [dateRange, weeksBack]);
 
   const productionQuery = useQuery({
     queryKey: ['productionRecords'],
@@ -62,7 +69,7 @@ export default function Dashboard() {
   const productMap = useMemo(() => new Map(products.map(p => [p.name, p])), [products]);
 
   const kpis = useMemo(() => {
-    // Separar por unidade
+    // Período atual
     const salesKG = filteredData.sales.filter(r => {
       const prod = productMap.get(r.product_name);
       return prod?.unit === 'kilo';
@@ -71,7 +78,6 @@ export default function Dashboard() {
       const prod = productMap.get(r.product_name);
       return prod?.unit !== 'kilo';
     });
-
     const lossesKG = filteredData.losses.filter(r => {
       const prod = productMap.get(r.product_name);
       return prod?.unit === 'kilo';
@@ -89,17 +95,83 @@ export default function Dashboard() {
     const lossRateKG = totalSalesKG > 0 ? (totalLossesKG / totalSalesKG) * 100 : 0;
     const lossRateUN = totalSalesUN > 0 ? (totalLossesUN / totalSalesUN) * 100 : 0;
 
+    // Período anterior para comparação
+    const prevSalesKG = previousPeriodData.sales.filter(r => {
+      const prod = productMap.get(r.product_name);
+      return prod?.unit === 'kilo' && (!selectedSector || r.sector === selectedSector);
+    });
+    const prevSalesUN = previousPeriodData.sales.filter(r => {
+      const prod = productMap.get(r.product_name);
+      return prod?.unit !== 'kilo' && (!selectedSector || r.sector === selectedSector);
+    });
+    const prevLossesKG = previousPeriodData.losses.filter(r => {
+      const prod = productMap.get(r.product_name);
+      return prod?.unit === 'kilo' && (!selectedSector || r.sector === selectedSector);
+    });
+    const prevLossesUN = previousPeriodData.losses.filter(r => {
+      const prod = productMap.get(r.product_name);
+      return prod?.unit !== 'kilo' && (!selectedSector || r.sector === selectedSector);
+    });
+
+    const prevTotalSalesKG = prevSalesKG.reduce((sum, r) => sum + (r.quantity || 0), 0);
+    const prevTotalSalesUN = prevSalesUN.reduce((sum, r) => sum + (r.quantity || 0), 0);
+    const prevTotalLossesKG = prevLossesKG.reduce((sum, r) => sum + (r.quantity || 0), 0);
+    const prevTotalLossesUN = prevLossesUN.reduce((sum, r) => sum + (r.quantity || 0), 0);
+    const prevLossRateKG = prevTotalSalesKG > 0 ? (prevTotalLossesKG / prevTotalSalesKG) * 100 : 0;
+    const prevLossRateUN = prevTotalSalesUN > 0 ? (prevTotalLossesUN / prevTotalSalesUN) * 100 : 0;
+
+    // Calcular variação %
+    const calcChange = (current, previous) => {
+      if (previous === 0) return current > 0 ? 100 : 0;
+      return ((current - previous) / previous) * 100;
+    };
+
+    // Dados últimas 4 semanas (sparkline)
+    const getLast4Weeks = (data, isKG) => {
+      const weeks = [];
+      for (let i = 3; i >= 0; i--) {
+        const weekStart = subDays(new Date(), (i + 1) * 7);
+        const weekEnd = subDays(new Date(), i * 7);
+        const weekData = data.filter(r => {
+          const prod = productMap.get(r.product_name);
+          const matchUnit = isKG ? prod?.unit === 'kilo' : prod?.unit !== 'kilo';
+          const recordDate = new Date(r.date);
+          return matchUnit && recordDate >= weekStart && recordDate <= weekEnd && (!selectedSector || r.sector === selectedSector);
+        });
+        weeks.push({ value: weekData.reduce((sum, r) => sum + (r.quantity || 0), 0) });
+      }
+      return weeks;
+    };
+
     const productionWithAssertiveness = filteredData.production.filter(p => p.assertiveness !== undefined);
     const avgAssertiveness = productionWithAssertiveness.length > 0
       ? productionWithAssertiveness.reduce((sum, p) => sum + (p.assertiveness || 0), 0) / productionWithAssertiveness.length
       : 0;
 
     return {
-      kg: { sales: totalSalesKG, losses: totalLossesKG, lossRate: lossRateKG },
-      un: { sales: totalSalesUN, losses: totalLossesUN, lossRate: lossRateUN },
+      kg: { 
+        sales: totalSalesKG, 
+        losses: totalLossesKG, 
+        lossRate: lossRateKG,
+        salesChange: calcChange(totalSalesKG, prevTotalSalesKG),
+        lossesChange: calcChange(totalLossesKG, prevTotalLossesKG),
+        lossRateChange: calcChange(lossRateKG, prevLossRateKG),
+        salesSparkline: getLast4Weeks(sqlData.sales, true),
+        lossesSparkline: getLast4Weeks(sqlData.losses, true)
+      },
+      un: { 
+        sales: totalSalesUN, 
+        losses: totalLossesUN, 
+        lossRate: lossRateUN,
+        salesChange: calcChange(totalSalesUN, prevTotalSalesUN),
+        lossesChange: calcChange(totalLossesUN, prevTotalLossesUN),
+        lossRateChange: calcChange(lossRateUN, prevLossRateUN),
+        salesSparkline: getLast4Weeks(sqlData.sales, false),
+        lossesSparkline: getLast4Weeks(sqlData.losses, false)
+      },
       avgAssertiveness
     };
-  }, [filteredData, productMap]);
+  }, [filteredData, productMap, previousPeriodData, selectedSector, sqlData]);
 
   return (
     <div className="space-y-6">
@@ -113,6 +185,11 @@ export default function Dashboard() {
             startDate={dateRange.from ? format(dateRange.from, 'yyyy-MM-dd') : null}
             endDate={dateRange.to ? format(dateRange.to, 'yyyy-MM-dd') : null}
             onDataLoaded={setSqlData}
+          />
+          <SQLDataProvider 
+            startDate={previousDateRange.from ? format(previousDateRange.from, 'yyyy-MM-dd') : null}
+            endDate={previousDateRange.to ? format(previousDateRange.to, 'yyyy-MM-dd') : null}
+            onDataLoaded={setPreviousPeriodData}
           />
           <Select value={weeksBack.toString()} onValueChange={(v) => setWeeksBack(parseInt(v))}>
             <SelectTrigger className="w-40">
@@ -142,9 +219,16 @@ export default function Dashboard() {
               <CardContent className="p-5">
                 <div className="flex items-center justify-between mb-2">
                   <ShoppingCart className="w-7 h-7 opacity-80" />
+                  <div className="flex items-center gap-1 text-xs">
+                    {kpis.un.salesChange >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                    <span>{Math.abs(kpis.un.salesChange).toFixed(1)}%</span>
+                  </div>
                 </div>
-                <div className="text-2xl font-bold">{kpis.un.sales.toLocaleString('pt-BR')}</div>
+                <div className="text-2xl font-bold">{kpis.un.sales.toLocaleString('pt-BR')} UN</div>
                 <p className="text-sm opacity-90 mt-1">Vendas</p>
+                <div className="mt-2">
+                  <MiniSparkline data={kpis.un.salesSparkline} color="#ffffff" />
+                </div>
               </CardContent>
             </Card>
             
@@ -152,9 +236,16 @@ export default function Dashboard() {
               <CardContent className="p-5">
                 <div className="flex items-center justify-between mb-2">
                   <AlertTriangle className="w-7 h-7 opacity-80" />
+                  <div className="flex items-center gap-1 text-xs">
+                    {kpis.un.lossesChange >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                    <span>{Math.abs(kpis.un.lossesChange).toFixed(1)}%</span>
+                  </div>
                 </div>
-                <div className="text-2xl font-bold">{kpis.un.losses.toLocaleString('pt-BR')}</div>
+                <div className="text-2xl font-bold">{kpis.un.losses.toLocaleString('pt-BR')} UN</div>
                 <p className="text-sm opacity-90 mt-1">Perdas</p>
+                <div className="mt-2">
+                  <MiniSparkline data={kpis.un.lossesSparkline} color="#ffffff" />
+                </div>
               </CardContent>
             </Card>
 
@@ -162,6 +253,10 @@ export default function Dashboard() {
               <CardContent className="p-5">
                 <div className="flex items-center justify-between mb-2">
                   <BarChart3 className="w-7 h-7 opacity-80" />
+                  <div className="flex items-center gap-1 text-xs">
+                    {kpis.un.lossRateChange >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                    <span>{Math.abs(kpis.un.lossRateChange).toFixed(1)}%</span>
+                  </div>
                 </div>
                 <div className="text-2xl font-bold">{kpis.un.lossRate.toFixed(1)}%</div>
                 <p className="text-sm opacity-90 mt-1">Taxa de Perda</p>
@@ -191,9 +286,16 @@ export default function Dashboard() {
               <CardContent className="p-5">
                 <div className="flex items-center justify-between mb-2">
                   <ShoppingCart className="w-7 h-7 opacity-80" />
+                  <div className="flex items-center gap-1 text-xs">
+                    {kpis.kg.salesChange >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                    <span>{Math.abs(kpis.kg.salesChange).toFixed(1)}%</span>
+                  </div>
                 </div>
-                <div className="text-2xl font-bold">{kpis.kg.sales.toFixed(1)} kg</div>
+                <div className="text-2xl font-bold">{kpis.kg.sales.toFixed(1)} KG</div>
                 <p className="text-sm opacity-90 mt-1">Vendas</p>
+                <div className="mt-2">
+                  <MiniSparkline data={kpis.kg.salesSparkline} color="#ffffff" />
+                </div>
               </CardContent>
             </Card>
             
@@ -201,9 +303,16 @@ export default function Dashboard() {
               <CardContent className="p-5">
                 <div className="flex items-center justify-between mb-2">
                   <AlertTriangle className="w-7 h-7 opacity-80" />
+                  <div className="flex items-center gap-1 text-xs">
+                    {kpis.kg.lossesChange >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                    <span>{Math.abs(kpis.kg.lossesChange).toFixed(1)}%</span>
+                  </div>
                 </div>
-                <div className="text-2xl font-bold">{kpis.kg.losses.toFixed(1)} kg</div>
+                <div className="text-2xl font-bold">{kpis.kg.losses.toFixed(1)} KG</div>
                 <p className="text-sm opacity-90 mt-1">Perdas</p>
+                <div className="mt-2">
+                  <MiniSparkline data={kpis.kg.lossesSparkline} color="#ffffff" />
+                </div>
               </CardContent>
             </Card>
 
@@ -211,6 +320,10 @@ export default function Dashboard() {
               <CardContent className="p-5">
                 <div className="flex items-center justify-between mb-2">
                   <BarChart3 className="w-7 h-7 opacity-80" />
+                  <div className="flex items-center gap-1 text-xs">
+                    {kpis.kg.lossRateChange >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                    <span>{Math.abs(kpis.kg.lossRateChange).toFixed(1)}%</span>
+                  </div>
                 </div>
                 <div className="text-2xl font-bold">{kpis.kg.lossRate.toFixed(1)}%</div>
                 <p className="text-sm opacity-90 mt-1">Taxa de Perda</p>
