@@ -64,9 +64,9 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
       setFormData({
         code: "",
         name: "",
-        sector: "",
+        sector: "Padaria",
         recipe_yield: 1,
-        unit: "",
+        unit: "unidade",
         production_days: [],
         active: true
       });
