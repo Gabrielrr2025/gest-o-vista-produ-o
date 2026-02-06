@@ -55,6 +55,7 @@ import Production from './pages/Production';
 import Products from './pages/Products';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
+import Planning from './pages/Planning';
 import __Layout from './Layout.jsx';
 
 
@@ -67,6 +68,7 @@ export const PAGES = {
     "Products": Products,
     "Reports": Reports,
     "Settings": Settings,
+    "Planning": Planning,
 }
 
 export const pagesConfig = {
