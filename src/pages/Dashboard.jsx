@@ -1,33 +1,34 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { subDays, format, startOfWeek, endOfWeek } from "date-fns";
+import { format, subWeeks } from "date-fns";
 import { ShoppingCart, AlertTriangle, Target, BarChart3, Weight, Package, TrendingUp, TrendingDown } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import SectorFilter from "../components/common/SectorFilter";
 import SQLDataProvider from "../components/import/SQLDataProvider";
 import SalesVsLossChart from "../components/dashboard/SalesVsLossChart";
 import AssertivityBySectorChart from "../components/dashboard/AssertivityBySectorChart";
 import TopProductsBySector from "../components/dashboard/TopProductsBySector";
 import AssertivityVsSalesChart from "../components/dashboard/AssertivityVsSalesChart";
 import MiniSparkline from "../components/dashboard/MiniSparkline";
+import WeekNavigator, { getWeekBounds } from "../components/dashboard/WeekNavigator";
 
 export default function Dashboard() {
-  const [weeksBack, setWeeksBack] = useState(1);
-  const [selectedSector, setSelectedSector] = useState(null);
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedSector, setSelectedSector] = useState("all");
   const [sqlData, setSqlData] = useState({ sales: [], losses: [] });
   const [previousPeriodData, setPreviousPeriodData] = useState({ sales: [], losses: [] });
 
-  const dateRange = useMemo(() => ({
-    from: subDays(new Date(), (weeksBack * 7) - 1),
-    to: new Date()
-  }), [weeksBack]);
+  const dateRange = useMemo(() => {
+    const bounds = getWeekBounds(currentDate);
+    return { from: bounds.start, to: bounds.end };
+  }, [currentDate]);
 
-  const previousDateRange = useMemo(() => ({
-    from: subDays(dateRange.from, weeksBack * 7),
-    to: subDays(dateRange.from, 1)
-  }), [dateRange, weeksBack]);
+  const previousDateRange = useMemo(() => {
+    const prevWeekDate = subWeeks(currentDate, 1);
+    const bounds = getWeekBounds(prevWeekDate);
+    return { from: bounds.start, to: bounds.end };
+  }, [currentDate]);
 
   const productionQuery = useQuery({
     queryKey: ['productionRecords'],
@@ -38,7 +39,8 @@ export default function Dashboard() {
 
   const filteredData = useMemo(() => {
     const filterBySector = (records) => {
-      return records.filter(record => !selectedSector || record.sector === selectedSector);
+      if (selectedSector === "all") return records;
+      return records.filter(record => record.sector === selectedSector);
     };
 
     // Filtrar por data também
@@ -98,19 +100,23 @@ export default function Dashboard() {
     // Período anterior para comparação
     const prevSalesKG = previousPeriodData.sales.filter(r => {
       const prod = productMap.get(r.product_name);
-      return prod?.unit === 'kilo' && (!selectedSector || r.sector === selectedSector);
+      const sectorMatch = selectedSector === "all" || r.sector === selectedSector;
+      return prod?.unit === 'kilo' && sectorMatch;
     });
     const prevSalesUN = previousPeriodData.sales.filter(r => {
       const prod = productMap.get(r.product_name);
-      return prod?.unit !== 'kilo' && (!selectedSector || r.sector === selectedSector);
+      const sectorMatch = selectedSector === "all" || r.sector === selectedSector;
+      return prod?.unit !== 'kilo' && sectorMatch;
     });
     const prevLossesKG = previousPeriodData.losses.filter(r => {
       const prod = productMap.get(r.product_name);
-      return prod?.unit === 'kilo' && (!selectedSector || r.sector === selectedSector);
+      const sectorMatch = selectedSector === "all" || r.sector === selectedSector;
+      return prod?.unit === 'kilo' && sectorMatch;
     });
     const prevLossesUN = previousPeriodData.losses.filter(r => {
       const prod = productMap.get(r.product_name);
-      return prod?.unit !== 'kilo' && (!selectedSector || r.sector === selectedSector);
+      const sectorMatch = selectedSector === "all" || r.sector === selectedSector;
+      return prod?.unit !== 'kilo' && sectorMatch;
     });
 
     const prevTotalSalesKG = prevSalesKG.reduce((sum, r) => sum + (r.quantity || 0), 0);
@@ -136,7 +142,8 @@ export default function Dashboard() {
           const prod = productMap.get(r.product_name);
           const matchUnit = isKG ? prod?.unit === 'kilo' : prod?.unit !== 'kilo';
           const recordDate = new Date(r.date);
-          return matchUnit && recordDate >= weekStart && recordDate <= weekEnd && (!selectedSector || r.sector === selectedSector);
+          const sectorMatch = selectedSector === "all" || r.sector === selectedSector;
+          return matchUnit && recordDate >= weekStart && recordDate <= weekEnd && sectorMatch;
         });
         weeks.push({ value: weekData.reduce((sum, r) => sum + (r.quantity || 0), 0) });
       }
@@ -180,7 +187,12 @@ export default function Dashboard() {
           <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
           <p className="text-sm text-slate-500 mt-1">Visão geral da operação</p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-3 items-center">
+      </div>
+
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <WeekNavigator currentDate={currentDate} onDateChange={setCurrentDate} />
+        
+        <div className="flex items-center gap-3">
           <SQLDataProvider 
             startDate={dateRange.from ? format(dateRange.from, 'yyyy-MM-dd') : null}
             endDate={dateRange.to ? format(dateRange.to, 'yyyy-MM-dd') : null}
@@ -191,21 +203,22 @@ export default function Dashboard() {
             endDate={previousDateRange.to ? format(previousDateRange.to, 'yyyy-MM-dd') : null}
             onDataLoaded={setPreviousPeriodData}
           />
-          <Select value={weeksBack.toString()} onValueChange={(v) => setWeeksBack(parseInt(v))}>
+          <Select value={selectedSector} onValueChange={setSelectedSector}>
             <SelectTrigger className="w-40">
-              <SelectValue />
+              <SelectValue placeholder="Setor" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="1">1 Semana</SelectItem>
-              <SelectItem value="4">4 Semanas</SelectItem>
-              <SelectItem value="8">8 Semanas</SelectItem>
-              <SelectItem value="13">13 Semanas</SelectItem>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="Padaria">Padaria</SelectItem>
+              <SelectItem value="Confeitaria">Confeitaria</SelectItem>
+              <SelectItem value="Salgados">Salgados</SelectItem>
+              <SelectItem value="Minimercado">Minimercado</SelectItem>
+              <SelectItem value="Restaurante">Restaurante</SelectItem>
+              <SelectItem value="Frios">Frios</SelectItem>
             </SelectContent>
           </Select>
         </div>
       </div>
-
-      <SectorFilter selectedSector={selectedSector} setSelectedSector={setSelectedSector} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* KPIs Unidades */}
@@ -341,7 +354,7 @@ export default function Dashboard() {
       <TopProductsBySector 
         salesData={filteredData.sales} 
         lossData={filteredData.losses}
-        selectedSector={selectedSector}
+        selectedSector={selectedSector === "all" ? null : selectedSector}
       />
 
       <AssertivityVsSalesChart 
