@@ -284,6 +284,7 @@ export default function ProductMapper({
             Cancelar
           </Button>
           <Button 
+            variant="outline"
             onClick={handleConfirm}
             disabled={unmatchedProducts.filter(p => !removedProducts.has(p.name)).some(p => !getDecision(p.name))}
           >
