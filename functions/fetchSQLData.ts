@@ -18,8 +18,16 @@ Deno.serve(async (req) => {
         const sql = neon(DATABASE_URL);
 
         // Query na view vw_movimentacoes
+        // Busca codigo_produto se existir na view para melhor mapeamento
         let query = `
-            SELECT data, semana, mes, produto, setor, quantidade, valor, tipo
+            SELECT data, semana, mes, produto, setor, quantidade, valor, tipo,
+                   CASE 
+                       WHEN EXISTS (SELECT 1 FROM information_schema.columns 
+                                   WHERE table_name = 'vw_movimentacoes' 
+                                   AND column_name = 'codigo_produto') 
+                       THEN codigo_produto 
+                       ELSE NULL 
+                   END as codigo_produto
             FROM vw_movimentacoes
             WHERE 1=1
         `;
@@ -43,6 +51,7 @@ Deno.serve(async (req) => {
 
             for (const row of results) {
                 const record = {
+                    product_code: row.codigo_produto || null,
                     product_name: row.produto,
                     sector: row.setor,
                     quantity: parseFloat(row.quantidade),

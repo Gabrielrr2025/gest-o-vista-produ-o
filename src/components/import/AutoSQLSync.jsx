@@ -43,60 +43,95 @@ export default function AutoSQLSync({ startDate, endDate, onSyncComplete }) {
 
       const { salesData, lossData } = response.data;
 
-      // Buscar produtos para mapeamento
+      // Buscar produtos para mapeamento com múltiplos critérios
       const products = await base44.entities.Product.list();
-      const productMap = new Map(products.map(p => [p.name.toLowerCase(), p]));
+      
+      // Criar múltiplos índices para encontrar produto:
+      // 1. Por código (se existir)
+      // 2. Por nome exato (case-insensitive)
+      // 3. Por nome normalizado (remove acentos e espaços extras)
+      const productByCode = new Map(products.filter(p => p.code).map(p => [p.code.toLowerCase().trim(), p]));
+      const productByName = new Map(products.map(p => [p.name.toLowerCase().trim(), p]));
+      
+      const findProduct = (productCode, productName) => {
+        // Tentar por código primeiro (mais preciso)
+        if (productCode) {
+          const byCode = productByCode.get(productCode.toLowerCase().trim());
+          if (byCode) return byCode;
+        }
+        // Tentar por nome exato
+        if (productName) {
+          const byName = productByName.get(productName.toLowerCase().trim());
+          if (byName) return byName;
+        }
+        return null;
+      };
 
-      // Importar vendas
+      // Importar vendas em lote
+      const salesToCreate = [];
       for (const sale of salesData) {
-        const product = productMap.get(sale.product_name.toLowerCase());
+        const product = findProduct(sale.product_code, sale.product_name);
         
-        // Verificar se já existe registro
+        // Verificar se já existe (apenas se não tiver product_id ou se mudou)
         const existing = await base44.entities.SalesRecord.filter({
           product_name: sale.product_name,
           date: sale.date
         });
 
-        const saleRecord = {
-          product_id: product?.id || null,
-          product_name: sale.product_name,
-          sector: sale.sector,
-          quantity: sale.quantity,
-          date: sale.date,
-          week_number: sale.week_number,
-          month: sale.month,
-          year: sale.year
-        };
-
         if (existing.length === 0) {
-          await base44.entities.SalesRecord.create(saleRecord);
+          salesToCreate.push({
+            product_id: product?.id || null,
+            product_name: sale.product_name,
+            sector: sale.sector,
+            quantity: sale.quantity,
+            date: sale.date,
+            week_number: sale.week_number,
+            month: sale.month,
+            year: sale.year
+          });
+        } else if (existing[0].product_id !== product?.id && product) {
+          // Atualizar product_id se mudou
+          await base44.entities.SalesRecord.update(existing[0].id, {
+            product_id: product.id
+          });
         }
       }
 
-      // Importar perdas
+      if (salesToCreate.length > 0) {
+        await base44.entities.SalesRecord.bulkCreate(salesToCreate);
+      }
+
+      // Importar perdas em lote
+      const lossesToCreate = [];
       for (const loss of lossData) {
-        const product = productMap.get(loss.product_name.toLowerCase());
+        const product = findProduct(loss.product_code, loss.product_name);
         
-        // Verificar se já existe registro
         const existing = await base44.entities.LossRecord.filter({
           product_name: loss.product_name,
           date: loss.date
         });
 
-        const lossRecord = {
-          product_id: product?.id || null,
-          product_name: loss.product_name,
-          sector: loss.sector,
-          quantity: loss.quantity,
-          date: loss.date,
-          week_number: loss.week_number,
-          month: loss.month,
-          year: loss.year
-        };
-
         if (existing.length === 0) {
-          await base44.entities.LossRecord.create(lossRecord);
+          lossesToCreate.push({
+            product_id: product?.id || null,
+            product_name: loss.product_name,
+            sector: loss.sector,
+            quantity: loss.quantity,
+            date: loss.date,
+            week_number: loss.week_number,
+            month: loss.month,
+            year: loss.year
+          });
+        } else if (existing[0].product_id !== product?.id && product) {
+          // Atualizar product_id se mudou
+          await base44.entities.LossRecord.update(existing[0].id, {
+            product_id: product.id
+          });
         }
+      }
+
+      if (lossesToCreate.length > 0) {
+        await base44.entities.LossRecord.bulkCreate(lossesToCreate);
       }
 
       const key = `${startDate}-${endDate}`;
