@@ -59,8 +59,6 @@ Deno.serve(async (req) => {
                 }
             }
 
-            await sql.end();
-
             return Response.json({
                 success: true,
                 salesData,
