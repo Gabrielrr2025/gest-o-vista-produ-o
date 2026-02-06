@@ -46,7 +46,7 @@ export default function Products() {
           <p className="text-sm text-slate-500 mt-1">Gerencie o catálogo de produtos por setor</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button onClick={() => setShowAddDialog(true)} className="bg-[hsl(var(--accent-primary))] hover:bg-[hsl(var(--accent-primary-hover))] text-white">
+          <Button variant="outline" onClick={() => setShowAddDialog(true)}>
             <Plus className="w-4 h-4 mr-2" />
             Adicionar Produto
           </Button>
