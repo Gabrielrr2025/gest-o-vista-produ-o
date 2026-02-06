@@ -12,6 +12,7 @@ import TopProductsBySector from "../components/dashboard/TopProductsBySector";
 import AssertivityVsSalesChart from "../components/dashboard/AssertivityVsSalesChart";
 import MiniSparkline from "../components/dashboard/MiniSparkline";
 import WeekNavigator, { getWeekBounds } from "../components/dashboard/WeekNavigator";
+import TopSellingProducts from "../components/dashboard/TopSellingProducts";
 
 export default function Dashboard() {
   const [currentDate, setCurrentDate] = useState(new Date());
