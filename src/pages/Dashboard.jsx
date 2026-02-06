@@ -15,6 +15,7 @@ import WeekNavigator, { getWeekBounds } from "../components/dashboard/WeekNaviga
 import TopSellingProducts from "../components/dashboard/TopSellingProducts";
 import LossAnalysis from "../components/dashboard/LossAnalysis";
 import WeekAlerts from "../components/dashboard/WeekAlerts";
+import ProductTrendChart from "../components/dashboard/ProductTrendChart";
 
 export default function Dashboard() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -262,6 +263,14 @@ export default function Dashboard() {
         productionData={filteredData.production}
         productMap={productMap}
         dateRange={dateRange}
+      />
+
+      <ProductTrendChart 
+        salesData={sqlData.sales}
+        lossData={sqlData.losses}
+        productMap={productMap}
+        selectedSector={selectedSector}
+        currentDate={currentDate}
       />
     </div>
   );
