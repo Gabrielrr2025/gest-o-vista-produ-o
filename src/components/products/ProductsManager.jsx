@@ -128,6 +128,23 @@ export default function ProductsManager({ products, onRefresh }) {
     }
   };
 
+  const toggleProductionDay = async (product, dayIndex) => {
+    try {
+      const dayNames = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+      const dayName = dayNames[dayIndex];
+      const currentDays = product.production_days || [];
+      
+      const newDays = currentDays.includes(dayName)
+        ? currentDays.filter(d => d !== dayName)
+        : [...currentDays, dayName];
+      
+      await base44.entities.Product.update(product.id, { production_days: newDays });
+      onRefresh?.();
+    } catch (error) {
+      toast.error("Erro ao atualizar dias de produção");
+    }
+  };
+
   const handleDeleteClick = (product) => {
     setProductToDelete(product);
     setDeleteDialog(true);
@@ -231,16 +248,17 @@ export default function ProductsManager({ products, onRefresh }) {
                     <TableCell className="text-center">
                       <div className="flex items-center justify-center gap-1">
                         {WEEK_DAYS_SHORT.map((day, idx) => (
-                          <div
+                          <button
                             key={idx}
-                            className={`w-6 h-6 rounded flex items-center justify-center text-xs font-medium ${
+                            onClick={() => toggleProductionDay(product, idx)}
+                            className={`w-6 h-6 rounded flex items-center justify-center text-xs font-medium cursor-pointer transition-all hover:scale-110 ${
                               productionDaysIndices.includes(idx)
-                                ? "bg-slate-700 text-white"
-                                : "bg-slate-200 text-slate-400"
+                                ? "bg-slate-700 text-white hover:bg-slate-600"
+                                : "bg-slate-200 text-slate-400 hover:bg-slate-300"
                             }`}
                           >
                             {day}
-                          </div>
+                          </button>
                         ))}
                       </div>
                     </TableCell>
