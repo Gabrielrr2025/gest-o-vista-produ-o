@@ -20,20 +20,9 @@ export default function Dashboard() {
   });
   const [selectedSector, setSelectedSector] = useState(null);
 
-  const { data: salesRecords = [] } = useQuery({
-    queryKey: ['salesRecords'],
-    queryFn: () => base44.entities.SalesRecord.list()
-  });
-
-  const { data: lossRecords = [] } = useQuery({
-    queryKey: ['lossRecords'],
-    queryFn: () => base44.entities.LossRecord.list()
-  });
-
-  const { data: productionRecords = [] } = useQuery({
-    queryKey: ['productionRecords'],
-    queryFn: () => base44.entities.ProductionRecord.list()
-  });
+  const salesRecords = salesQuery.data || [];
+  const lossRecords = lossQuery.data || [];
+  const productionRecords = productionQuery.data || [];
 
   const filteredData = useMemo(() => {
     const filterByDateAndSector = (records) => {
@@ -82,6 +71,23 @@ export default function Dashboard() {
     };
   }, [filteredData]);
 
+  const queryClient = useQueryClient();
+  
+  const salesQuery = useQuery({
+    queryKey: ['salesRecords'],
+    queryFn: () => base44.entities.SalesRecord.list()
+  });
+  
+  const lossQuery = useQuery({
+    queryKey: ['lossRecords'],
+    queryFn: () => base44.entities.LossRecord.list()
+  });
+  
+  const productionQuery = useQuery({
+    queryKey: ['productionRecords'],
+    queryFn: () => base44.entities.ProductionRecord.list()
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -89,7 +95,16 @@ export default function Dashboard() {
           <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
           <p className="text-sm text-slate-500 mt-1">Visão geral da operação</p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex flex-col sm:flex-row gap-3 items-center">
+          <AutoSQLSync 
+            startDate={dateRange.from ? format(dateRange.from, 'yyyy-MM-dd') : null}
+            endDate={dateRange.to ? format(dateRange.to, 'yyyy-MM-dd') : null}
+            onSyncComplete={() => {
+              salesQuery.refetch();
+              lossQuery.refetch();
+              productionQuery.refetch();
+            }}
+          />
           <DateRangePicker dateRange={dateRange} setDateRange={setDateRange} />
         </div>
       </div>

@@ -10,6 +10,7 @@ import { subDays, isWithinInterval, parseISO, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import DateRangePicker from "../components/common/DateRangePicker";
 import SectorBadge from "../components/common/SectorBadge";
+import AutoSQLSync from "../components/import/AutoSQLSync";
 
 export default function Reports() {
   const [dateRange, setDateRange] = useState({
@@ -19,20 +20,7 @@ export default function Reports() {
   const [selectedSector, setSelectedSector] = useState(null);
   const [reportType, setReportType] = useState("resumo");
 
-  const { data: salesRecords = [] } = useQuery({
-    queryKey: ['salesRecords'],
-    queryFn: () => base44.entities.SalesRecord.list()
-  });
 
-  const { data: lossRecords = [] } = useQuery({
-    queryKey: ['lossRecords'],
-    queryFn: () => base44.entities.LossRecord.list()
-  });
-
-  const { data: productionRecords = [] } = useQuery({
-    queryKey: ['productionRecords'],
-    queryFn: () => base44.entities.ProductionRecord.list()
-  });
 
   const filteredData = useMemo(() => {
     const filterByDateAndSector = (records) => {
@@ -114,11 +102,41 @@ export default function Reports() {
     return { totalSales, totalLosses, lossRate, avgAssertivity, sectorPerformance, topProducts };
   }, [filteredData]);
 
+  const salesQuery = useQuery({
+    queryKey: ['salesRecords'],
+    queryFn: () => base44.entities.SalesRecord.list()
+  });
+
+  const lossQuery = useQuery({
+    queryKey: ['lossRecords'],
+    queryFn: () => base44.entities.LossRecord.list()
+  });
+
+  const productionQuery = useQuery({
+    queryKey: ['productionRecords'],
+    queryFn: () => base44.entities.ProductionRecord.list()
+  });
+
+  const salesRecords = salesQuery.data || [];
+  const lossRecords = lossQuery.data || [];
+  const productionRecords = productionQuery.data || [];
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Relatórios</h1>
-        <p className="text-sm text-slate-500 mt-1">Análise de desempenho e métricas</p>
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Relatórios</h1>
+          <p className="text-sm text-slate-500 mt-1">Análise de desempenho e métricas</p>
+        </div>
+        <AutoSQLSync 
+          startDate={dateRange.from ? format(dateRange.from, 'yyyy-MM-dd') : null}
+          endDate={dateRange.to ? format(dateRange.to, 'yyyy-MM-dd') : null}
+          onSyncComplete={() => {
+            salesQuery.refetch();
+            lossQuery.refetch();
+            productionQuery.refetch();
+          }}
+        />
       </div>
 
       {/* Filtros */}

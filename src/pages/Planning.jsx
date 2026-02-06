@@ -11,6 +11,7 @@ import { startOfWeek, endOfWeek, format, addWeeks, subWeeks, getWeek, getYear, e
 import { ptBR } from "date-fns/locale";
 import SectorBadge from "../components/common/SectorBadge";
 import { toast } from "sonner";
+import AutoSQLSync from "../components/import/AutoSQLSync";
 
 const DIAS_SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
@@ -29,15 +30,7 @@ export default function Planning() {
     queryFn: () => base44.entities.Product.list()
   });
 
-  const { data: salesRecords = [] } = useQuery({
-    queryKey: ['salesRecords'],
-    queryFn: () => base44.entities.SalesRecord.list()
-  });
 
-  const { data: lossRecords = [] } = useQuery({
-    queryKey: ['lossRecords'],
-    queryFn: () => base44.entities.LossRecord.list()
-  });
 
   const { data: calendarEvents = [] } = useQuery({
     queryKey: ['calendarEvents'],
@@ -239,12 +232,35 @@ export default function Planning() {
     link.click();
   };
 
+  const salesQuery = useQuery({
+    queryKey: ['salesRecords'],
+    queryFn: () => base44.entities.SalesRecord.list()
+  });
+
+  const lossQuery = useQuery({
+    queryKey: ['lossRecords'],
+    queryFn: () => base44.entities.LossRecord.list()
+  });
+
+  const salesRecords = salesQuery.data || [];
+  const lossRecords = lossQuery.data || [];
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Planejamento de Produção</h1>
-          <p className="text-sm text-slate-500 mt-1">Planeje a produção semanal por produto</p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">Planejamento de Produção</h1>
+            <p className="text-sm text-slate-500 mt-1">Planeje a produção semanal por produto</p>
+          </div>
+          <AutoSQLSync 
+            startDate={format(subWeeks(currentWeekStart, 4), 'yyyy-MM-dd')}
+            endDate={format(weekEnd, 'yyyy-MM-dd')}
+            onSyncComplete={() => {
+              salesQuery.refetch();
+              lossQuery.refetch();
+            }}
+          />
         </div>
         
         <div className="flex items-center gap-3">
