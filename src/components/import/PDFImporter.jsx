@@ -497,7 +497,7 @@ export default function PDFImporter({ products, onImportComplete }) {
             >
               Substituir
             </Button>
-            <Button onClick={() => performImport("sum")}>
+            <Button variant="outline" onClick={() => performImport("sum")}>
               Somar Quantidades
             </Button>
           </DialogFooter>

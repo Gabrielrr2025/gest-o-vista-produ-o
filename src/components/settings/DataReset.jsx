@@ -185,10 +185,10 @@ export default function DataReset({ onComplete }) {
                   Cancelar
                 </Button>
                 <Button 
-                  variant="destructive"
+                  variant="outline"
                   onClick={handleReset}
                   disabled={loading || confirmText !== "EXCLUIR TUDO"}
-                  className="bg-red-600 hover:bg-red-700"
+                  className="text-red-600 hover:text-red-700"
                 >
                   {loading ? (
                     <>

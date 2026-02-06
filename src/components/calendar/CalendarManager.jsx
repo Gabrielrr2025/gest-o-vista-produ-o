@@ -304,7 +304,7 @@ export default function CalendarManager({ events, onRefresh }) {
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleSave}>
+            <Button variant="outline" onClick={handleSave}>
               {editingEvent ? "Salvar" : "Criar Evento"}
             </Button>
           </DialogFooter>
