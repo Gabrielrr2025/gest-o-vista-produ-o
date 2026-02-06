@@ -13,7 +13,7 @@ import { base44 } from "@/api/base44Client";
 import SectorBadge, { SECTORS } from "../common/SectorBadge";
 import { toast } from "sonner";
 
-export default function ProductsManager({ products, onRefresh, showAddButton = false }) {
+export default function ProductsManager({ products, onRefresh, showAddButton = false, externalDialogOpen, setExternalDialogOpen }) {
   const [search, setSearch] = useState("");
   const [filterSector, setFilterSector] = useState("all");
   const [sortBy, setSortBy] = useState("name");
@@ -71,8 +71,21 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
         active: true
       });
     }
-    setDialogOpen(true);
+    if (setExternalDialogOpen) {
+      setExternalDialogOpen(true);
+    } else {
+      setDialogOpen(true);
+    }
   };
+
+  React.useEffect(() => {
+    if (externalDialogOpen !== undefined) {
+      setDialogOpen(externalDialogOpen);
+      if (externalDialogOpen === false) {
+        setEditingProduct(null);
+      }
+    }
+  }, [externalDialogOpen]);
 
   const handleSave = async () => {
     if (!formData.name.trim()) {
@@ -112,7 +125,11 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
         await base44.entities.Product.create(formData);
         toast.success("Produto criado");
       }
-      setDialogOpen(false);
+      if (setExternalDialogOpen) {
+        setExternalDialogOpen(false);
+      } else {
+        setDialogOpen(false);
+      }
       onRefresh?.();
     } catch (error) {
       toast.error("Erro ao salvar produto");
@@ -309,7 +326,13 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
         </div>
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={(open) => {
+        if (setExternalDialogOpen) {
+          setExternalDialogOpen(open);
+        } else {
+          setDialogOpen(open);
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
@@ -420,7 +443,7 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button variant="outline" onClick={handleSave}>
+            <Button onClick={handleSave}>
               {editingProduct ? "Salvar" : "Criar"}
             </Button>
           </DialogFooter>

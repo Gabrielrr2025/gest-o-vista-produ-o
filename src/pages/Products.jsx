@@ -63,7 +63,8 @@ export default function Products() {
 
       <ProductsManager 
         products={products} 
-        onRefresh={handleRefresh} 
+        onRefresh={handleRefresh}
+        showAddButton={false}
         externalDialogOpen={showAddDialog}
         setExternalDialogOpen={setShowAddDialog}
       />
