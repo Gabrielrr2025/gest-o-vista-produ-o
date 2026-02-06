@@ -129,19 +129,25 @@ export default function ProductsManager({ products, onRefresh }) {
   };
 
   const toggleProductionDay = async (product, dayIndex) => {
+    const dayNames = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+    const dayName = dayNames[dayIndex];
+    const currentDays = product.production_days || [];
+    
+    const newDays = currentDays.includes(dayName)
+      ? currentDays.filter(d => d !== dayName)
+      : [...currentDays, dayName];
+    
+    // Atualização otimista - atualiza UI imediatamente
+    const optimisticProducts = products.map(p => 
+      p.id === product.id ? { ...p, production_days: newDays } : p
+    );
+    
     try {
-      const dayNames = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
-      const dayName = dayNames[dayIndex];
-      const currentDays = product.production_days || [];
-      
-      const newDays = currentDays.includes(dayName)
-        ? currentDays.filter(d => d !== dayName)
-        : [...currentDays, dayName];
-      
       await base44.entities.Product.update(product.id, { production_days: newDays });
       onRefresh?.();
     } catch (error) {
       toast.error("Erro ao atualizar dias de produção");
+      onRefresh?.(); // Reverte para o estado correto
     }
   };
 
