@@ -440,10 +440,16 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+            <Button variant="outline" onClick={() => {
+              if (setExternalDialogOpen) {
+                setExternalDialogOpen(false);
+              } else {
+                setDialogOpen(false);
+              }
+            }}>
               Cancelar
             </Button>
-            <Button onClick={handleSave}>
+            <Button variant="outline" onClick={handleSave}>
               {editingProduct ? "Salvar" : "Criar"}
             </Button>
           </DialogFooter>
