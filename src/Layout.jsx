@@ -13,14 +13,13 @@ import {
   X,
   ChefHat,
   History,
-  Settings,
-  Moon,
-  Sun
+  Settings
 } from "lucide-react";
 
 const navigation = [
   { name: "Dashboard", page: "Dashboard", icon: LayoutDashboard },
   { name: "Produtos", page: "Products", icon: Package },
+  { name: "Planejamento", page: "Planning", icon: ClipboardList },
   { name: "Calendário", page: "Calendar", icon: CalendarDays },
   { name: "Relatórios", page: "Reports", icon: FileSpreadsheet },
   { name: "Histórico", page: "History", icon: History },
@@ -30,19 +29,7 @@ const navigation = [
 
 export default function Layout({ children, currentPageName }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(() => {
-    const saved = localStorage.getItem('darkMode');
-    return saved === 'true';
-  });
 
-  useEffect(() => {
-    localStorage.setItem('darkMode', darkMode);
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [darkMode]);
 
   return (
     <div className="min-h-screen bg-[hsl(var(--bg-primary))] transition-colors duration-200">
@@ -54,19 +41,9 @@ export default function Layout({ children, currentPageName }) {
           </div>
           <span className="font-bold text-[hsl(var(--text-primary))]">Gestão à Vista</span>
         </div>
-        <div className="flex items-center gap-2">
-          <Button 
-            variant="ghost" 
-            size="icon"
-            onClick={() => setDarkMode(!darkMode)}
-            className="text-[hsl(var(--text-secondary))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-secondary))]"
-          >
-            {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-          </Button>
-          <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(!sidebarOpen)}>
-            {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </Button>
-        </div>
+        <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(!sidebarOpen)}>
+          {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+        </Button>
       </div>
 
       {/* Mobile Sidebar Overlay */}
@@ -121,27 +98,7 @@ export default function Layout({ children, currentPageName }) {
             })}
           </nav>
 
-          {/* Footer */}
-          <div className="p-4 border-t border-[hsl(var(--border-light))]">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setDarkMode(!darkMode)}
-              className="w-full border-[hsl(var(--border-medium))] hover:bg-[hsl(var(--bg-secondary))]"
-            >
-              {darkMode ? (
-                <>
-                  <Sun className="w-4 h-4 mr-2" />
-                  Modo Claro
-                </>
-              ) : (
-                <>
-                  <Moon className="w-4 h-4 mr-2" />
-                  Modo Escuro
-                </>
-              )}
-            </Button>
-          </div>
+
         </div>
       </aside>
 
