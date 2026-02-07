@@ -164,9 +164,13 @@ export default function Planning() {
   const isCurrentWeek = format(currentWeekStart, 'yyyy-MM-dd') === format(startOfWeek(today, { weekStartsOn: 0 }), 'yyyy-MM-dd');
 
   const handleQuantityChange = (productId, dayIndex, value) => {
+    // Validação: apenas números inteiros positivos
+    const numValue = value === '' ? 0 : parseInt(value);
+    if (isNaN(numValue) || numValue < 0) return;
+
     setPlannedQuantities(prev => ({
       ...prev,
-      [`${productId}-${dayIndex}`]: parseInt(value) || 0
+      [`${productId}-${dayIndex}`]: numValue
     }));
 
     // Auto-save após 2 segundos
@@ -177,6 +181,7 @@ export default function Planning() {
     saveTimeoutRef.current = setTimeout(() => {
       setSaveStatus('saved');
       setLastUpdate(new Date());
+      toast.success("✓ Planejamento salvo");
     }, 2000);
   };
 
@@ -269,9 +274,9 @@ export default function Planning() {
       }
       
       doc.save(`planejamento_semana${weekNumber}_${year}.pdf`);
-      toast.success("PDF exportado com sucesso!");
+      toast.success("✓ PDF exportado com sucesso!");
     } catch (error) {
-      toast.error("Erro ao exportar PDF");
+      toast.error("✗ Erro ao exportar. Tente novamente");
       console.error(error);
     }
   };
@@ -279,7 +284,10 @@ export default function Planning() {
   const handleRecalculate = () => {
     setPlannedQuantities({});
     setLastUpdate(new Date());
-    toast.success("Valores recalculados");
+    toast.success("⟳ Recalculando sugestões...", { duration: 1500 });
+    setTimeout(() => {
+      toast.success("✓ Valores recalculados");
+    }, 1500);
   };
 
   const handleProductClick = (item) => {
@@ -516,7 +524,17 @@ export default function Planning() {
                   <Button 
                     variant="outline" 
                     size="icon" 
-                    onClick={() => setCurrentWeekStart(subWeeks(currentWeekStart, 1))}
+                    onClick={() => {
+                      const prevWeek = subWeeks(currentWeekStart, 1);
+                      const today = new Date();
+                      const todayWeekStart = startOfWeek(today, { weekStartsOn: 0 });
+                      
+                      if (prevWeek < todayWeekStart) {
+                        toast.error("⚠️ Não é possível editar semanas passadas");
+                        return;
+                      }
+                      setCurrentWeekStart(prevWeek);
+                    }}
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </Button>
@@ -621,8 +639,9 @@ export default function Planning() {
                         return (
                           <TableCell key={idx} className="text-center p-1">
                             <Input
-                              type="number"
-                              min="0"
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
                               value={plannedQuantities[`${item.product.id}-${idx}`] ?? qty}
                               onChange={(e) => handleQuantityChange(item.product.id, idx, e.target.value)}
                               onClick={(e) => e.stopPropagation()}
@@ -634,7 +653,7 @@ export default function Planning() {
                       })}
                       <TableCell className="text-center font-bold">
                         <div className="flex flex-col items-center">
-                          <span>{totalPlanned}</span>
+                          <span>{totalPlanned} {item.product.unit?.toUpperCase()}</span>
                           {diff !== 0 && (
                             <span className={`text-xs ${diff > 0 ? 'text-green-600' : 'text-red-600'}`}>
                               {diff > 0 ? '+' : ''}{diff}
