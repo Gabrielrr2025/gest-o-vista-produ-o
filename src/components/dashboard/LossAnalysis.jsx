@@ -1,8 +1,7 @@
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertTriangle, TrendingDown } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { AlertTriangle, AlertCircle } from "lucide-react";
 
 export default function LossAnalysis({ salesData, lossData, historicalLossData, productMap }) {
   const lossAnalysis = useMemo(() => {
