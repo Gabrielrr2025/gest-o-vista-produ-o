@@ -257,6 +257,28 @@ export default function Planning() {
     setSelectedProduct(null);
   };
 
+  const handleApplySuggestion = () => {
+    if (!selectedProduct || !productAnalysis) return;
+
+    const productionDays = selectedProduct.product.production_days || [];
+    const dayNames = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+
+    // Aplicar a produção diária sugerida nos dias de produção
+    weekDays.forEach((day, idx) => {
+      const dayOfWeek = day.getDay();
+      const dayName = dayNames[dayOfWeek];
+      
+      if (productionDays.includes(dayName)) {
+        setPlannedQuantities(prev => ({
+          ...prev,
+          [`${selectedProduct.product.id}-${idx}`]: productAnalysis.dailyProduction
+        }));
+      }
+    });
+
+    toast.success("Sugestão aplicada ao planejamento");
+  };
+
   // Análise do produto selecionado
   const productAnalysis = useMemo(() => {
     if (!selectedProduct) return null;
@@ -335,13 +357,52 @@ export default function Planning() {
     const salesTrend = salesTrendChange > 10 ? 'growing' : salesTrendChange < -10 ? 'decreasing' : 'stable';
     const lossesTrend = lossesTrendChange > 10 ? 'growing' : lossesTrendChange < -10 ? 'decreasing' : 'stable';
 
-    // Sugestão
-    let suggestion = 'Manter produção';
-    if (salesTrend === 'growing' && currentLossRate < 15) {
-      suggestion = 'Aumentar produção';
-    } else if (salesTrend === 'decreasing' || currentLossRate > 20) {
-      suggestion = 'Reduzir produção';
+    // ========== CÁLCULO DA SUGESTÃO DE PRODUÇÃO ==========
+    
+    // Verificar se há evento ou feriado na semana
+    const weekEvents = calendarEvents.filter(event => {
+      const eventDate = parseISO(event.date);
+      return eventDate >= currentWeekStart && eventDate <= weekEnd &&
+             (event.sector === "Todos" || event.sector === selectedProduct.product.sector);
+    });
+    const hasEvent = weekEvents.length > 0;
+
+    let suggestedProduction = 0;
+    let suggestion = '';
+
+    // CENÁRIO 1: Perda aumentou e venda não aumentou
+    if (currentLosses > avgLosses && currentSales <= avgSales) {
+      suggestedProduction = avgSales + avgLosses;
+      suggestion = 'Manter produção';
     }
+    // CENÁRIO 2: Venda subiu e perda subiu
+    else if (currentSales > avgSales && currentLosses > avgLosses) {
+      suggestedProduction = avgSales + avgLosses;
+      suggestion = 'Manter produção';
+    }
+    // CENÁRIO 3: Venda subiu e perda caiu
+    else if (currentSales > avgSales && currentLosses <= avgLosses) {
+      suggestedProduction = avgSales + (avgSales * 0.10) + avgLosses;
+      suggestion = 'Aumentar produção';
+    }
+    // CENÁRIO 4: Demais casos (venda e perda estáveis ou caindo)
+    else {
+      suggestedProduction = avgSales + avgLosses;
+      suggestion = 'Manter ou reduzir produção';
+    }
+
+    // AJUSTE POR TIPO DE SEMANA
+    if (hasEvent) {
+      suggestedProduction = suggestedProduction * 1.30; // +30%
+      suggestion = suggestion + ' (ajustado +30% por evento)';
+    }
+
+    suggestedProduction = Math.round(suggestedProduction);
+
+    // DISTRIBUIÇÃO NOS DIAS
+    const productionDays = selectedProduct.product.production_days || [];
+    const daysCount = productionDays.length;
+    const dailyProduction = daysCount > 0 ? Math.ceil(suggestedProduction / daysCount) : 0;
 
     return {
       currentSales: Math.round(currentSales),
@@ -354,9 +415,11 @@ export default function Planning() {
       lossesChange: lossesChange.toFixed(1),
       salesTrend,
       lossesTrend,
-      suggestion
+      suggestion,
+      suggestedProduction,
+      dailyProduction
     };
-  }, [selectedProduct, salesRecords, lossRecords, weekNumber, year, currentWeekStart]);
+  }, [selectedProduct, salesRecords, lossRecords, weekNumber, year, currentWeekStart, calendarEvents, weekEnd]);
 
   const handleExport = () => {
     const headers = ["Produto", "Setor", "Rend.", "Média/dia", ...DIAS_SEMANA, "Total"];
@@ -727,15 +790,27 @@ export default function Planning() {
                   <div className="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
                     <div className="flex items-start gap-2">
                       <Lightbulb className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <span className="text-xs font-semibold text-blue-700 block">
-                          Sugestão
+                      <div className="flex-1">
+                        <span className="text-xs font-semibold text-blue-700 block mb-1">
+                          Sugestão de Produção
                         </span>
-                        <span className="text-sm font-medium text-blue-900">
+                        <span className="text-sm font-medium text-blue-900 block mb-1">
                           {productAnalysis.suggestion}
                         </span>
+                        <div className="text-xs text-blue-700 space-y-0.5">
+                          <div>Total semanal: <span className="font-bold">{productAnalysis.suggestedProduction} UN</span></div>
+                          <div>Por dia de produção: <span className="font-bold">{productAnalysis.dailyProduction} UN</span></div>
+                        </div>
                       </div>
                     </div>
+                    <Button 
+                      size="sm" 
+                      className="w-full mt-2 bg-blue-600 hover:bg-blue-700"
+                      onClick={handleApplySuggestion}
+                      disabled={isWeekInPast || isCurrentWeek}
+                    >
+                      Aplicar Sugestão
+                    </Button>
                   </div>
                 </div>
 
