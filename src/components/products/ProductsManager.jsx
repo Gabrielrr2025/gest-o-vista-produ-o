@@ -307,15 +307,26 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
         </div>
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {editingProduct ? "Editar Produto" : "Novo Produto"}
-            </DialogTitle>
-          </DialogHeader>
-          
-          <div className="space-y-4">
+      {dialogOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="modal-container" style={{ maxWidth: "500px", maxHeight: "85vh", background: "white", borderRadius: "16px", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+            
+            <div className="modal-header" style={{ padding: "20px 24px", borderBottom: "1px solid #E5E7EB", flexShrink: 0 }}>
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-lg text-slate-900">
+                  {editingProduct ? "Editar Produto" : "Novo Produto"}
+                </h3>
+                <button
+                  onClick={() => setDialogOpen(false)}
+                  className="text-slate-500 hover:text-slate-700 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            
+            <div className="modal-body" style={{ padding: "24px", maxHeight: "calc(85vh - 140px)", overflowY: "auto", flex: 1 }}>
+              <div className="space-y-4">
             <div>
               <Label>Código do Produto (opcional)</Label>
               <Input
