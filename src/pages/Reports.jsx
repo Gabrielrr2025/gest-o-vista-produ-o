@@ -13,6 +13,9 @@ import SalesLossChart from "../components/reports/SalesLossChart";
 import LossRateChart from "../components/reports/LossRateChart";
 import RevenueChart from "../components/reports/RevenueChart";
 import SummaryTable from "../components/reports/SummaryTable";
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
+import * as XLSX from 'xlsx';
 
 export default function Reports() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -387,9 +390,15 @@ export default function Reports() {
 
         {/* ÁREA DE GRÁFICOS/CONTEÚDO */}
         <div className="lg:col-span-3 space-y-6">
-          <SalesLossChart data={chartData} />
-          <LossRateChart data={chartData} />
-          <RevenueChart data={chartData} products={products} />
+          <div id="sales-loss-chart">
+            <SalesLossChart data={chartData} />
+          </div>
+          <div id="loss-rate-chart">
+            <LossRateChart data={chartData} />
+          </div>
+          <div id="revenue-chart">
+            <RevenueChart data={chartData} products={products} />
+          </div>
           <SummaryTable data={chartData} products={products} />
         </div>
       </div>
