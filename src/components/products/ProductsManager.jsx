@@ -327,104 +327,103 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
             
             <div className="modal-body" style={{ padding: "24px", maxHeight: "calc(85vh - 140px)", overflowY: "auto", flex: 1 }}>
               <div className="space-y-4">
-            <div>
-              <Label>Código do Produto (opcional)</Label>
-              <Input
-                value={formData.code || ""}
-                onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                placeholder="Ex: PFRANCES01"
-              />
-              <p className="text-xs text-slate-500 mt-1">Código único para identificação</p>
-            </div>
+                <div>
+                  <Label>Código do Produto (opcional)</Label>
+                  <Input
+                    value={formData.code || ""}
+                    onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                    placeholder="Ex: PFRANCES01"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">Código único para identificação</p>
+                </div>
 
-            <div>
-              <Label>Nome do Produto</Label>
-              <Input
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Ex: Pão Francês"
-              />
-            </div>
+                <div>
+                  <Label>Nome do Produto</Label>
+                  <Input
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="Ex: Pão Francês"
+                  />
+                </div>
 
-            <div>
-              <Label>Setor</Label>
-              <Select 
-                value={formData.sector} 
-                onValueChange={(value) => setFormData({ ...formData, sector: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {SECTORS.map(sector => (
-                    <SelectItem key={sector} value={sector}>{sector}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                <div>
+                  <Label>Setor</Label>
+                  <Select 
+                    value={formData.sector} 
+                    onValueChange={(value) => setFormData({ ...formData, sector: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SECTORS.map(sector => (
+                        <SelectItem key={sector} value={sector}>{sector}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Rendimento da Receita</Label>
-                <Input
-                  type="number"
-                  min="0.1"
-                  step="0.1"
-                  value={formData.recipe_yield}
-                  onChange={(e) => setFormData({ ...formData, recipe_yield: parseFloat(e.target.value) || 1 })}
-                />
-              </div>
-              
-              <div>
-                <Label>Unidade</Label>
-                <Select 
-                  value={formData.unit} 
-                  onValueChange={(value) => setFormData({ ...formData, unit: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="unidade">Unidade</SelectItem>
-                    <SelectItem value="pacotes">Pacotes</SelectItem>
-                    <SelectItem value="kilo">Kilo</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div>
-              <Label>Dias de Produção</Label>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"].map(day => (
-                  <div key={day} className="flex items-center gap-1">
-                    <Checkbox
-                      checked={formData.production_days?.includes(day)}
-                      onCheckedChange={(checked) => {
-                        const days = formData.production_days || [];
-                        setFormData({
-                          ...formData,
-                          production_days: checked 
-                            ? [...days, day]
-                            : days.filter(d => d !== day)
-                        });
-                      }}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Rendimento da Receita</Label>
+                    <Input
+                      type="number"
+                      min="0.1"
+                      step="0.1"
+                      value={formData.recipe_yield}
+                      onChange={(e) => setFormData({ ...formData, recipe_yield: parseFloat(e.target.value) || 1 })}
                     />
-                    <span className="text-sm">{day.slice(0, 3)}</span>
                   </div>
-                ))}
+                  
+                  <div>
+                    <Label>Unidade</Label>
+                    <Select 
+                      value={formData.unit} 
+                      onValueChange={(value) => setFormData({ ...formData, unit: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unidade">Unidade</SelectItem>
+                        <SelectItem value="pacotes">Pacotes</SelectItem>
+                        <SelectItem value="kilo">Kilo</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div>
+                  <Label>Dias de Produção</Label>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"].map(day => (
+                      <div key={day} className="flex items-center gap-1">
+                        <Checkbox
+                          checked={formData.production_days?.includes(day)}
+                          onCheckedChange={(checked) => {
+                            const days = formData.production_days || [];
+                            setFormData({
+                              ...formData,
+                              production_days: checked 
+                                ? [...days, day]
+                                : days.filter(d => d !== day)
+                            });
+                          }}
+                        />
+                        <span className="text-sm">{day.slice(0, 3)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={formData.active}
+                    onCheckedChange={(checked) => setFormData({ ...formData, active: checked })}
+                  />
+                  <Label>Produto ativo</Label>
+                </div>
               </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={formData.active}
-                onCheckedChange={(checked) => setFormData({ ...formData, active: checked })}
-              />
-              <Label>Produto ativo</Label>
-            </div>
-          </div>
-
             </div>
 
             <div className="modal-footer" style={{ padding: "16px 24px", borderTop: "1px solid #E5E7EB", display: "flex", justifyContent: "flex-end", gap: "12px", flexShrink: 0 }}>
