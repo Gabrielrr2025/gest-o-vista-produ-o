@@ -22,12 +22,18 @@ export default function Dashboard() {
   const [selectedSector, setSelectedSector] = useState("all");
   const [dashboardData, setDashboardData] = useState(null);
 
-  // Calcular semana e ano a partir da data selecionada
-  const weekInfo = useMemo(() => {
-    const week = getWeek(currentDate, { weekStartsOn: 2 });
-    const year = getYear(currentDate);
-    return { weekNumber: week, year };
-  }, [currentDate]);
+  // Buscar semana e ano a partir da data selecionada
+  const weekInfoQuery = useQuery({
+    queryKey: ['currentWeek', format(currentDate, 'yyyy-MM-dd')],
+    queryFn: async () => {
+      const response = await base44.functions.invoke('getCurrentWeek', {
+        date: format(currentDate, 'yyyy-MM-dd')
+      });
+      return response.data;
+    }
+  });
+
+  const weekInfo = weekInfoQuery.data || { numero_semana: 6, ano: 2026 };
 
   const dateRange = useMemo(() => {
     const bounds = getWeekBounds(currentDate);
