@@ -177,50 +177,29 @@ export default function Dashboard() {
       </div>
 
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <WeekNavigator currentDate={currentDate} onDateChange={setCurrentDate} />
-        
-        <div className="flex items-center gap-3">
-          <Select value={selectedSector} onValueChange={setSelectedSector}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="Setor" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="Padaria">Padaria</SelectItem>
-              <SelectItem value="Confeitaria">Confeitaria</SelectItem>
-              <SelectItem value="Salgados">Salgados</SelectItem>
-              <SelectItem value="Minimercado">Minimercado</SelectItem>
-              <SelectItem value="Restaurante">Restaurante</SelectItem>
-              <SelectItem value="Frios">Frios</SelectItem>
-            </SelectContent>
-          </Select>
-          
-          <SQLDataProvider 
-            startDate={dateRange.from ? format(dateRange.from, 'yyyy-MM-dd') : null}
-            endDate={dateRange.to ? format(dateRange.to, 'yyyy-MM-dd') : null}
-            onDataLoaded={setSqlData}
-            showLastUpdate={true}
-          />
-          <SQLDataProvider 
-            startDate={previousDateRange.from ? format(previousDateRange.from, 'yyyy-MM-dd') : null}
-            endDate={previousDateRange.to ? format(previousDateRange.to, 'yyyy-MM-dd') : null}
-            onDataLoaded={setPreviousPeriodData}
-            showLastUpdate={false}
-          />
-          <SQLDataProvider 
-            startDate={historicalDateRange.from ? format(historicalDateRange.from, 'yyyy-MM-dd') : null}
-            endDate={historicalDateRange.to ? format(historicalDateRange.to, 'yyyy-MM-dd') : null}
-            onDataLoaded={(data) => {
-              const combined = [
-                ...data.sales.map(s => ({ ...s, type: 'sale' })),
-                ...data.losses.map(l => ({ ...l, type: 'loss' }))
-              ];
-              setHistoricalData(combined);
-            }}
-            showLastUpdate={false}
-          />
-        </div>
-      </div>
+         <WeekNavigator currentDate={currentDate} onDateChange={setCurrentDate} />
+
+         <div className="flex items-center gap-3">
+           <Select value={selectedSector} onValueChange={setSelectedSector}>
+             <SelectTrigger className="w-40">
+               <SelectValue placeholder="Setor" />
+             </SelectTrigger>
+             <SelectContent>
+               <SelectItem value="all">Todos</SelectItem>
+               <SelectItem value="Padaria">Padaria</SelectItem>
+               <SelectItem value="Confeitaria">Confeitaria</SelectItem>
+               <SelectItem value="Salgados">Salgados</SelectItem>
+               <SelectItem value="Minimercado">Minimercado</SelectItem>
+               <SelectItem value="Restaurante">Restaurante</SelectItem>
+               <SelectItem value="Frios">Frios</SelectItem>
+             </SelectContent>
+           </Select>
+
+           {dashboardQuery.isLoading && (
+             <div className="text-xs text-slate-500">Carregando...</div>
+           )}
+         </div>
+       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <TopSellingProducts 
