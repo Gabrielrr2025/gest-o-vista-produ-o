@@ -25,6 +25,7 @@ export default function Planning() {
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [saveStatus, setSaveStatus] = useState('saved'); // 'saving', 'saved'
   const saveTimeoutRef = React.useRef(null);
+  const [panelWeekStart, setPanelWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 0 })); // Semana atual por padrão
 
   const weekNumber = getWeek(currentWeekStart);
   const year = getYear(currentWeekStart);
@@ -49,6 +50,11 @@ export default function Planning() {
   const { data: calendarEvents = [] } = useQuery({
     queryKey: ['calendarEvents'],
     queryFn: () => base44.entities.CalendarEvent.list()
+  });
+
+  const { data: savedPlannings = [] } = useQuery({
+    queryKey: ['planejamentos'],
+    queryFn: () => base44.entities.Planejamento.list()
   });
 
   const salesRecords = salesQuery.data || [];
@@ -178,11 +184,58 @@ export default function Planning() {
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
-    saveTimeoutRef.current = setTimeout(() => {
+    saveTimeoutRef.current = setTimeout(async () => {
+      await savePlanning(productId);
       setSaveStatus('saved');
       setLastUpdate(new Date());
       toast.success("✓ Planejamento salvo");
     }, 2000);
+  };
+
+  const savePlanning = async (productId) => {
+    try {
+      const product = products.find(p => p.id === productId);
+      if (!product) return;
+
+      // Coletar quantidades dos 7 dias
+      const quantities = weekDays.map((_, idx) => 
+        plannedQuantities[`${productId}-${idx}`] ?? 0
+      );
+
+      const total = quantities.reduce((sum, q) => sum + q, 0);
+
+      const planningData = {
+        product_id: productId,
+        product_name: product.name,
+        week_number: weekNumber,
+        year: year,
+        quantidade_domingo: quantities[0],
+        quantidade_segunda: quantities[1],
+        quantidade_terca: quantities[2],
+        quantidade_quarta: quantities[3],
+        quantidade_quinta: quantities[4],
+        quantidade_sexta: quantities[5],
+        quantidade_sabado: quantities[6],
+        quantidade_total: total,
+        data_planejamento: new Date().toISOString()
+      };
+
+      // Verificar se já existe planejamento para este produto + semana
+      const existing = savedPlannings.find(p => 
+        p.product_id === productId && 
+        p.week_number === weekNumber && 
+        p.year === year
+      );
+
+      if (existing) {
+        await base44.entities.Planejamento.update(existing.id, planningData);
+      } else {
+        await base44.entities.Planejamento.create(planningData);
+      }
+    } catch (error) {
+      console.error("Erro ao salvar planejamento:", error);
+      toast.error("✗ Erro ao salvar. Tente novamente");
+    }
   };
 
   const handleExportPDF = async () => {
@@ -292,6 +345,7 @@ export default function Planning() {
 
   const handleProductClick = (item) => {
     setSelectedProduct(item);
+    setPanelWeekStart(startOfWeek(new Date(), { weekStartsOn: 0 })); // Reset para semana atual
   };
 
   const handleClosePanel = () => {
@@ -320,22 +374,25 @@ export default function Planning() {
     toast.success("Sugestão aplicada ao planejamento");
   };
 
-  // Análise do produto selecionado
+  // Análise do produto selecionado (usa panelWeekStart para a semana do painel)
   const productAnalysis = useMemo(() => {
     if (!selectedProduct) return null;
 
     const productName = selectedProduct.product.name;
+    const panelWeekNumber = getWeek(panelWeekStart);
+    const panelYear = getYear(panelWeekStart);
+    const panelWeekEnd = endOfWeek(panelWeekStart, { weekStartsOn: 0 });
 
-    // Semana atual (a semana em visualização)
+    // Semana sendo analisada no painel (pode ser diferente da semana planejada)
     const currentWeekSales = salesRecords.filter(s => 
       s.product_name === productName && 
-      s.week_number === weekNumber &&
-      s.year === year
+      s.week_number === panelWeekNumber &&
+      s.year === panelYear
     );
     const currentWeekLosses = lossRecords.filter(l => 
       l.product_name === productName && 
-      l.week_number === weekNumber &&
-      l.year === year
+      l.week_number === panelWeekNumber &&
+      l.year === panelYear
     );
 
     const currentSales = currentWeekSales.reduce((sum, s) => sum + (s.quantity || 0), 0);
@@ -363,10 +420,10 @@ export default function Planning() {
     const salesChange = avgSales > 0 ? (((currentSales - avgSales) / avgSales) * 100) : 0;
     const lossesChange = avgLosses > 0 ? (((currentLosses - avgLosses) / avgLosses) * 100) : 0;
 
-    // Tendência (baseada nas últimas 4 semanas)
+    // Tendência (baseada nas últimas 4 semanas antes da semana do painel)
     const weeklySales = [];
     for (let i = 3; i >= 0; i--) {
-      const weekStart = subWeeks(currentWeekStart, i + 1);
+      const weekStart = subWeeks(panelWeekStart, i + 1);
       const weekSales = salesRecords.filter(s => 
         s.product_name === productName && 
         new Date(s.date) >= weekStart &&
@@ -377,7 +434,7 @@ export default function Planning() {
 
     const weeklyLosses = [];
     for (let i = 3; i >= 0; i--) {
-      const weekStart = subWeeks(currentWeekStart, i + 1);
+      const weekStart = subWeeks(panelWeekStart, i + 1);
       const weekLosses = lossRecords.filter(l => 
         l.product_name === productName && 
         new Date(l.date) >= weekStart &&
@@ -400,10 +457,10 @@ export default function Planning() {
 
     // ========== CÁLCULO DA SUGESTÃO DE PRODUÇÃO ==========
     
-    // Verificar se há evento ou feriado na semana
+    // Verificar se há evento ou feriado na semana do painel
     const weekEvents = calendarEvents.filter(event => {
       const eventDate = parseISO(event.date);
-      return eventDate >= currentWeekStart && eventDate <= weekEnd &&
+      return eventDate >= panelWeekStart && eventDate <= panelWeekEnd &&
              (event.sector === "Todos" || event.sector === selectedProduct.product.sector);
     });
     const hasEvent = weekEvents.length > 0;
@@ -458,9 +515,11 @@ export default function Planning() {
       lossesTrend,
       suggestion,
       suggestedProduction,
-      dailyProduction
+      dailyProduction,
+      panelWeekNumber,
+      panelYear
     };
-  }, [selectedProduct, salesRecords, lossRecords, weekNumber, year, currentWeekStart, calendarEvents, weekEnd]);
+  }, [selectedProduct, salesRecords, lossRecords, panelWeekStart, calendarEvents]);
 
   const handleExport = () => {
     const headers = ["Produto", "Setor", "Rend.", "Média/dia", ...DIAS_SEMANA, "Total"];
@@ -682,33 +741,63 @@ export default function Planning() {
         {selectedProduct && productAnalysis && (
           <div className="w-[30%] animate-in slide-in-from-right duration-300" id="planning-sidebar-panel">
             <Card className="border-0 shadow-lg h-full overflow-y-auto">
-              <CardHeader className="flex flex-row items-center justify-between pb-3 border-b">
-                <div>
-                  <h3 className="font-bold text-slate-900 text-lg">
-                    {selectedProduct.product.name}
-                  </h3>
-                  <div className="flex items-center gap-2 mt-1">
-                    <SectorBadge sector={selectedProduct.product.sector} />
-                    <span className="text-xs text-slate-500">
-                      {selectedProduct.product.recipe_yield} {selectedProduct.product.unit}
-                    </span>
+              <CardHeader className="pb-3 border-b">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-lg">
+                      {selectedProduct.product.name}
+                    </h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      <SectorBadge sector={selectedProduct.product.sector} />
+                      <span className="text-xs text-slate-500">
+                        {selectedProduct.product.recipe_yield} {selectedProduct.product.unit}
+                      </span>
+                    </div>
                   </div>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={handleClosePanel}
+                    className="h-8 w-8 hover:bg-slate-100"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
                 </div>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={handleClosePanel}
-                  className="h-8 w-8 hover:bg-slate-100"
-                >
-                  <X className="w-4 h-4" />
-                </Button>
+                
+                {/* Navegação de Semana do Painel */}
+                <div className="flex items-center justify-center gap-2 pt-2 border-t">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-7 w-7"
+                    onClick={() => setPanelWeekStart(subWeeks(panelWeekStart, 1))}
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  <div className="text-center">
+                    <div className="text-sm font-semibold text-slate-700">
+                      Semana {productAnalysis?.panelWeekNumber}
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      {format(panelWeekStart, "dd/MM", { locale: ptBR })} - {format(endOfWeek(panelWeekStart, { weekStartsOn: 0 }), "dd/MM", { locale: ptBR })}
+                    </div>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => setPanelWeekStart(addWeeks(panelWeekStart, 1))}
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
               </CardHeader>
 
               <CardContent className="space-y-4 pt-4">
                 {/* SEÇÃO 1: SEMANA ATUAL */}
                 <div className="bg-slate-50 rounded-lg p-3">
                   <h4 className="text-sm font-semibold text-slate-700 mb-3">
-                    Semana Atual (Semana {weekNumber})
+                    Dados da Semana {productAnalysis.panelWeekNumber}
                   </h4>
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
