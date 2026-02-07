@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronLeft, ChevronRight, Printer, Download, RefreshCw, Save, Filter, FileDown, TrendingUp, TrendingDown, Minus, Lightbulb, ArrowUp, ArrowDown, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Printer, Download, RefreshCw, Save, Filter, FileDown, TrendingUp, TrendingDown, Minus, Lightbulb, ArrowUp, ArrowDown, X, FileText, FileSpreadsheet } from "lucide-react";
 import { startOfWeek, endOfWeek, format, addWeeks, subWeeks, getWeek, getYear, eachDayOfInterval, parseISO, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import SectorBadge from "../components/common/SectorBadge";
@@ -243,92 +243,124 @@ export default function Planning() {
   const handleExportPDF = async () => {
     try {
       const { jsPDF } = await import('jspdf');
-      const doc = new jsPDF('l', 'mm', 'a4');
-      
-      // Título
-      doc.setFontSize(18);
-      doc.text(`Planejamento de Produção - Semana ${weekNumber}`, 15, 15);
-      doc.setFontSize(10);
-      doc.text(`${format(currentWeekStart, "dd/MM", { locale: ptBR })} a ${format(weekEnd, "dd/MM", { locale: ptBR })}`, 15, 22);
-      
-      let y = 35;
-      const sectors = ["Padaria", "Salgados", "Confeitaria", "Minimercado", "Restaurante", "Frios"];
-      
-      sectors.forEach(sector => {
-        const sectorProducts = filteredPlanning.filter(p => p.product.sector === sector);
-        if (sectorProducts.length === 0) return;
-        
-        // Verificar se precisa de nova página
-        if (y > 160) {
-          doc.addPage();
-          y = 20;
+      const pageWidth = doc.internal.pageSize.getWidth();
+      let yPosition = 20;
+
+      // Buscar nome da empresa das configurações
+      let companyName = 'Sistema de Produção';
+      try {
+        const configData = await base44.entities.SystemConfig.filter({ config_key: 'company_data' });
+        if (configData.length > 0) {
+          const companyData = JSON.parse(configData[0].config_value);
+          companyName = companyData.company_name || 'Sistema de Produção';
         }
-        
-        // Título do setor
+      } catch (error) {
+        console.log('Configuração não encontrada, usando nome padrão');
+      }
+
+      // Cabeçalho
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Planejamento de Produção - Semana ${weekNumber}`, pageWidth / 2, yPosition, { align: 'center' });
+      
+      yPosition += 8;
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Período: ${format(currentWeekStart, 'dd/MM/yyyy', { locale: ptBR })} a ${format(weekEnd, 'dd/MM/yyyy', { locale: ptBR })}`, pageWidth / 2, yPosition, { align: 'center' });
+      
+      yPosition += 6;
+      doc.text(`Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, pageWidth / 2, yPosition, { align: 'center' });
+      
+      yPosition += 12;
+
+      // Agrupar por setor
+      const sectors = ['Padaria', 'Salgados', 'Confeitaria', 'Minimercado', 'Restaurante', 'Frios'];
+      const planningWithTotals = planningData.map(p => ({
+        ...p,
+        totalPlanned: p.projectedByDay.reduce((sum, _, idx) => 
+          sum + (plannedQuantities[`${p.product.id}-${idx}`] ?? p.projectedByDay[idx]), 0
+        )
+      })).filter(p => p.totalPlanned > 0);
+
+      for (const sector of sectors) {
+        const sectorProducts = planningWithTotals.filter(p => p.product.sector === sector);
+        if (sectorProducts.length === 0) continue;
+
+        // Verificar se precisa de nova página
+        if (yPosition > 240) {
+          doc.addPage();
+          yPosition = 20;
+        }
+
+        // Cabeçalho do setor
         doc.setFontSize(12);
-        doc.setFont(undefined, 'bold');
-        doc.text(sector, 15, y);
-        y += 8;
+        doc.setFont('helvetica', 'bold');
+        doc.text(sector, 15, yPosition);
+        yPosition += 7;
+
+        // Cabeçalho da tabela
+        doc.setFontSize(8);
+        doc.setFillColor(71, 85, 105);
+        pdf.rect(15, yPosition, 180, 6, 'F');
+        doc.setTextColor(255, 255, 255);
         
-        // Headers
-        doc.setFontSize(9);
-        doc.setFont(undefined, 'normal');
-        const headers = ["Produto", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom", "Seg", "Total"];
-        let x = 15;
-        const colWidths = [60, 18, 18, 18, 18, 18, 18, 18, 20];
-        
-        headers.forEach((header, idx) => {
-          doc.text(header, x, y);
-          x += colWidths[idx];
+        const colWidths = [50, 15, 15, 15, 15, 15, 15, 15, 20];
+        const headers = ['Produto', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom', 'Seg', 'Total'];
+        let xPos = 15;
+        headers.forEach((header, i) => {
+          doc.text(header, xPos + 2, yPosition + 4);
+          xPos += colWidths[i];
         });
-        y += 6;
         
-        // Produtos do setor
-        sectorProducts.forEach(item => {
-          if (y > 180) {
+        yPosition += 6;
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'normal');
+
+        // Linhas de produtos
+        sectorProducts.forEach((item, index) => {
+          if (yPosition > 270) {
             doc.addPage();
-            y = 20;
+            yPosition = 20;
           }
+
+          if (index % 2 === 0) {
+            doc.setFillColor(248, 250, 252);
+            doc.rect(15, yPosition, 180, 6, 'F');
+          }
+
+          xPos = 15;
+          const productName = item.product.name.length > 30 ? item.product.name.substring(0, 27) + '...' : item.product.name;
+          doc.text(productName, xPos + 2, yPosition + 4);
+          xPos += colWidths[0];
           
-          const totalPlanned = item.projectedByDay.reduce((sum, _, idx) => 
-            sum + (plannedQuantities[`${item.product.id}-${idx}`] || item.projectedByDay[idx]), 0
-          );
-          
-          // Mostrar apenas se total > 0
-          if (totalPlanned === 0) return;
-          
-          x = 15;
-          doc.text(item.product.name.substring(0, 28), x, y);
-          x += colWidths[0];
-          
-          // Dias (Ter a Seg)
-          const dayOrder = [2, 3, 4, 5, 6, 0, 1]; // Terça a Segunda
-          dayOrder.forEach(dayIdx => {
-            const qty = plannedQuantities[`${item.product.id}-${dayIdx}`] ?? item.projectedByDay[dayIdx];
-            doc.text(qty > 0 ? qty.toString() : '-', x, y);
-            x += colWidths[dayOrder.indexOf(dayIdx) + 1];
+          item.projectedByDay.forEach((projQty, idx) => {
+            const qty = plannedQuantities[`${item.product.id}-${idx}`] ?? projQty;
+            const value = qty > 0 ? qty.toFixed(0) : '-';
+            doc.text(value, xPos + 2, yPosition + 4);
+            xPos += colWidths[idx + 1];
           });
           
-          doc.setFont(undefined, 'bold');
-          doc.text(totalPlanned.toString(), x, y);
-          doc.setFont(undefined, 'normal');
-          
-          y += 5;
+          doc.setFont('helvetica', 'bold');
+          doc.text(item.totalPlanned.toFixed(0), xPos + 2, yPosition + 4);
+          doc.setFont('helvetica', 'normal');
+
+          yPosition += 6;
         });
-        
-        y += 8; // Espaço entre setores
-      });
-      
-      // Rodapé
-      const pageCount = doc.internal.getNumberOfPages();
-      for (let i = 1; i <= pageCount; i++) {
+
+        yPosition += 8;
+      }
+
+      // Rodapé em todas as páginas
+      const totalPages = doc.internal.pages.length - 1;
+      for (let i = 1; i <= totalPages; i++) {
         doc.setPage(i);
         doc.setFontSize(8);
-        doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 15, 200);
-        doc.text(`Página ${i} de ${pageCount}`, 260, 200);
+        doc.setTextColor(100, 100, 100);
+        doc.text(companyName, pageWidth / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
+        doc.text(`Página ${i} de ${totalPages}`, pageWidth - 20, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
       }
-      
-      doc.save(`planejamento_semana${weekNumber}_${year}.pdf`);
+
+      doc.save(`planejamento_semana_${weekNumber}.pdf`);
       toast.success("✓ PDF exportado com sucesso!");
     } catch (error) {
       toast.error("✗ Erro ao exportar. Tente novamente");
@@ -580,8 +612,16 @@ export default function Planning() {
           ) : (
             <span className="text-xs text-green-600 mr-2">Salvo ✓</span>
           )}
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleExportPDF}
+            className="border-red-200 hover:bg-red-50 text-red-700"
+          >
+            <FileText className="w-4 h-4 mr-1" /> Exportar PDF
+          </Button>
           <Button variant="outline" size="sm" onClick={handleExportExcel}>
-            <FileDown className="w-4 h-4 mr-1" /> Exportar Excel
+            <FileSpreadsheet className="w-4 h-4 mr-1" /> Exportar Excel
           </Button>
           <Button variant="outline" size="sm" onClick={handleRecalculate}>
             <RefreshCw className="w-4 h-4 mr-1" /> Recalcular
