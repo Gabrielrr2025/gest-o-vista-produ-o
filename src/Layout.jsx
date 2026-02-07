@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from "react-router-dom";
 import { createPageUrl } from "./utils";
 import { Button } from "@/components/ui/button";
+import { base44 } from "@/api/base44Client";
 import { 
   LayoutDashboard, 
   Upload, 
@@ -13,7 +14,8 @@ import {
   X,
   ChefHat,
   History,
-  Settings
+  Settings,
+  Shield
 } from "lucide-react";
 
 const navigation = [
@@ -29,6 +31,19 @@ const navigation = [
 
 export default function Layout({ children, currentPageName }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const user = await base44.auth.me();
+        setCurrentUser(user);
+      } catch (error) {
+        console.error("Erro ao carregar usuário:", error);
+      }
+    };
+    loadUser();
+  }, []);
 
 
   return (
@@ -96,6 +111,28 @@ export default function Layout({ children, currentPageName }) {
                 </Link>
               );
             })}
+
+            {/* Admin - Apenas para MASTER */}
+            {currentUser?.role === 'admin' && (
+              <>
+                <div className="my-2 border-t border-[hsl(var(--border-light))]"></div>
+                <Link
+                  to={createPageUrl("Admin")}
+                  onClick={() => setSidebarOpen(false)}
+                  className={`
+                    flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium
+                    transition-all duration-200
+                    ${currentPageName === "Admin"
+                      ? 'bg-[#F59E0B] text-white shadow-md' 
+                      : 'text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-secondary))] hover:text-[hsl(var(--text-primary))]'
+                    }
+                  `}
+                >
+                  <Shield className="w-5 h-5" />
+                  Administrativo
+                </Link>
+              </>
+            )}
           </nav>
 
 
