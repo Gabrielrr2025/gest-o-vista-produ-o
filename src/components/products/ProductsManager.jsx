@@ -200,6 +200,8 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
     "Sábado": 6
   };
 
+  console.log('ProductsManager renderizado - showAddButton:', showAddButton);
+
   return (
     <>
       <div className="space-y-4">
@@ -228,13 +230,10 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
             </Select>
           </div>
           {showAddButton && (
-            <button 
-              onClick={() => handleOpenDialog()}
-              className="btn-primary"
-            >
-              <Plus className="w-4 h-4" />
-              Novo Produto
-            </button>
+            <Button onClick={() => handleOpenDialog()} className="bg-[hsl(var(--accent-primary))] hover:bg-[hsl(var(--accent-primary-hover))] text-white">
+              <Plus className="w-4 h-4 mr-2" />
+              Adicionar Produto
+            </Button>
           )}
         </div>
 
@@ -313,14 +312,14 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="modal-container w-[95%] sm:max-w-[500px] p-0" style={{ maxHeight: '85vh' }}>
-          <div className="modal-header">
+        <DialogContent>
+          <DialogHeader>
             <DialogTitle>
               {editingProduct ? "Editar Produto" : "Novo Produto"}
             </DialogTitle>
-          </div>
+          </DialogHeader>
           
-          <div className="modal-body space-y-3">
+          <div className="space-y-4">
             <div>
               <Label>Código do Produto (opcional)</Label>
               <Input
@@ -419,38 +418,36 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
             </div>
           </div>
 
-          <div className="modal-footer">
-            <button onClick={() => setDialogOpen(false)} className="btn-secondary">
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancelar
-            </button>
-            <button onClick={handleSave} className="btn-primary">
+            </Button>
+            <Button onClick={handleSave}>
               {editingProduct ? "Salvar" : "Criar"}
-            </button>
-          </div>
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={deleteDialog} onOpenChange={setDeleteDialog}>
-        <DialogContent className="modal-container w-[95%] sm:max-w-[500px] p-0">
-          <div className="modal-header">
+        <DialogContent>
+          <DialogHeader>
             <DialogTitle className="text-red-900">Excluir Produto</DialogTitle>
-          </div>
-          <div className="modal-body">
-            <p className="text-sm text-slate-600">
-              Tem certeza que deseja excluir <strong>"{productToDelete?.name}"</strong>?
-            </p>
-            <p className="text-sm text-slate-600 mt-3">
-              Todos os registros relacionados (vendas, perdas, planos) também serão excluídos. Esta ação não pode ser desfeita.
-            </p>
-          </div>
-          <div className="modal-footer">
-            <button onClick={() => setDeleteDialog(false)} className="btn-secondary">
+          </DialogHeader>
+          <p className="text-sm text-slate-600">
+            Tem certeza que deseja excluir <strong>"{productToDelete?.name}"</strong>?
+          </p>
+          <p className="text-sm text-slate-600">
+            Todos os registros relacionados (vendas, perdas, planos) também serão excluídos. Esta ação não pode ser desfeita.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialog(false)}>
               Cancelar
-            </button>
-            <button onClick={handleDeleteConfirm} className="btn-primary" style={{ backgroundColor: '#EF4444' }}>
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteConfirm}>
               Excluir
-            </button>
-          </div>
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
