@@ -8,7 +8,7 @@ import { toast } from "sonner";
 
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
 
-export default function SQLDataProvider({ startDate, endDate, onDataLoaded }) {
+export default function SQLDataProvider({ startDate, endDate, onDataLoaded, showLastUpdate = true }) {
   const [loading, setLoading] = useState(true);
   const [lastSync, setLastSync] = useState(null);
   const [cacheKey, setCacheKey] = useState(null);
@@ -98,12 +98,14 @@ export default function SQLDataProvider({ startDate, endDate, onDataLoaded }) {
     fetchData();
   }, [startDate, endDate]);
 
+  if (!showLastUpdate) return null;
+
   return (
     <div className="flex items-center gap-2">
       {loading ? (
         <div className="flex items-center gap-2 text-xs text-[hsl(var(--text-tertiary))]">
           <Loader2 className="w-3 h-3 animate-spin" />
-          <span>Carregando dados...</span>
+          <span>Carregando...</span>
         </div>
       ) : lastSync ? (
         <div className="flex items-center gap-2">

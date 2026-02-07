@@ -204,27 +204,6 @@ export default function Dashboard() {
         <WeekNavigator currentDate={currentDate} onDateChange={setCurrentDate} />
         
         <div className="flex items-center gap-3">
-          <SQLDataProvider 
-            startDate={dateRange.from ? format(dateRange.from, 'yyyy-MM-dd') : null}
-            endDate={dateRange.to ? format(dateRange.to, 'yyyy-MM-dd') : null}
-            onDataLoaded={setSqlData}
-          />
-          <SQLDataProvider 
-            startDate={previousDateRange.from ? format(previousDateRange.from, 'yyyy-MM-dd') : null}
-            endDate={previousDateRange.to ? format(previousDateRange.to, 'yyyy-MM-dd') : null}
-            onDataLoaded={setPreviousPeriodData}
-          />
-          <SQLDataProvider 
-            startDate={historicalDateRange.from ? format(historicalDateRange.from, 'yyyy-MM-dd') : null}
-            endDate={historicalDateRange.to ? format(historicalDateRange.to, 'yyyy-MM-dd') : null}
-            onDataLoaded={(data) => {
-              const combined = [
-                ...data.sales.map(s => ({ ...s, type: 'sale' })),
-                ...data.losses.map(l => ({ ...l, type: 'loss' }))
-              ];
-              setHistoricalData(combined);
-            }}
-          />
           <Select value={selectedSector} onValueChange={setSelectedSector}>
             <SelectTrigger className="w-40">
               <SelectValue placeholder="Setor" />
@@ -239,6 +218,31 @@ export default function Dashboard() {
               <SelectItem value="Frios">Frios</SelectItem>
             </SelectContent>
           </Select>
+          
+          <SQLDataProvider 
+            startDate={dateRange.from ? format(dateRange.from, 'yyyy-MM-dd') : null}
+            endDate={dateRange.to ? format(dateRange.to, 'yyyy-MM-dd') : null}
+            onDataLoaded={setSqlData}
+            showLastUpdate={true}
+          />
+          <SQLDataProvider 
+            startDate={previousDateRange.from ? format(previousDateRange.from, 'yyyy-MM-dd') : null}
+            endDate={previousDateRange.to ? format(previousDateRange.to, 'yyyy-MM-dd') : null}
+            onDataLoaded={setPreviousPeriodData}
+            showLastUpdate={false}
+          />
+          <SQLDataProvider 
+            startDate={historicalDateRange.from ? format(historicalDateRange.from, 'yyyy-MM-dd') : null}
+            endDate={historicalDateRange.to ? format(historicalDateRange.to, 'yyyy-MM-dd') : null}
+            onDataLoaded={(data) => {
+              const combined = [
+                ...data.sales.map(s => ({ ...s, type: 'sale' })),
+                ...data.losses.map(l => ({ ...l, type: 'loss' }))
+              ];
+              setHistoricalData(combined);
+            }}
+            showLastUpdate={false}
+          />
         </div>
       </div>
 
@@ -266,8 +270,8 @@ export default function Dashboard() {
       />
 
       <ProductTrendChart 
-        salesData={sqlData.sales}
-        lossData={sqlData.losses}
+        salesData={filteredData.sales}
+        lossData={filteredData.losses}
         productMap={productMap}
         selectedSector={selectedSector}
         currentDate={currentDate}
