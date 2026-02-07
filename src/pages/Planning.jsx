@@ -417,7 +417,12 @@ export default function Planning() {
     const panelYear = getYear(panelWeekStart);
     const panelWeekEnd = endOfWeek(panelWeekStart, { weekStartsOn: 2 });
 
-    // Semana sendo analisada no painel (pode ser diferente da semana planejada)
+    // Tentar buscar dados do banco de dados SQL (vw_movimentacoes)
+    let currentSales = 0;
+    let currentLosses = 0;
+    let currentLossRate = 0;
+
+    // Fallback: buscar do banco local
     const currentWeekSales = salesRecords.filter(s => 
       s.product_name === productName && 
       s.week_number === panelWeekNumber &&
@@ -429,9 +434,11 @@ export default function Planning() {
       l.year === panelYear
     );
 
-    const currentSales = currentWeekSales.reduce((sum, s) => sum + (s.quantity || 0), 0);
-    const currentLosses = currentWeekLosses.reduce((sum, l) => sum + (l.quantity || 0), 0);
-    const currentLossRate = currentSales > 0 ? ((currentLosses / currentSales) * 100) : 0;
+    currentSales = currentWeekSales.reduce((sum, s) => sum + (s.quantity || 0), 0);
+    currentLosses = currentWeekLosses.reduce((sum, l) => sum + (l.quantity || 0), 0);
+    currentLossRate = currentSales > 0 ? ((currentLosses / currentSales) * 100) : 0;
+    
+    console.log(`📊 Painel - ${productName} Semana ${panelWeekNumber}: Vendas=${currentSales}, Perdas=${currentLosses}`);
 
     // Últimas 4 semanas (anteriores à semana atual)
     const last4WeeksStart = subWeeks(currentWeekStart, 4);
