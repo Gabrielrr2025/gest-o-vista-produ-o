@@ -75,8 +75,12 @@ export default function LossAnalysis({ salesData, lossData, historicalLossData, 
       };
     });
 
-    // Ordenar por taxa de perda (maior para menor)
-    return results.sort((a, b) => b.lossRate - a.lossRate);
+    // Ordenar: primeiro com alerta (por perda absoluta), depois sem alerta
+    return results.sort((a, b) => {
+      if (a.isOverLimit && !b.isOverLimit) return -1;
+      if (!a.isOverLimit && b.isOverLimit) return 1;
+      return b.loss - a.loss;
+    });
   }, [salesData, lossData, historicalLossData, productMap]);
 
   return (
