@@ -1,280 +1,334 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Filter, FileText } from "lucide-react";
-import { subDays, format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import DateRangePicker from "../components/common/DateRangePicker";
-import SectorBadge from "../components/common/SectorBadge";
-import SQLDataProvider from "../components/import/SQLDataProvider";
+import { FileText, Download, FileSpreadsheet } from "lucide-react";
+import { toast } from "sonner";
+import { format, subDays, subWeeks, subMonths, startOfYear } from "date-fns";
 
 export default function Reports() {
-  const [dateRange, setDateRange] = useState({
-    from: subDays(new Date(), 30),
-    to: new Date()
-  });
-  const [selectedSector, setSelectedSector] = useState(null);
-  const [reportType, setReportType] = useState("resumo");
-  const [sqlData, setSqlData] = useState({ sales: [], losses: [] });
-
-  const productionQuery = useQuery({
-    queryKey: ['productionRecords'],
-    queryFn: () => base44.entities.ProductionRecord.list()
+  const [currentUser, setCurrentUser] = useState(null);
+  const [hasAccess, setHasAccess] = useState(false);
+  const [filters, setFilters] = useState({
+    startDate: format(subWeeks(new Date(), 4), 'yyyy-MM-dd'),
+    endDate: format(new Date(), 'yyyy-MM-dd'),
+    comparisonType: 'weeks',
+    sector: 'all',
+    product: 'all'
   });
 
-  const productionRecords = productionQuery.data || [];
-
-  const filteredData = useMemo(() => {
-    const filterBySector = (records) => {
-      return records.filter(record => !selectedSector || record.sector === selectedSector);
-    };
-
-    return {
-      sales: filterBySector(sqlData.sales),
-      losses: filterBySector(sqlData.losses),
-      production: filterBySector(productionRecords)
-    };
-  }, [sqlData, productionRecords, selectedSector]);
-
-  const reportData = useMemo(() => {
-    const totalSales = filteredData.sales.reduce((sum, s) => sum + (s.quantity || 0), 0);
-    const totalLosses = filteredData.losses.reduce((sum, l) => sum + (l.quantity || 0), 0);
-    const lossRate = totalSales + totalLosses > 0 ? (totalLosses / (totalSales + totalLosses)) * 100 : 0;
-    
-    const productionWithData = filteredData.production.filter(p => p.assertiveness != null);
-    const avgAssertivity = productionWithData.length > 0
-      ? productionWithData.reduce((sum, p) => sum + (p.assertiveness || 0), 0) / productionWithData.length
-      : 100;
-
-    // Performance por setor
-    const sectorPerformance = {};
-    const sectors = ['Padaria', 'Salgados', 'Confeitaria', 'Minimercado', 'Restaurante', 'Frios'];
-    
-    sectors.forEach(sector => {
-      const sectorSales = filteredData.sales.filter(s => s.sector === sector);
-      const sectorLosses = filteredData.losses.filter(l => l.sector === sector);
-      const sectorProduction = filteredData.production.filter(p => p.sector === sector);
-      
-      const sales = sectorSales.reduce((sum, s) => sum + (s.quantity || 0), 0);
-      const losses = sectorLosses.reduce((sum, l) => sum + (l.quantity || 0), 0);
-      const orders = sales + losses;
-      
-      const productionWithAssert = sectorProduction.filter(p => p.assertiveness != null);
-      const assertivity = productionWithAssert.length > 0
-        ? productionWithAssert.reduce((sum, p) => sum + (p.assertiveness || 0), 0) / productionWithAssert.length
-        : 0;
-      
-      sectorPerformance[sector] = { sales, losses, orders, assertivity };
-    });
-
-    // Top produtos
-    const productStats = {};
-    filteredData.sales.forEach(s => {
-      if (!productStats[s.product_name]) {
-        productStats[s.product_name] = { name: s.product_name, sector: s.sector, sales: 0, losses: 0 };
+  // Verificar permissão de acesso
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const user = await base44.auth.me();
+        
+        // MASTER sempre tem acesso
+        if (user.role === 'admin') {
+          setCurrentUser(user);
+          setHasAccess(true);
+          return;
+        }
+        
+        // Outros usuários: verificar permissão reports_access
+        if (user.reports_access === true) {
+          setCurrentUser(user);
+          setHasAccess(true);
+        } else {
+          toast.error("Você não tem permissão para acessar esta área");
+          setTimeout(() => {
+            window.location.href = '/';
+          }, 2000);
+        }
+      } catch (error) {
+        window.location.href = '/';
       }
-      productStats[s.product_name].sales += s.quantity || 0;
-    });
+    };
+    checkAuth();
+  }, []);
+
+  const { data: products = [] } = useQuery({
+    queryKey: ['products'],
+    queryFn: () => base44.entities.Product.list(),
+    enabled: hasAccess
+  });
+
+  const handleQuickPeriod = (type) => {
+    const today = new Date();
+    let start;
     
-    filteredData.losses.forEach(l => {
-      if (!productStats[l.product_name]) {
-        productStats[l.product_name] = { name: l.product_name, sector: l.sector, sales: 0, losses: 0 };
-      }
-      productStats[l.product_name].losses += l.quantity || 0;
+    switch(type) {
+      case 'week':
+        start = subWeeks(today, 1);
+        break;
+      case '4weeks':
+        start = subWeeks(today, 4);
+        break;
+      case 'month':
+        start = subMonths(today, 1);
+        break;
+      case '3months':
+        start = subMonths(today, 3);
+        break;
+      case 'year':
+        start = startOfYear(today);
+        break;
+      default:
+        start = subWeeks(today, 4);
+    }
+    
+    setFilters({
+      ...filters,
+      startDate: format(start, 'yyyy-MM-dd'),
+      endDate: format(today, 'yyyy-MM-dd')
     });
+  };
 
-    const topProducts = Object.values(productStats)
-      .map(p => ({
-        ...p,
-        lossRate: p.sales + p.losses > 0 ? (p.losses / (p.sales + p.losses)) * 100 : 0,
-        assertivity: 100 - (p.sales + p.losses > 0 ? (p.losses / (p.sales + p.losses)) * 100 : 0)
-      }))
-      .sort((a, b) => b.sales - a.sales)
-      .slice(0, 10);
+  const handleApplyFilters = () => {
+    toast.success("Filtros aplicados");
+    // Aqui virão os cálculos e gráficos
+  };
 
-    return { totalSales, totalLosses, lossRate, avgAssertivity, sectorPerformance, topProducts };
-  }, [filteredData]);
+  const handleExportPDF = () => {
+    toast.info("Exportação em PDF em desenvolvimento");
+  };
+
+  const handleExportExcel = () => {
+    toast.info("Exportação em Excel em desenvolvimento");
+  };
+
+  if (!hasAccess) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Card className="w-96">
+          <CardContent className="pt-6 text-center">
+            <div className="text-slate-500">Verificando permissões...</div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-start">
+      {/* CABEÇALHO */}
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Relatórios</h1>
-          <p className="text-sm text-slate-500 mt-1">Análise de desempenho e métricas</p>
+          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+            <FileText className="w-6 h-6 text-blue-600" />
+            Relatórios
+          </h1>
+          <p className="text-sm text-slate-500 mt-1">Análise gerencial e estratégica</p>
         </div>
-        <SQLDataProvider 
-          startDate={dateRange.from ? format(dateRange.from, 'yyyy-MM-dd') : null}
-          endDate={dateRange.to ? format(dateRange.to, 'yyyy-MM-dd') : null}
-          onDataLoaded={setSqlData}
-        />
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleExportPDF}>
+            <Download className="w-4 h-4 mr-2" />
+            Exportar PDF
+          </Button>
+          <Button variant="outline" onClick={handleExportExcel}>
+            <FileSpreadsheet className="w-4 h-4 mr-2" />
+            Exportar Excel
+          </Button>
+        </div>
       </div>
 
-      {/* Filtros */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Filter className="w-5 h-5 text-slate-600" />
-            <CardTitle className="text-lg">Filtros do Relatório</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="text-sm font-medium text-slate-700 mb-2 block">Período</label>
-              <DateRangePicker dateRange={dateRange} setDateRange={setDateRange} />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-slate-700 mb-2 block">Setor</label>
-              <Select value={selectedSector || "all"} onValueChange={(v) => setSelectedSector(v === "all" ? null : v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Todos os setores" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os setores</SelectItem>
-                  <SelectItem value="Padaria">Padaria</SelectItem>
-                  <SelectItem value="Salgados">Salgados</SelectItem>
-                  <SelectItem value="Confeitaria">Confeitaria</SelectItem>
-                  <SelectItem value="Minimercado">Minimercado</SelectItem>
-                  <SelectItem value="Restaurante">Restaurante</SelectItem>
-                  <SelectItem value="Frios">Frios</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-slate-700 mb-2 block">Tipo de Relatório</label>
-              <Select value={reportType} onValueChange={setReportType}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="resumo">Resumo Executivo</SelectItem>
-                  <SelectItem value="detalhado">Detalhado</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* PAINEL DE FILTROS */}
+        <div className="lg:col-span-1">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Filtros</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* PERÍODO */}
+              <div>
+                <Label className="text-sm font-semibold mb-2 block">Período</Label>
+                <div className="space-y-2">
+                  <div>
+                    <Label className="text-xs text-slate-600">Data Início</Label>
+                    <Input
+                      type="date"
+                      value={filters.startDate}
+                      onChange={(e) => setFilters({...filters, startDate: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-600">Data Fim</Label>
+                    <Input
+                      type="date"
+                      value={filters.endDate}
+                      onChange={(e) => setFilters({...filters, endDate: e.target.value})}
+                    />
+                  </div>
+                </div>
 
-      {/* Pré-visualização */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <FileText className="w-5 h-5 text-slate-600" />
-            <CardTitle className="text-lg">Pré-visualização do Relatório</CardTitle>
-          </div>
-          <p className="text-sm text-slate-500">
-            Período: {format(dateRange.from, "dd 'de' MMM", { locale: ptBR })} - {format(dateRange.to, "dd 'de' MMM', ' yyyy", { locale: ptBR })}
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Resumo do Período */}
-          <div>
-            <h3 className="font-semibold text-slate-900 mb-4">Resumo do Período</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-slate-100 rounded-lg p-4">
-                <div className="text-sm text-slate-600 mb-1">Total Vendas</div>
-                <div className="text-2xl font-bold text-slate-900">{reportData.totalSales}</div>
-              </div>
-              <div className="bg-slate-100 rounded-lg p-4">
-                <div className="text-sm text-slate-600 mb-1">Total Perdas</div>
-                <div className="text-2xl font-bold text-red-600">{reportData.totalLosses}</div>
-              </div>
-              <div className="bg-slate-100 rounded-lg p-4">
-                <div className="text-sm text-slate-600 mb-1">Taxa de Perda</div>
-                <div className="text-2xl font-bold text-slate-900">
-                  {isNaN(reportData.lossRate) ? "N/A" : `${reportData.lossRate.toFixed(1)}%`}
+                {/* Atalhos rápidos */}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => handleQuickPeriod('week')}
+                    className="text-xs"
+                  >
+                    Última semana
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => handleQuickPeriod('4weeks')}
+                    className="text-xs"
+                  >
+                    4 semanas
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => handleQuickPeriod('month')}
+                    className="text-xs"
+                  >
+                    Último mês
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => handleQuickPeriod('3months')}
+                    className="text-xs"
+                  >
+                    3 meses
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => handleQuickPeriod('year')}
+                    className="text-xs"
+                  >
+                    Ano atual
+                  </Button>
                 </div>
               </div>
-              <div className="bg-slate-100 rounded-lg p-4">
-                <div className="text-sm text-slate-600 mb-1">Assertividade</div>
-                <div className="text-2xl font-bold text-green-600">
-                  {reportData.avgAssertivity.toFixed(0)}%
+
+              <div className="border-t pt-4">
+                <Label className="text-sm font-semibold mb-2 block">Tipo de Comparação</Label>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="comparison"
+                      value="weeks"
+                      checked={filters.comparisonType === 'weeks'}
+                      onChange={(e) => setFilters({...filters, comparisonType: e.target.value})}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-sm">Por Semanas</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="comparison"
+                      value="months"
+                      checked={filters.comparisonType === 'months'}
+                      onChange={(e) => setFilters({...filters, comparisonType: e.target.value})}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-sm">Por Meses</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="comparison"
+                      value="products"
+                      checked={filters.comparisonType === 'products'}
+                      onChange={(e) => setFilters({...filters, comparisonType: e.target.value})}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-sm">Por Produtos</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="comparison"
+                      value="sectors"
+                      checked={filters.comparisonType === 'sectors'}
+                      onChange={(e) => setFilters({...filters, comparisonType: e.target.value})}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-sm">Por Setores</span>
+                  </label>
                 </div>
-                <div className="text-xs text-slate-500 mt-1">pedido / (venda + perda)</div>
               </div>
-            </div>
-          </div>
 
-          {/* Performance por Setor */}
-          <div>
-            <h3 className="font-semibold text-slate-900 mb-4">Performance por Setor</h3>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Setor</TableHead>
-                  <TableHead className="text-right">Vendas</TableHead>
-                  <TableHead className="text-right">Perdas</TableHead>
-                  <TableHead className="text-right">Pedidos</TableHead>
-                  <TableHead className="text-right">Assertividade</TableHead>
-                  <TableHead className="text-right">Tendência</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {Object.entries(reportData.sectorPerformance).map(([sector, data]) => (
-                  <TableRow key={sector}>
-                    <TableCell><SectorBadge sector={sector} /></TableCell>
-                    <TableCell className="text-right">{data.sales}</TableCell>
-                    <TableCell className="text-right text-red-600">{data.losses}</TableCell>
-                    <TableCell className="text-right">{data.orders}</TableCell>
-                    <TableCell className="text-right">
-                      {data.assertivity > 0 ? `${data.assertivity.toFixed(1)}%` : '-'}
-                    </TableCell>
-                    <TableCell className="text-right text-slate-500">-</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+              <div className="border-t pt-4">
+                <Label className="text-sm font-semibold mb-2 block">Filtro de Setor</Label>
+                <Select 
+                  value={filters.sector} 
+                  onValueChange={(value) => setFilters({...filters, sector: value})}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os Setores</SelectItem>
+                    <SelectItem value="Padaria">Padaria</SelectItem>
+                    <SelectItem value="Confeitaria">Confeitaria</SelectItem>
+                    <SelectItem value="Salgados">Salgados</SelectItem>
+                    <SelectItem value="Frios">Frios</SelectItem>
+                    <SelectItem value="Restaurante">Restaurante</SelectItem>
+                    <SelectItem value="Minimercado">Minimercado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-          {/* Top Produtos */}
-          <div>
-            <h3 className="font-semibold text-slate-900 mb-4">Top Produtos</h3>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">#</TableHead>
-                  <TableHead>Produto</TableHead>
-                  <TableHead>Setor</TableHead>
-                  <TableHead className="text-right">Vendas</TableHead>
-                  <TableHead className="text-right">Perdas</TableHead>
-                  <TableHead className="text-right">Taxa Perda</TableHead>
-                  <TableHead className="text-right">Assertividade</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {reportData.topProducts.map((product, idx) => (
-                  <TableRow key={idx}>
-                    <TableCell className="font-medium">{idx + 1}</TableCell>
-                    <TableCell className="font-medium">{product.name}</TableCell>
-                    <TableCell><SectorBadge sector={product.sector} /></TableCell>
-                    <TableCell className="text-right">{product.sales}</TableCell>
-                    <TableCell className="text-right text-red-600">{product.losses}</TableCell>
-                    <TableCell className="text-right">
-                      <span className={product.lossRate > 10 ? "text-red-600" : product.lossRate > 5 ? "text-yellow-600" : "text-green-600"}>
-                        {product.lossRate.toFixed(1)}%
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {product.assertivity.toFixed(1)}%
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {reportData.topProducts.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center text-slate-500 py-8">
-                      Nenhum dado disponível
-                    </TableCell>
-                  </TableRow>
+              <div className="border-t pt-4">
+                <Label className="text-sm font-semibold mb-2 block">Filtro de Produto</Label>
+                <Select 
+                  value={filters.product} 
+                  onValueChange={(value) => setFilters({...filters, product: value})}
+                  disabled={filters.comparisonType !== 'products'}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os Produtos</SelectItem>
+                    {products.map(product => (
+                      <SelectItem key={product.id} value={product.id}>
+                        {product.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {filters.comparisonType !== 'products' && (
+                  <p className="text-xs text-slate-500 mt-1">
+                    Disponível ao selecionar "Por Produtos"
+                  </p>
                 )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+              </div>
+
+              <Button 
+                className="w-full bg-blue-600 hover:bg-blue-700"
+                onClick={handleApplyFilters}
+              >
+                Aplicar Filtros
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* ÁREA DE GRÁFICOS/CONTEÚDO */}
+        <div className="lg:col-span-3">
+          <Card>
+            <CardContent className="py-20 text-center">
+              <div className="text-slate-400 text-sm">
+                Os gráficos e análises aparecerão aqui após configurar os filtros
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }

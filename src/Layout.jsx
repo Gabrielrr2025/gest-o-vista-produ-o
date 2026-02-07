@@ -91,6 +91,11 @@ export default function Layout({ children, currentPageName }) {
           {/* Navigation */}
           <nav className="flex-1 p-4 space-y-1">
             {navigation.map((item) => {
+              // Ocultar Relatórios se usuário não tiver permissão
+              if (item.page === 'Reports' && currentUser && currentUser.role !== 'admin' && !currentUser.reports_access) {
+                return null;
+              }
+
               const isActive = currentPageName === item.page;
               return (
                 <Link
