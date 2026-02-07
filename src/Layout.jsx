@@ -112,9 +112,22 @@ export default function Layout({ children, currentPageName }) {
           <TooltipProvider delayDuration={300}>
             <nav className="flex-1 p-4 space-y-1">
               {navigation.map((item) => {
-                // Ocultar Relatórios se usuário não tiver permissão
-                if (item.page === 'Reports' && currentUser && currentUser.role !== 'admin' && !currentUser.reports_access) {
-                  return null;
+                // Verificar permissões do usuário
+                if (currentUser && currentUser.role !== 'admin') {
+                  const permissions = currentUser.permissions || {};
+                  const pagePermissionMap = {
+                    'Dashboard': 'dashboard',
+                    'Products': 'products',
+                    'Planning': 'planning',
+                    'Calendar': 'calendar',
+                    'Reports': 'reports',
+                    'Settings': 'settings'
+                  };
+                  
+                  const permKey = pagePermissionMap[item.page];
+                  if (permKey && !permissions[permKey]) {
+                    return null;
+                  }
                 }
 
                 const isActive = currentPageName === item.page;
@@ -150,8 +163,8 @@ export default function Layout({ children, currentPageName }) {
                 ) : linkContent;
               })}
 
-              {/* Admin - Apenas para MASTER */}
-              {currentUser?.role === 'admin' && (
+              {/* Admin - Apenas para MASTER ou usuários com permissão */}
+              {(currentUser?.role === 'admin' || currentUser?.permissions?.admin) && (
                 <>
                   <div className="my-2 border-t border-[hsl(var(--border-light))]"></div>
                   {(() => {

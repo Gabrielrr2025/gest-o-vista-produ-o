@@ -11,18 +11,37 @@ export default function UserFormDialog({ user, onClose, onSave }) {
     full_name: '',
     email: '',
     position: '',
-    reports_access: false,
+    permissions: {
+      dashboard: true,
+      products: true,
+      planning: true,
+      calendar: true,
+      reports: false,
+      settings: true,
+      admin: false
+    },
     active: true
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (user) {
+      // Se o usuário não tem permissions ainda, criar baseado em reports_access
+      const permissions = user.permissions || {
+        dashboard: true,
+        products: true,
+        planning: true,
+        calendar: true,
+        reports: user.reports_access || false,
+        settings: true,
+        admin: user.role === 'admin'
+      };
+      
       setFormData({
         full_name: user.full_name || '',
         email: user.email || '',
         position: user.position || '',
-        reports_access: user.reports_access || false,
+        permissions: permissions,
         active: user.active !== false
       });
     }
@@ -55,7 +74,7 @@ export default function UserFormDialog({ user, onClose, onSave }) {
         await base44.entities.User.update(user.id, {
           full_name: formData.full_name,
           position: formData.position,
-          reports_access: formData.reports_access,
+          permissions: formData.permissions,
           active: formData.active
         });
         toast.success("Usuário atualizado com sucesso");
@@ -73,7 +92,7 @@ export default function UserFormDialog({ user, onClose, onSave }) {
               await base44.entities.User.update(newUser.id, {
                 full_name: formData.full_name,
                 position: formData.position,
-                reports_access: formData.reports_access
+                permissions: formData.permissions
               });
             }
           } catch (err) {
@@ -145,17 +164,56 @@ export default function UserFormDialog({ user, onClose, onSave }) {
           </div>
 
           <div className="border-t pt-4 space-y-3">
-            <Label className="text-sm font-semibold">Permissões</Label>
+            <Label className="text-sm font-semibold">Permissões por Aba</Label>
+            <p className="text-xs text-gray-500">Selecione quais abas o usuário pode acessar</p>
             
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formData.reports_access}
-                onChange={(e) => setFormData({...formData, reports_access: e.target.checked})}
-                className="w-4 h-4 rounded border-slate-300"
-              />
-              <span className="text-sm">Acesso a Relatórios (valores financeiros)</span>
-            </label>
+            <div className="space-y-2 mt-3">
+              {[
+                { key: 'dashboard', label: 'Dashboard', desc: 'Visão geral e indicadores' },
+                { key: 'products', label: 'Produtos', desc: 'Gerenciamento de produtos' },
+                { key: 'planning', label: 'Planejamento', desc: 'Planejamento de produção' },
+                { key: 'calendar', label: 'Calendário', desc: 'Eventos e feriados' },
+                { key: 'reports', label: 'Relatórios', desc: 'Dados financeiros e vendas' },
+                { key: 'settings', label: 'Configurações', desc: 'Configurações do sistema' },
+                { key: 'admin', label: 'Administrativo', desc: 'Gerenciamento de usuários (apenas MASTER)' }
+              ].map(perm => {
+                const isAdmin = user?.role === 'admin';
+                const isAdminPerm = perm.key === 'admin';
+                const disabled = isAdmin || (isAdminPerm && user?.role !== 'admin');
+                
+                return (
+                  <label key={perm.key} className={`flex items-start gap-2 p-2 rounded-lg hover:bg-gray-50 ${disabled ? 'opacity-60' : 'cursor-pointer'}`}>
+                    <input
+                      type="checkbox"
+                      checked={isAdmin ? true : (formData.permissions[perm.key] || false)}
+                      onChange={(e) => {
+                        if (!disabled) {
+                          setFormData({
+                            ...formData, 
+                            permissions: {
+                              ...formData.permissions,
+                              [perm.key]: e.target.checked
+                            }
+                          });
+                        }
+                      }}
+                      disabled={disabled}
+                      className="w-4 h-4 rounded border-gray-300 mt-0.5"
+                    />
+                    <div className="flex-1">
+                      <div className="text-sm font-medium text-gray-900">{perm.label}</div>
+                      <div className="text-xs text-gray-500">{perm.desc}</div>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+            
+            {user?.role === 'admin' && (
+              <p className="text-xs text-amber-600 mt-2">
+                ⚠️ Usuários MASTER têm acesso a todas as abas
+              </p>
+            )}
           </div>
 
           {user && (

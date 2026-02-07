@@ -110,7 +110,7 @@ export default function Admin() {
                   <TableHead>Email</TableHead>
                   <TableHead>Cargo</TableHead>
                   <TableHead>Tipo</TableHead>
-                  <TableHead className="text-center">Acesso Relatórios</TableHead>
+                  <TableHead>Permissões</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
@@ -126,11 +126,24 @@ export default function Admin() {
                         {user.role === 'admin' ? 'MASTER' : 'Usuário'}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-center">
-                      {user.role === 'admin' || user.reports_access ? (
-                        <Badge className="bg-green-100 text-green-700">Sim</Badge>
+                    <TableCell>
+                      {user.role === 'admin' ? (
+                        <Badge className="bg-green-100 text-green-700">Todas as abas</Badge>
                       ) : (
-                        <Badge variant="outline">Não</Badge>
+                        <button
+                          onClick={() => {
+                            setSelectedUser(user);
+                            setShowDialog(true);
+                          }}
+                          className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                        >
+                          {(() => {
+                            const perms = user.permissions || {};
+                            const total = 7;
+                            const enabled = Object.values(perms).filter(Boolean).length;
+                            return `${enabled} de ${total} abas`;
+                          })()}
+                        </button>
                       )}
                     </TableCell>
                     <TableCell>
