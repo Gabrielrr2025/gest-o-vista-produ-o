@@ -69,6 +69,7 @@ export default function Products() {
             startDate={format(subDays(new Date(), 90), 'yyyy-MM-dd')}
             endDate={format(new Date(), 'yyyy-MM-dd')}
             onDataLoaded={setSqlData}
+            showLastUpdate={false}
           />
           <Button variant="outline" onClick={() => window.print()}>
             <Download className="w-4 h-4 mr-2" />

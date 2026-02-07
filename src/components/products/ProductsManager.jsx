@@ -13,7 +13,7 @@ import { base44 } from "@/api/base44Client";
 import SectorBadge, { SECTORS } from "../common/SectorBadge";
 import { toast } from "sonner";
 
-export default function ProductsManager({ products, onRefresh, showAddButton = true }) {
+export default function ProductsManager({ products, onRefresh, showAddButton = false }) {
   const [search, setSearch] = useState("");
   const [filterSector, setFilterSector] = useState("all");
   const [sortBy, setSortBy] = useState("name");
@@ -310,7 +310,7 @@ export default function ProductsManager({ products, onRefresh, showAddButton = t
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingProduct ? "Editar Produto" : "Novo Produto"}
@@ -420,7 +420,10 @@ export default function ProductsManager({ products, onRefresh, showAddButton = t
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleSave}>
+            <Button 
+              onClick={handleSave}
+              className="bg-[hsl(var(--accent-primary))] hover:bg-[hsl(var(--accent-primary-hover))] text-white"
+            >
               {editingProduct ? "Salvar" : "Criar"}
             </Button>
           </DialogFooter>
