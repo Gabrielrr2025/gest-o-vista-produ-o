@@ -116,100 +116,36 @@ export default function Reports() {
     }
   };
 
+  // Buscar dados do relatório do backend (vw_movimentacoes)
+  const { data: reportDataRaw = {} } = useQuery({
+    queryKey: ['reportData', filters.startDate, filters.endDate, filters.sector, filters.product],
+    queryFn: async () => {
+      const result = await base44.functions.invoke('getReportData', {
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        sector: filters.sector,
+        product: filters.product
+      });
+      return result.data || {};
+    },
+    enabled: hasAccess
+  });
+
   // Processar dados do gráfico
   const chartData = useMemo(() => {
-    // Criar mapa de preços
-    const priceMap = {};
-    products.forEach(product => {
-      priceMap[product.id] = product.price || 0;
-    });
+    // Usar dados do backend
+    const summaryData = reportDataRaw.summary || [];
+    
+    console.log('📊 Dados de relatório processados:', summaryData.length, 'semanas');
 
-    // Filtrar por período
-    const filteredSales = salesData.filter(record => {
-      const recordDate = new Date(record.date);
-      const startDate = new Date(filters.startDate);
-      const endDate = new Date(filters.endDate);
-      
-      if (recordDate < startDate || recordDate > endDate) return false;
-      if (filters.sector !== 'all' && record.sector !== filters.sector) return false;
-      if (filters.product !== 'all' && record.product_id !== filters.product) return false;
-      
-      return true;
-    });
-
-    const filteredLosses = lossData.filter(record => {
-      const recordDate = new Date(record.date);
-      const startDate = new Date(filters.startDate);
-      const endDate = new Date(filters.endDate);
-      
-      if (recordDate < startDate || recordDate > endDate) return false;
-      if (filters.sector !== 'all' && record.sector !== filters.sector) return false;
-      if (filters.product !== 'all' && record.product_id !== filters.product) return false;
-      
-      return true;
-    });
-
-    // Agrupar dados conforme tipo de comparação
-    const grouped = {};
-
-    if (filters.comparisonType === 'weeks') {
-      filteredSales.forEach(record => {
-        const week = `Semana ${record.week_number}`;
-        if (!grouped[week]) grouped[week] = { sales: 0, losses: 0, revenue: 0 };
-        grouped[week].sales += record.quantity || 0;
-        grouped[week].revenue += (record.quantity || 0) * (priceMap[record.product_id] || 0);
-      });
-      filteredLosses.forEach(record => {
-        const week = `Semana ${record.week_number}`;
-        if (!grouped[week]) grouped[week] = { sales: 0, losses: 0, revenue: 0 };
-        grouped[week].losses += record.quantity || 0;
-      });
-    } else if (filters.comparisonType === 'months') {
-      const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-      filteredSales.forEach(record => {
-        const month = monthNames[record.month - 1];
-        if (!grouped[month]) grouped[month] = { sales: 0, losses: 0, revenue: 0 };
-        grouped[month].sales += record.quantity || 0;
-        grouped[month].revenue += (record.quantity || 0) * (priceMap[record.product_id] || 0);
-      });
-      filteredLosses.forEach(record => {
-        const month = monthNames[record.month - 1];
-        if (!grouped[month]) grouped[month] = { sales: 0, losses: 0, revenue: 0 };
-        grouped[month].losses += record.quantity || 0;
-      });
-    } else if (filters.comparisonType === 'products') {
-      filteredSales.forEach(record => {
-        const productName = record.product_name;
-        if (!grouped[productName]) grouped[productName] = { sales: 0, losses: 0, revenue: 0 };
-        grouped[productName].sales += record.quantity || 0;
-        grouped[productName].revenue += (record.quantity || 0) * (priceMap[record.product_id] || 0);
-      });
-      filteredLosses.forEach(record => {
-        const productName = record.product_name;
-        if (!grouped[productName]) grouped[productName] = { sales: 0, losses: 0, revenue: 0 };
-        grouped[productName].losses += record.quantity || 0;
-      });
-    } else if (filters.comparisonType === 'sectors') {
-      filteredSales.forEach(record => {
-        const sector = record.sector;
-        if (!grouped[sector]) grouped[sector] = { sales: 0, losses: 0, revenue: 0 };
-        grouped[sector].sales += record.quantity || 0;
-        grouped[sector].revenue += (record.quantity || 0) * (priceMap[record.product_id] || 0);
-      });
-      filteredLosses.forEach(record => {
-        const sector = record.sector;
-        if (!grouped[sector]) grouped[sector] = { sales: 0, losses: 0, revenue: 0 };
-        grouped[sector].losses += record.quantity || 0;
-      });
-    }
-
-    return Object.entries(grouped).map(([period, data]) => ({
-      period,
-      sales: data.sales,
-      losses: data.losses,
-      revenue: data.revenue
+    return summaryData.map(row => ({
+      period: `Semana ${row.semana}`,
+      sales: parseFloat(row.vendas_qtd) || 0,
+      losses: parseFloat(row.perdas_qtd) || 0,
+      lossRate: parseFloat(row.taxa_perda) || 0,
+      revenue: parseFloat(row.faturamento) || 0
     }));
-  }, [salesData, lossData, filters, products]);
+  }, [reportDataRaw]);
 
   const handleApplyFilters = () => {
     // Filtros já estão aplicados automaticamente via useMemo
