@@ -135,7 +135,8 @@ Deno.serve(async (req) => {
         year: year
       });
     } finally {
-      await client.end();
+      client.release();
+      await pool.end();
     }
   } catch (error) {
     console.error('❌ Erro ao buscar dados do dashboard:', error.message);
