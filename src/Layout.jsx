@@ -127,7 +127,9 @@ export default function Layout({ children, currentPageName }) {
                   };
                   
                   const permKey = pagePermissionMap[item.page];
+                  console.log(`🔍 Verificando ${item.page}: permissão '${permKey}' = ${permissions[permKey]}`);
                   if (permKey && !permissions[permKey]) {
+                    console.log(`❌ ${item.page} bloqueado - usuário não tem permissão`);
                     return null;
                   }
                 }
