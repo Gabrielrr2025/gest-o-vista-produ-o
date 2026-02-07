@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Settings as SettingsIcon, Save, Sparkles, Building2, Bell, Calendar, Eye, Shield, Upload, X, Image as ImageIcon } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import DataReset from "../components/settings/DataReset";
 
@@ -848,27 +849,154 @@ export default function Settings() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Preferências de Exibição</CardTitle>
-                <CardDescription>Personalize a aparência do sistema</CardDescription>
+                <CardDescription>Personalize como o sistema exibe informações</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label>Formato de Data</Label>
-                  <Input defaultValue="DD/MM/YYYY" disabled />
-                  <p className="text-xs text-slate-500 mt-1">
-                    Formato padrão para exibição de datas
-                  </p>
+              <CardContent className="space-y-6">
+                {/* FORMATO DE DATA */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-semibold">Formato de Data</Label>
+                  <div>
+                    <Label className="text-sm text-slate-600 mb-2 block">
+                      Formato de exibição de datas
+                    </Label>
+                    <Select 
+                      value={displaySettings.date_format}
+                      onValueChange={(value) => setDisplaySettings({...displaySettings, date_format: value})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="DD/MM/YYYY">DD/MM/AAAA (padrão brasileiro)</SelectItem>
+                        <SelectItem value="MM/DD/YYYY">MM/DD/AAAA</SelectItem>
+                        <SelectItem value="YYYY-MM-DD">AAAA-MM-DD</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <div>
-                  <Label>Unidade Padrão</Label>
-                  <Input defaultValue="KG" disabled />
-                  <p className="text-xs text-slate-500 mt-1">
-                    Unidade de medida principal
-                  </p>
+
+                {/* SEPARADOR DECIMAL */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-semibold">Separador Decimal</Label>
+                  <div>
+                    <Label className="text-sm text-slate-600 mb-2 block">
+                      Separador de decimais
+                    </Label>
+                    <Select 
+                      value={displaySettings.decimal_separator}
+                      onValueChange={(value) => setDisplaySettings({...displaySettings, decimal_separator: value})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="comma">Vírgula (1.234,56) - padrão BR</SelectItem>
+                        <SelectItem value="dot">Ponto (1,234.56)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
+
+                {/* IDIOMA/MOEDA */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-semibold">Idioma/Moeda</Label>
+                  <div>
+                    <Label className="text-sm text-slate-600 mb-2 block">Moeda</Label>
+                    <Select 
+                      value={displaySettings.currency}
+                      onValueChange={(value) => setDisplaySettings({...displaySettings, currency: value})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="BRL">Real (R$)</SelectItem>
+                        <SelectItem value="USD">Dólar (US$)</SelectItem>
+                        <SelectItem value="EUR">Euro (€)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-slate-500 mt-1">Padrão: Real (R$)</p>
+                  </div>
+                </div>
+
+                {/* TEMA */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-semibold">Tema da Interface</Label>
+                  <div>
+                    <Label className="text-sm text-slate-600 mb-2 block">Tema</Label>
+                    <Select 
+                      value={displaySettings.theme}
+                      onValueChange={(value) => setDisplaySettings({...displaySettings, theme: value})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="light">Claro (padrão)</SelectItem>
+                        <SelectItem value="dark">Escuro</SelectItem>
+                        <SelectItem value="auto">Automático (segue sistema)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* ITENS POR PÁGINA */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-semibold">Itens por Página</Label>
+                  <div>
+                    <Label className="text-sm text-slate-600 mb-2 block">
+                      Mostrar em tabelas:
+                    </Label>
+                    <Select 
+                      value={displaySettings.items_per_page.toString()}
+                      onValueChange={(value) => setDisplaySettings({...displaySettings, items_per_page: parseInt(value)})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="10">10 itens</SelectItem>
+                        <SelectItem value="25">25 itens (padrão)</SelectItem>
+                        <SelectItem value="50">50 itens</SelectItem>
+                        <SelectItem value="100">100 itens</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* SEMANA INICIA EM */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-semibold">Semana Inicia Em</Label>
+                  <div>
+                    <Label className="text-sm text-slate-600 mb-2 block">
+                      Primeiro dia da semana operacional
+                    </Label>
+                    <Select 
+                      value={displaySettings.week_start}
+                      onValueChange={(value) => setDisplaySettings({...displaySettings, week_start: value})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="tuesday">Terça-feira (padrão)</SelectItem>
+                        <SelectItem value="sunday">Domingo</SelectItem>
+                        <SelectItem value="monday">Segunda-feira</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-red-600 mt-1 font-medium">
+                      ⚠️ ATENÇÃO: Alterar isso afeta todo o sistema!
+                    </p>
+                  </div>
+                </div>
+
                 <div className="pt-4 border-t">
-                  <Button onClick={handleSave}>
+                  <Button 
+                    onClick={handleSaveDisplaySettings}
+                    disabled={saveDisplaySettingsMutation.isPending}
+                  >
                     <Save className="w-4 h-4 mr-2" />
-                    Salvar Alterações
+                    Salvar Preferências de Exibição
                   </Button>
                 </div>
               </CardContent>
