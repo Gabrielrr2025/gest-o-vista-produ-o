@@ -131,7 +131,7 @@ export default function CalendarEventDialog({ event, initialDate, onClose, onSav
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto z-[9999]">
         <DialogHeader>
           <DialogTitle>{event ? 'Editar Evento' : 'Novo Evento'}</DialogTitle>
         </DialogHeader>
@@ -166,7 +166,7 @@ export default function CalendarEventDialog({ event, initialDate, onClose, onSav
                 <SelectTrigger className="h-9">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[10000]">
                   {IMPACT_OPTIONS.map(opt => (
                     <SelectItem key={opt.value} value={opt.value.toString()}>
                       {opt.label}
@@ -186,7 +186,7 @@ export default function CalendarEventDialog({ event, initialDate, onClose, onSav
               <SelectTrigger className="h-9">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="z-[10000]">
                 <SelectItem value="Feriado Nacional">🔴 Feriado Nacional</SelectItem>
                 <SelectItem value="Feriado Regional">🟠 Feriado Regional/Local</SelectItem>
                 <SelectItem value="Evento Especial">🟡 Evento Especial</SelectItem>
@@ -208,7 +208,7 @@ export default function CalendarEventDialog({ event, initialDate, onClose, onSav
                   <ChevronDown className="h-4 w-4 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-full p-2" align="start">
+              <PopoverContent className="w-full p-2 z-[10000]" align="start">
                 <div className="space-y-1">
                   <button
                     type="button"
@@ -333,12 +333,12 @@ export default function CalendarEventDialog({ event, initialDate, onClose, onSav
             </Button>
           )}
           <div className="flex gap-2">
-            <Button variant="outline" onClick={onClose}>
+            <Button variant="outline" onClick={onClose} className="bg-white text-slate-700 border-slate-300">
               Cancelar
             </Button>
             <Button 
               onClick={handleSave}
-              className="bg-[hsl(var(--accent-primary))] hover:bg-[hsl(var(--accent-primary-hover))] text-white"
+              className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               {event ? 'Salvar' : 'Criar'}
             </Button>
