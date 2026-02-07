@@ -227,10 +227,12 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={() => handleOpenDialog()} className="bg-blue-600 hover:bg-blue-700 text-white">
-            <Plus className="w-4 h-4 mr-2" />
-            Novo Produto
-          </Button>
+          {showAddButton && (
+            <Button onClick={() => handleOpenDialog()} className="bg-[hsl(var(--accent-primary))] hover:bg-[hsl(var(--accent-primary-hover))] text-white">
+              <Plus className="w-4 h-4 mr-2" />
+              Adicionar Produto
+            </Button>
+          )}
         </div>
 
         <div className="border rounded-lg overflow-hidden">
@@ -307,123 +309,146 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
         </div>
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {editingProduct ? "Editar Produto" : "Novo Produto"}
-            </DialogTitle>
-          </DialogHeader>
-          
-          <div className="space-y-4">
-            <div>
-              <Label>Código do Produto (opcional)</Label>
-              <Input
-                value={formData.code || ""}
-                onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                placeholder="Ex: PFRANCES01"
-              />
-              <p className="text-xs text-slate-500 mt-1">Código único para identificação</p>
-            </div>
-
-            <div>
-              <Label>Nome do Produto</Label>
-              <Input
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Ex: Pão Francês"
-              />
-            </div>
-
-            <div>
-              <Label>Setor</Label>
-              <Select 
-                value={formData.sector} 
-                onValueChange={(value) => setFormData({ ...formData, sector: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {SECTORS.map(sector => (
-                    <SelectItem key={sector} value={sector}>{sector}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Rendimento da Receita</Label>
-                <Input
-                  type="number"
-                  min="0.1"
-                  step="0.1"
-                  value={formData.recipe_yield}
-                  onChange={(e) => setFormData({ ...formData, recipe_yield: parseFloat(e.target.value) || 1 })}
-                />
-              </div>
-              
-              <div>
-                <Label>Unidade</Label>
-                <Select 
-                  value={formData.unit} 
-                  onValueChange={(value) => setFormData({ ...formData, unit: value })}
+      {dialogOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="modal-container" style={{ maxWidth: "500px", maxHeight: "85vh", background: "white", borderRadius: "16px", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+            
+            {/* CABEÇALHO FIXO */}
+            <div className="modal-header" style={{ padding: "20px 24px", borderBottom: "1px solid #E5E7EB", flexShrink: 0 }}>
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-lg text-slate-900">
+                  {editingProduct ? "Editar Produto" : "Novo Produto"}
+                </h3>
+                <button
+                  onClick={() => setDialogOpen(false)}
+                  className="text-slate-500 hover:text-slate-700 transition-colors"
                 >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="unidade">Unidade</SelectItem>
-                    <SelectItem value="pacotes">Pacotes</SelectItem>
-                    <SelectItem value="kilo">Kilo</SelectItem>
-                  </SelectContent>
-                </Select>
+                  <X className="w-5 h-5" />
+                </button>
               </div>
             </div>
+            
+            {/* CORPO COM SCROLL */}
+            <div className="modal-body" style={{ padding: "24px", maxHeight: "calc(85vh - 140px)", overflowY: "auto", flex: 1 }}>
+              <div className="space-y-4">
+                <div>
+                  <Label>Código do Produto (opcional)</Label>
+                  <Input
+                    value={formData.code || ""}
+                    onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                    placeholder="Ex: PFRANCES01"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">Código único para identificação</p>
+                </div>
 
-            <div>
-              <Label>Dias de Produção</Label>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"].map(day => (
-                  <div key={day} className="flex items-center gap-1">
-                    <Checkbox
-                      checked={formData.production_days?.includes(day)}
-                      onCheckedChange={(checked) => {
-                        const days = formData.production_days || [];
-                        setFormData({
-                          ...formData,
-                          production_days: checked 
-                            ? [...days, day]
-                            : days.filter(d => d !== day)
-                        });
-                      }}
+                <div>
+                  <Label>Nome do Produto</Label>
+                  <Input
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="Ex: Pão Francês"
+                  />
+                </div>
+
+                <div>
+                  <Label>Setor</Label>
+                  <Select 
+                    value={formData.sector} 
+                    onValueChange={(value) => setFormData({ ...formData, sector: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SECTORS.map(sector => (
+                        <SelectItem key={sector} value={sector}>{sector}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Rendimento da Receita</Label>
+                    <Input
+                      type="number"
+                      min="0.1"
+                      step="0.1"
+                      value={formData.recipe_yield}
+                      onChange={(e) => setFormData({ ...formData, recipe_yield: parseFloat(e.target.value) || 1 })}
                     />
-                    <span className="text-sm">{day.slice(0, 3)}</span>
                   </div>
-                ))}
+                  
+                  <div>
+                    <Label>Unidade</Label>
+                    <Select 
+                      value={formData.unit} 
+                      onValueChange={(value) => setFormData({ ...formData, unit: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unidade">Unidade</SelectItem>
+                        <SelectItem value="pacotes">Pacotes</SelectItem>
+                        <SelectItem value="kilo">Kilo</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div>
+                  <Label>Dias de Produção</Label>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"].map(day => (
+                      <div key={day} className="flex items-center gap-1">
+                        <Checkbox
+                          checked={formData.production_days?.includes(day)}
+                          onCheckedChange={(checked) => {
+                            const days = formData.production_days || [];
+                            setFormData({
+                              ...formData,
+                              production_days: checked 
+                                ? [...days, day]
+                                : days.filter(d => d !== day)
+                            });
+                          }}
+                        />
+                        <span className="text-sm">{day.slice(0, 3)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={formData.active}
+                    onCheckedChange={(checked) => setFormData({ ...formData, active: checked })}
+                  />
+                  <Label>Produto ativo</Label>
+                </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={formData.active}
-                onCheckedChange={(checked) => setFormData({ ...formData, active: checked })}
-              />
-              <Label>Produto ativo</Label>
+            {/* RODAPÉ FIXO */}
+            <div className="modal-footer" style={{ padding: "16px 24px", borderTop: "1px solid #E5E7EB", display: "flex", justifyContent: "flex-end", gap: "12px", flexShrink: 0 }}>
+              <button
+                onClick={() => setDialogOpen(false)}
+                className="btn-secondary"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSave}
+                className="btn-primary"
+                style={{ backgroundColor: "#10B981 !important", color: "#FFFFFF !important" }}
+              >
+                {editingProduct ? "Salvar" : "Criar"}
+              </button>
             </div>
           </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSave}>
-              {editingProduct ? "Salvar" : "Criar"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
 
       <Dialog open={deleteDialog} onOpenChange={setDeleteDialog}>
         <DialogContent>
