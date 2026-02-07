@@ -9,6 +9,7 @@ import SectorBadge from "../common/SectorBadge";
 
 export default function UnmappedProductsSuggestion({ sqlData, products, onProductCreated }) {
   const [creating, setCreating] = useState(new Set());
+  const [dismissed, setDismissed] = useState(new Set());
 
   // Detectar produtos da VIEW que não existem no cadastro
   const unmappedProducts = useMemo(() => {
@@ -88,7 +89,17 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
     }
   };
 
-  if (unmappedProducts.length === 0) {
+  const handleDismiss = (product) => {
+    const key = `${product.name}-${product.sector}`;
+    setDismissed(prev => new Set(prev).add(key));
+  };
+
+  const visibleProducts = unmappedProducts.filter(product => {
+    const key = `${product.name}-${product.sector}`;
+    return !dismissed.has(key);
+  });
+
+  if (visibleProducts.length === 0) {
     return null;
   }
 
@@ -103,7 +114,7 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
             </CardTitle>
           </div>
           <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-300">
-            {unmappedProducts.length} {unmappedProducts.length === 1 ? 'produto' : 'produtos'}
+            {visibleProducts.length} {visibleProducts.length === 1 ? 'produto' : 'produtos'}
           </Badge>
         </div>
       </CardHeader>
@@ -126,7 +137,7 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
         </div>
 
         <div className="space-y-2 max-h-96 overflow-y-auto">
-          {unmappedProducts.map((product, idx) => {
+          {visibleProducts.map((product, idx) => {
             const key = `${product.name}-${product.sector}`;
             const isCreating = creating.has(key);
             
@@ -151,25 +162,36 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
                     <span>Total: {product.sales + product.losses}</span>
                   </div>
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleCreateProduct(product)}
-                  disabled={isCreating}
-                  className="border-orange-300 text-orange-700 hover:bg-orange-100"
-                >
-                  {isCreating ? (
-                    <>
-                      <div className="w-3 h-3 border-2 border-orange-600 border-t-transparent rounded-full animate-spin mr-1" />
-                      Criando...
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="w-3 h-3 mr-1" />
-                      Cadastrar
-                    </>
-                  )}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleDismiss(product)}
+                    disabled={isCreating}
+                    className="text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleCreateProduct(product)}
+                    disabled={isCreating}
+                    className="border-orange-300 text-orange-700 hover:bg-orange-100"
+                  >
+                    {isCreating ? (
+                      <>
+                        <div className="w-3 h-3 border-2 border-orange-600 border-t-transparent rounded-full animate-spin mr-1" />
+                        Criando...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-3 h-3 mr-1" />
+                        Cadastrar
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             );
           })}
