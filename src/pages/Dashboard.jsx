@@ -40,6 +40,19 @@ export default function Dashboard() {
     return { from: bounds.start, to: bounds.end };
   }, [currentDate]);
 
+  // Buscar dados do dashboard via função backend
+  const dashboardQuery = useQuery({
+    queryKey: ['dashboardData', weekInfo.weekNumber, weekInfo.year, selectedSector],
+    queryFn: async () => {
+      const response = await base44.functions.invoke('getDashboardData', {
+        weekNumber: weekInfo.weekNumber,
+        year: weekInfo.year,
+        sector: selectedSector
+      });
+      return response.data;
+    }
+  });
+
   const productionQuery = useQuery({
     queryKey: ['productionRecords'],
     queryFn: () => base44.entities.ProductionRecord.list()
@@ -47,30 +60,32 @@ export default function Dashboard() {
 
   const productionRecords = productionQuery.data || [];
 
+  // Processar dados do dashboard
   const filteredData = useMemo(() => {
-    const filterBySector = (records) => {
-      if (selectedSector === "all") return records;
-      return records.filter(record => record.sector === selectedSector);
-    };
+    if (!dashboardQuery.data) return { sales: [], losses: [], production: [] };
+    
+    // Construir dados de vendas e perdas a partir da resposta
+    const salesData = dashboardQuery.data.topSales?.map(item => ({
+      product_name: item.produto,
+      quantity: item.total_vendas,
+      value: item.total_valor
+    })) || [];
 
-    // Filtrar por data também
-    const startTime = dateRange.from ? new Date(dateRange.from).getTime() : null;
-    const endTime = dateRange.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : null;
-
-    const filterByDate = (records) => {
-      if (!startTime || !endTime) return records;
-      return records.filter(record => {
-        const recordTime = new Date(record.date).getTime();
-        return recordTime >= startTime && recordTime <= endTime;
-      });
-    };
+    const lossesData = dashboardQuery.data.lossAnalysis?.map(item => ({
+      product_name: item.produto,
+      quantity: item.perda,
+      sector: item.setor
+    })) || [];
 
     return {
-      sales: filterByDate(filterBySector(sqlData.sales)),
-      losses: filterByDate(filterBySector(sqlData.losses)),
-      production: filterBySector(productionRecords)
+      sales: salesData,
+      losses: lossesData,
+      production: productionRecords.filter(p => {
+        if (selectedSector === "all") return true;
+        return p.sector === selectedSector;
+      })
     };
-  }, [sqlData, productionRecords, selectedSector, dateRange]);
+  }, [dashboardQuery.data, productionRecords, selectedSector]);
 
   const productsQuery = useQuery({
     queryKey: ['products'],
