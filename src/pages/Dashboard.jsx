@@ -42,21 +42,22 @@ export default function Dashboard() {
 
   // Buscar dados do dashboard via função backend
    const dashboardQuery = useQuery({
-     queryKey: ['dashboardData', weekInfo.weekNumber, weekInfo.year, selectedSector],
+     queryKey: ['dashboardData', weekInfo.numero_semana, weekInfo.ano, selectedSector],
      queryFn: async () => {
        console.log('📤 Enviando para getDashboardData:', {
-         weekNumber: weekInfo.weekNumber,
-         year: weekInfo.year,
+         weekNumber: weekInfo.numero_semana,
+         year: weekInfo.ano,
          sector: selectedSector
        });
        const response = await base44.functions.invoke('getDashboardData', {
-         weekNumber: weekInfo.weekNumber,
-         year: weekInfo.year,
+         weekNumber: weekInfo.numero_semana,
+         year: weekInfo.ano,
          sector: selectedSector
        });
        console.log('📥 Resposta do getDashboardData:', response.data);
        return response.data;
-     }
+     },
+     enabled: !!weekInfo.numero_semana
    });
 
   const productionQuery = useQuery({
