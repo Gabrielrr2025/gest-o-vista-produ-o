@@ -102,8 +102,9 @@ export default function Planning() {
       // Verificar eventos que impactam esta semana
       const weekEvents = calendarEvents.filter(event => {
         const eventDate = parseISO(event.date);
+        const eventSectors = event.sectors || [event.sector || 'Todos'];
         return eventDate >= currentWeekStart && eventDate <= weekEnd &&
-               (event.sector === "Todos" || event.sector === product.sector);
+               (eventSectors.includes("Todos") || eventSectors.includes(product.sector));
       });
 
       // Aplicar impacto dos eventos e verificar se o produto é produzido neste dia
@@ -461,8 +462,9 @@ export default function Planning() {
     // Verificar se há evento ou feriado na semana do painel
     const weekEvents = calendarEvents.filter(event => {
       const eventDate = parseISO(event.date);
+      const eventSectors = event.sectors || [event.sector || 'Todos'];
       return eventDate >= panelWeekStart && eventDate <= panelWeekEnd &&
-             (event.sector === "Todos" || event.sector === selectedProduct.product.sector);
+             (eventSectors.includes("Todos") || eventSectors.includes(selectedProduct.product.sector));
     });
     const hasEvent = weekEvents.length > 0;
 

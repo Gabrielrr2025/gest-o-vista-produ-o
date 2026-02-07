@@ -17,7 +17,8 @@ export default function CalendarEventDialog({ event, initialDate, onClose, onSav
     date: initialDate || format(new Date(), 'yyyy-MM-dd'),
     type: 'Evento Especial',
     impact_percentage: 0,
-    sector: 'Todos',
+    sectors: ['Todos'],
+    priority: 'media',
     notes: ''
   });
 
@@ -29,6 +30,8 @@ export default function CalendarEventDialog({ event, initialDate, onClose, onSav
     { label: 'Reduzir 50%', value: -50 },
   ];
 
+  const SECTORS = ['Padaria', 'Salgados', 'Confeitaria', 'Minimercado', 'Restaurante', 'Frios'];
+
   useEffect(() => {
     if (event) {
       setFormData({
@@ -36,7 +39,8 @@ export default function CalendarEventDialog({ event, initialDate, onClose, onSav
         date: event.date || format(new Date(), 'yyyy-MM-dd'),
         type: event.type || 'Evento Especial',
         impact_percentage: event.impact_percentage || 0,
-        sector: event.sector || 'Todos',
+        sectors: event.sectors || ['Todos'],
+        priority: event.priority || 'media',
         notes: event.notes || ''
       });
     } else if (initialDate) {
@@ -46,6 +50,18 @@ export default function CalendarEventDialog({ event, initialDate, onClose, onSav
       }));
     }
   }, [event, initialDate]);
+
+  const handleSectorToggle = (sector) => {
+    if (sector === 'Todos') {
+      setFormData({...formData, sectors: ['Todos']});
+    } else {
+      const newSectors = formData.sectors.includes(sector)
+        ? formData.sectors.filter(s => s !== sector && s !== 'Todos')
+        : [...formData.sectors.filter(s => s !== 'Todos'), sector];
+      
+      setFormData({...formData, sectors: newSectors.length > 0 ? newSectors : ['Todos']});
+    }
+  };
 
   const handleSave = async () => {
     try {
@@ -166,24 +182,77 @@ export default function CalendarEventDialog({ event, initialDate, onClose, onSav
           </div>
 
           <div>
-            <Label>Setor Afetado</Label>
-            <Select 
-              value={formData.sector} 
-              onValueChange={(value) => setFormData({...formData, sector: value})}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Todos">Todos os Setores</SelectItem>
-                <SelectItem value="Padaria">Padaria</SelectItem>
-                <SelectItem value="Salgados">Salgados</SelectItem>
-                <SelectItem value="Confeitaria">Confeitaria</SelectItem>
-                <SelectItem value="Minimercado">Minimercado</SelectItem>
-                <SelectItem value="Restaurante">Restaurante</SelectItem>
-                <SelectItem value="Frios">Frios</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label>Setores Afetados</Label>
+            <div className="space-y-2 mt-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.sectors.includes('Todos')}
+                  onChange={() => handleSectorToggle('Todos')}
+                  className="w-4 h-4 rounded border-slate-300"
+                />
+                <span className="text-sm">Todos os setores</span>
+              </label>
+              <div className="pl-6 space-y-2">
+                {SECTORS.map(sector => (
+                  <label key={sector} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.sectors.includes(sector)}
+                      onChange={() => handleSectorToggle(sector)}
+                      disabled={formData.sectors.includes('Todos')}
+                      className="w-4 h-4 rounded border-slate-300 disabled:opacity-50"
+                    />
+                    <span className="text-sm">{sector}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <Label>Prioridade/Importância</Label>
+            <div className="space-y-2 mt-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="priority"
+                  value="baixa"
+                  checked={formData.priority === 'baixa'}
+                  onChange={(e) => setFormData({...formData, priority: e.target.value})}
+                  className="w-4 h-4"
+                />
+                <span className="text-sm flex items-center gap-1">
+                  <span className="text-green-500">🟢</span> Baixa
+                </span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="priority"
+                  value="media"
+                  checked={formData.priority === 'media'}
+                  onChange={(e) => setFormData({...formData, priority: e.target.value})}
+                  className="w-4 h-4"
+                />
+                <span className="text-sm flex items-center gap-1">
+                  <span className="text-yellow-500">🟡</span> Média
+                </span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="priority"
+                  value="alta"
+                  checked={formData.priority === 'alta'}
+                  onChange={(e) => setFormData({...formData, priority: e.target.value})}
+                  className="w-4 h-4"
+                />
+                <span className="text-sm flex items-center gap-1">
+                  <span className="text-red-500">🔴</span> Alta
+                </span>
+              </label>
+            </div>
           </div>
 
           <div>

@@ -25,11 +25,10 @@ const EVENT_COLORS = {
 
 export default function Calendar() {
   const [currentYear, setCurrentYear] = useState(getYear(new Date()));
-  const [zoom, setZoom] = useState(1); // 0.8, 1, 1.2
+  const [zoom, setZoom] = useState(0.85); // Zoom inicial menor
   const [showDialog, setShowDialog] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
-  const [hoveredWeek, setHoveredWeek] = useState(null);
   const [loadingHolidays, setLoadingHolidays] = useState(false);
 
   const queryClient = useQueryClient();
@@ -114,8 +113,8 @@ export default function Calendar() {
     return getYear(eventDate) === currentYear;
   });
 
-  const handleZoomIn = () => setZoom(Math.min(zoom + 0.2, 1.4));
-  const handleZoomOut = () => setZoom(Math.max(zoom - 0.2, 0.6));
+  const handleZoomIn = () => setZoom(Math.min(zoom + 0.15, 1.5));
+  const handleZoomOut = () => setZoom(Math.max(zoom - 0.15, 0.5));
 
   const getEventsForDay = (date) => {
     return yearEvents.filter(e => isSameDay(parseISO(e.date), date));
@@ -130,31 +129,26 @@ export default function Calendar() {
     const firstDayOfWeek = getDay(monthStart);
     const emptyDays = Array(firstDayOfWeek).fill(null);
 
-    // Agrupar dias por semana (Terça a Segunda)
-    const getDayWeekNumber = (day) => getWeek(day, { weekStartsOn: 2 });
-
     return (
       <Card key={monthIndex} className="border-slate-200">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base font-bold text-slate-800">
+        <CardHeader className="pb-2 px-3 pt-3">
+          <CardTitle className="text-sm font-bold text-slate-800">
             {MONTHS[monthIndex]}
           </CardTitle>
         </CardHeader>
         <CardContent className="p-2">
           <div className="grid grid-cols-7 gap-0.5 text-center">
             {["D", "S", "T", "Q", "Q", "S", "S"].map((day, idx) => (
-              <div key={idx} className="text-xs font-semibold text-slate-500 py-1">
+              <div key={idx} className="text-[10px] font-semibold text-slate-500 py-0.5">
                 {day}
               </div>
             ))}
             {emptyDays.map((_, idx) => (
-              <div key={`empty-${idx}`} className="aspect-square" />
+              <div key={`empty-${idx}`} className="w-6 h-6" />
             ))}
             {daysInMonth.map((day) => {
               const dayEvents = getEventsForDay(day);
               const hasEvents = dayEvents.length > 0;
-              const weekNum = getDayWeekNumber(day);
-              const isHoveredWeek = hoveredWeek === `${monthIndex}-${weekNum}`;
               
               return (
                 <TooltipProvider key={day.toISOString()}>
@@ -162,16 +156,13 @@ export default function Calendar() {
                     <TooltipTrigger asChild>
                       <div
                         className={`
-                          aspect-square flex flex-col items-center justify-center text-xs rounded cursor-pointer
-                          transition-all duration-150
+                          w-6 h-6 flex flex-col items-center justify-center text-[11px] rounded cursor-pointer
+                          transition-all duration-100
                           ${hasEvents 
-                            ? 'font-bold bg-slate-50 hover:bg-slate-100 border border-slate-200' 
-                            : 'text-slate-600 hover:bg-slate-50 border border-transparent'
+                            ? 'font-bold bg-slate-50 hover:bg-slate-200 hover:ring-2 hover:ring-slate-300' 
+                            : 'text-slate-600 hover:bg-slate-100'
                           }
-                          ${isHoveredWeek ? 'ring-2 ring-blue-200 bg-blue-50' : ''}
                         `}
-                        onMouseEnter={() => setHoveredWeek(`${monthIndex}-${weekNum}`)}
-                        onMouseLeave={() => setHoveredWeek(null)}
                         onClick={() => {
                           if (hasEvents) {
                             setSelectedEvent(dayEvents[0]);
@@ -182,13 +173,13 @@ export default function Calendar() {
                           setShowDialog(true);
                         }}
                       >
-                        <span>{format(day, "d")}</span>
+                        <span className="leading-none">{format(day, "d")}</span>
                         {hasEvents && (
                           <div className="flex gap-0.5 mt-0.5">
-                            {dayEvents.slice(0, 3).map((event, idx) => (
+                            {dayEvents.slice(0, 2).map((event, idx) => (
                               <div
                                 key={idx}
-                                className={`w-1.5 h-1.5 rounded-full ${EVENT_COLORS[event.type] || 'bg-slate-400'}`}
+                                className={`w-1 h-1 rounded-full ${EVENT_COLORS[event.type] || 'bg-slate-400'}`}
                               />
                             ))}
                           </div>
