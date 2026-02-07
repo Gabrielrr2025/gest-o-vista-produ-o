@@ -21,8 +21,8 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Database connection not configured' }, { status: 500 });
     }
 
-    const { Client } = await import('npm:pg@8.11.3');
-    const client = new Client(connectionString);
+    const pg = await import('npm:pg@8.11.3');
+    const client = new pg.Client(connectionString);
     
     await client.connect();
 
