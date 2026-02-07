@@ -118,13 +118,13 @@ export default function UserFormDialog({ user, onClose, onSave }) {
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px] w-[95%] max-h-[85vh] flex flex-col p-0">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b flex-shrink-0">
+      <DialogContent className="modal-container sm:max-w-[600px] w-[95%] p-0">
+        <DialogHeader className="modal-header">
           <DialogTitle>{user ? 'Editar Usuário' : 'Adicionar Novo Usuário'}</DialogTitle>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
-          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+          <div className="modal-body space-y-3">
           <div>
             <Label htmlFor="full_name">Nome Completo *</Label>
             <Input
@@ -248,19 +248,22 @@ export default function UserFormDialog({ user, onClose, onSave }) {
           )}
           </div>
 
-          <DialogFooter className="px-6 py-4 border-t bg-gray-50 gap-2 flex-shrink-0">
-            <Button type="button" variant="outline" onClick={onClose}>
+          <div className="modal-footer">
+            <button 
+              type="button" 
+              onClick={onClose}
+              className="btn-secondary"
+            >
               Cancelar
-            </Button>
-            <Button 
+            </button>
+            <button 
               type="submit" 
               disabled={isSubmitting}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-              style={{ padding: '10px 20px', fontSize: '14px', fontWeight: 500 }}
+              className="btn-primary"
             >
               {isSubmitting ? 'Salvando...' : (user ? 'Salvar Alterações' : 'Enviar Convite')}
-            </Button>
-          </DialogFooter>
+            </button>
+          </div>
         </form>
       </DialogContent>
     </Dialog>
