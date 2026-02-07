@@ -79,6 +79,15 @@ export default function Settings() {
     auto_fill_enabled: true
   });
 
+  const [displaySettings, setDisplaySettings] = useState({
+    date_format: 'DD/MM/YYYY',
+    decimal_separator: 'comma',
+    currency: 'BRL',
+    theme: 'light',
+    items_per_page: 25,
+    week_start: 'tuesday'
+  });
+
   const [uploadingLogo, setUploadingLogo] = useState(false);
 
   const { data: systemConfig = [] } = useQuery({
@@ -120,6 +129,15 @@ export default function Settings() {
         setPlanningSettings(JSON.parse(savedPlanningSettings.config_value));
       } catch (e) {
         console.error("Error parsing planning settings", e);
+      }
+    }
+
+    const savedDisplaySettings = systemConfig.find(c => c.config_key === "display_settings");
+    if (savedDisplaySettings) {
+      try {
+        setDisplaySettings(JSON.parse(savedDisplaySettings.config_value));
+      } catch (e) {
+        console.error("Error parsing display settings", e);
       }
     }
   }, [systemConfig]);
@@ -223,6 +241,31 @@ export default function Settings() {
 
   const handleSavePlanningSettings = () => {
     savePlanningSettingsMutation.mutate(planningSettings);
+  };
+
+  const saveDisplaySettingsMutation = useMutation({
+    mutationFn: async (data) => {
+      const existing = systemConfig.find(c => c.config_key === "display_settings");
+      const payload = {
+        config_key: "display_settings",
+        config_value: JSON.stringify(data),
+        description: "Preferências de exibição do sistema"
+      };
+
+      if (existing) {
+        return base44.entities.SystemConfig.update(existing.id, payload);
+      } else {
+        return base44.entities.SystemConfig.create(payload);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['systemConfig'] });
+      toast.success("✓ Preferências de exibição salvas");
+    }
+  });
+
+  const handleSaveDisplaySettings = () => {
+    saveDisplaySettingsMutation.mutate(displaySettings);
   };
 
   const handleLogoUpload = async (e) => {
