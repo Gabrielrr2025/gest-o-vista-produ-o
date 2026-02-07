@@ -39,6 +39,28 @@ export default function Layout({ children, currentPageName }) {
       try {
         const user = await base44.auth.me();
         console.log("🔐 Usuário carregado:", user);
+        
+        // Criar permissões padrão baseado no role
+        const permissions = user?.role === 'admin' ? {
+          dashboard: true,
+          products: true,
+          planning: true,
+          calendar: true,
+          reports: true,
+          settings: true,
+          admin: true
+        } : {
+          dashboard: true,
+          products: true,
+          planning: true,
+          calendar: true,
+          reports: false,
+          settings: false,
+          admin: false
+        };
+        
+        // Adicionar permissões ao usuário
+        user.permissions = permissions;
         console.log("📋 Permissões do usuário:", user.permissions);
         setCurrentUser(user);
       } catch (error) {
