@@ -125,28 +125,35 @@ Deno.serve(async (req) => {
       }
 
       // Query 4: Dados das 6 semanas anteriores para gráfico de tendência
-      let trendQuery = `
-        SELECT 
-          semana,
-          SUM(CASE WHEN tipo = 'venda' THEN quantidade ELSE 0 END) as vendas_qtd,
-          SUM(CASE WHEN tipo = 'perda' THEN quantidade ELSE 0 END) as perdas_qtd,
-          SUM(CASE WHEN tipo = 'venda' THEN valor ELSE 0 END) as vendas_valor
-        FROM vw_movimentacoes
-        WHERE semana BETWEEN $1 - 6 AND $1 - 1
-          AND EXTRACT(YEAR FROM data) = $2
-      `;
-
-      const trendParams = sector !== 'all' 
-        ? [weekNumber, year, sector]
-        : [weekNumber, year];
-
+      let trendResult;
       if (sector !== 'all') {
-        trendQuery += ` AND setor = $3`;
+        trendResult = await sql`
+          SELECT 
+            semana,
+            SUM(CASE WHEN tipo = 'venda' THEN quantidade ELSE 0 END) as vendas_qtd,
+            SUM(CASE WHEN tipo = 'perda' THEN quantidade ELSE 0 END) as perdas_qtd,
+            SUM(CASE WHEN tipo = 'venda' THEN valor ELSE 0 END) as vendas_valor
+          FROM vw_movimentacoes
+          WHERE semana BETWEEN ${weekNumber - 6} AND ${weekNumber - 1}
+            AND EXTRACT(YEAR FROM data) = ${year}
+            AND setor = ${sector}
+          GROUP BY semana 
+          ORDER BY semana
+        `;
+      } else {
+        trendResult = await sql`
+          SELECT 
+            semana,
+            SUM(CASE WHEN tipo = 'venda' ENTÃO quantidade ELSE 0 END) as vendas_qtd,
+            SUM(CASE WHEN tipo = 'perda' THEN quantidade ELSE 0 END) as perdas_qtd,
+            SUM(CASE WHEN tipo = 'venda' THEN valor ELSE 0 END) as vendas_valor
+          FROM vw_movimentacoes
+          WHERE semana BETWEEN ${weekNumber - 6} AND ${weekNumber - 1}
+            AND EXTRACT(YEAR FROM data) = ${year}
+          GROUP BY semana 
+          ORDER BY semana
+        `;
       }
-
-      trendQuery += ` GROUP BY semana ORDER BY semana`;
-
-      const trendResult = await sql(trendQuery, trendParams);
 
       await sql.end();
 
