@@ -61,27 +61,37 @@ Deno.serve(async (req) => {
       }
 
       // Query 2: Análise de perdas da semana
-      let lossAnalysisQuery = `
-        SELECT 
-          produto,
-          SUM(CASE WHEN tipo = 'perda' THEN quantidade ELSE 0 END) as perda,
-          SUM(CASE WHEN tipo = 'venda' THEN quantidade ELSE 0 END) as venda,
-          setor
-        FROM vw_movimentacoes
-        WHERE semana = $1
-          AND EXTRACT(YEAR FROM data) = $2
-      `;
-
+      let lossAnalysisResult;
       if (sector !== 'all') {
-        lossAnalysisQuery += ` AND setor = $3`;
+        lossAnalysisResult = await sql`
+          SELECT 
+            produto,
+            SUM(CASE WHEN tipo = 'perda' THEN quantidade ELSE 0 END) as perda,
+            SUM(CASE WHEN tipo = 'venda' THEN quantidade ELSE 0 END) as venda,
+            setor
+          FROM vw_movimentacoes
+          WHERE semana = ${weekNumber}
+            AND EXTRACT(YEAR FROM data) = ${year}
+            AND setor = ${sector}
+          GROUP BY produto, setor
+          HAVING SUM(CASE WHEN tipo = 'perda' THEN quantidade ELSE 0 END) > 0
+          ORDER BY perda DESC
+        `;
+      } else {
+        lossAnalysisResult = await sql`
+          SELECT 
+            produto,
+            SUM(CASE WHEN tipo = 'perda' THEN quantidade ELSE 0 END) as perda,
+            SUM(CASE WHEN tipo = 'venda' THEN quantidade ELSE 0 END) as venda,
+            setor
+          FROM vw_movimentacoes
+          WHERE semana = ${weekNumber}
+            AND EXTRACT(YEAR FROM data) = ${year}
+          GROUP BY produto, setor
+          HAVING SUM(CASE WHEN tipo = 'perda' THEN quantidade ELSE 0 END) > 0
+          ORDER BY perda DESC
+        `;
       }
-
-      lossAnalysisQuery += ` GROUP BY produto, setor
-                          HAVING SUM(CASE WHEN tipo = 'perda' THEN quantidade ELSE 0 END) > 0
-                          ORDER BY perda DESC`;
-
-      const lossParams = sector !== 'all' ? [weekNumber, year, sector] : [weekNumber, year];
-      const lossAnalysisResult = await sql(lossAnalysisQuery, lossParams);
 
       // Query 3: Média de perdas das 4 semanas anteriores (para comparação de alertas)
       let prevWeeksQuery = `
