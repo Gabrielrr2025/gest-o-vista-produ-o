@@ -10,7 +10,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { productName, weekNumber } = body;
+    const { productName, weekNumber, year = 2026 } = body;
 
     if (!productName || !weekNumber) {
       return Response.json({ error: 'Missing productName or weekNumber' }, { status: 400 });
@@ -21,45 +21,46 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Database connection not configured' }, { status: 500 });
     }
 
-    // Importar a biblioteca PostgreSQL
     const { Client } = await import('npm:pg@8.11.3');
     const client = new Client(connectionString);
     
     await client.connect();
 
     try {
-      // Query 1: Vendas e perdas da semana atual
+      // Query 1: Vendas e perdas da semana atual (CORRIGIDO)
       const weekDataQuery = `
         SELECT 
           SUM(CASE WHEN tipo = 'venda' THEN quantidade ELSE 0 END) as vendas_semana,
           SUM(CASE WHEN tipo = 'perda' THEN quantidade ELSE 0 END) as perdas_semana
         FROM vw_movimentacoes
         WHERE produto = $1
-          AND semana = $2
+          AND numero_semana = $2
+          AND ano = $3
       `;
 
-      const weekDataResult = await client.query(weekDataQuery, [productName, weekNumber]);
+      const weekDataResult = await client.query(weekDataQuery, [productName, weekNumber, year]);
       const weekData = weekDataResult.rows[0] || { vendas_semana: 0, perdas_semana: 0 };
 
-      // Query 2: Média das últimas 4 semanas
+      // Query 2: Média das últimas 4 semanas (CORRIGIDO)
       const avgQuery = `
         SELECT 
           AVG(vendas) as media_vendas,
           AVG(perdas) as media_perdas
         FROM (
           SELECT 
-            semana,
+            numero_semana,
             SUM(CASE WHEN tipo = 'venda' THEN quantidade ELSE 0 END) as vendas,
             SUM(CASE WHEN tipo = 'perda' THEN quantidade ELSE 0 END) as perdas
           FROM vw_movimentacoes
           WHERE produto = $1
-          GROUP BY semana
-          ORDER BY semana DESC
+            AND ano = $2
+          GROUP BY numero_semana
+          ORDER BY numero_semana DESC
           LIMIT 4
         ) ultimas_semanas
       `;
 
-      const avgResult = await client.query(avgQuery, [productName]);
+      const avgResult = await client.query(avgQuery, [productName, year]);
       const avgData = avgResult.rows[0] || { media_vendas: 0, media_perdas: 0 };
 
       console.log(`📊 Dados do produto ${productName} - Semana ${weekNumber}:`, {
