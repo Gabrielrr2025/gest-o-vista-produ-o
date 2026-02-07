@@ -10,11 +10,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
-export default function CalendarEventDialog({ event, onClose, onSave }) {
+export default function CalendarEventDialog({ event, initialDate, onClose, onSave }) {
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     name: '',
-    date: format(new Date(), 'yyyy-MM-dd'),
+    date: initialDate || format(new Date(), 'yyyy-MM-dd'),
     type: 'Evento Especial',
     impact_percentage: 0,
     sector: 'Todos',
@@ -31,8 +31,13 @@ export default function CalendarEventDialog({ event, onClose, onSave }) {
         sector: event.sector || 'Todos',
         notes: event.notes || ''
       });
+    } else if (initialDate) {
+      setFormData(prev => ({
+        ...prev,
+        date: initialDate
+      }));
     }
-  }, [event]);
+  }, [event, initialDate]);
 
   const handleSave = async () => {
     try {

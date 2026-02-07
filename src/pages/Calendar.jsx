@@ -3,8 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ChevronLeft, ChevronRight, Plus, Minus } from "lucide-react";
-import { format, getYear, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, parseISO } from "date-fns";
+import { format, getYear, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, parseISO, getWeek } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import CalendarEventDialog from '../components/calendar/CalendarEventDialog';
 
@@ -26,6 +27,8 @@ export default function Calendar() {
   const [zoom, setZoom] = useState(1); // 0.8, 1, 1.2
   const [showDialog, setShowDialog] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [hoveredWeek, setHoveredWeek] = useState(null);
 
   const { data: events = [] } = useQuery({
     queryKey: ['calendarEvents'],
@@ -53,6 +56,9 @@ export default function Calendar() {
     const firstDayOfWeek = getDay(monthStart);
     const emptyDays = Array(firstDayOfWeek).fill(null);
 
+    // Agrupar dias por semana (Terça a Segunda)
+    const getDayWeekNumber = (day) => getWeek(day, { weekStartsOn: 2 });
+
     return (
       <Card key={monthIndex} className="border-slate-200">
         <CardHeader className="pb-2">
@@ -73,33 +79,62 @@ export default function Calendar() {
             {daysInMonth.map((day) => {
               const dayEvents = getEventsForDay(day);
               const hasEvents = dayEvents.length > 0;
+              const weekNum = getDayWeekNumber(day);
+              const isHoveredWeek = hoveredWeek === `${monthIndex}-${weekNum}`;
               
               return (
-                <div
-                  key={day.toISOString()}
-                  className={`
-                    aspect-square flex flex-col items-center justify-center text-xs rounded
-                    ${hasEvents ? 'font-bold cursor-pointer hover:bg-slate-100' : 'text-slate-600'}
-                  `}
-                  onClick={() => {
-                    if (hasEvents) {
-                      setSelectedEvent(dayEvents[0]);
-                      setShowDialog(true);
-                    }
-                  }}
-                >
-                  <span>{format(day, "d")}</span>
-                  {hasEvents && (
-                    <div className="flex gap-0.5 mt-0.5">
-                      {dayEvents.slice(0, 3).map((event, idx) => (
-                        <div
-                          key={idx}
-                          className={`w-1 h-1 rounded-full ${EVENT_COLORS[event.type] || 'bg-slate-400'}`}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <TooltipProvider key={day.toISOString()}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div
+                        className={`
+                          aspect-square flex flex-col items-center justify-center text-xs rounded cursor-pointer
+                          transition-all duration-150
+                          ${hasEvents 
+                            ? 'font-bold bg-slate-50 hover:bg-slate-100 border border-slate-200' 
+                            : 'text-slate-600 hover:bg-slate-50 border border-transparent'
+                          }
+                          ${isHoveredWeek ? 'ring-2 ring-blue-200 bg-blue-50' : ''}
+                        `}
+                        onMouseEnter={() => setHoveredWeek(`${monthIndex}-${weekNum}`)}
+                        onMouseLeave={() => setHoveredWeek(null)}
+                        onClick={() => {
+                          if (hasEvents) {
+                            setSelectedEvent(dayEvents[0]);
+                          } else {
+                            setSelectedEvent(null);
+                            setSelectedDate(format(day, 'yyyy-MM-dd'));
+                          }
+                          setShowDialog(true);
+                        }}
+                      >
+                        <span>{format(day, "d")}</span>
+                        {hasEvents && (
+                          <div className="flex gap-0.5 mt-0.5">
+                            {dayEvents.slice(0, 3).map((event, idx) => (
+                              <div
+                                key={idx}
+                                className={`w-1.5 h-1.5 rounded-full ${EVENT_COLORS[event.type] || 'bg-slate-400'}`}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                    {hasEvents && (
+                      <TooltipContent side="top" className="max-w-xs">
+                        <div className="space-y-1">
+                          {dayEvents.map((event, idx) => (
+                            <div key={idx} className="text-xs">
+                              <span className="font-semibold">{event.name}</span>
+                              {event.type && <span className="text-slate-500 ml-1">• {event.type}</span>}
+                            </div>
+                          ))}
+                        </div>
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </TooltipProvider>
               );
             })}
           </div>
@@ -216,13 +251,16 @@ export default function Calendar() {
       {showDialog && (
         <CalendarEventDialog
           event={selectedEvent}
+          initialDate={selectedDate}
           onClose={() => {
             setShowDialog(false);
             setSelectedEvent(null);
+            setSelectedDate(null);
           }}
           onSave={() => {
             setShowDialog(false);
             setSelectedEvent(null);
+            setSelectedDate(null);
           }}
         />
       )}
