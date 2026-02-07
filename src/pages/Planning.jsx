@@ -16,8 +16,8 @@ import AutoSQLSync from "../components/import/AutoSQLSync";
 const DIAS_SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 export default function Planning() {
-  // Inicializar com a próxima semana (futura)
-  const [currentWeekStart, setCurrentWeekStart] = useState(addWeeks(startOfWeek(new Date(), { weekStartsOn: 0 }), 1));
+  // Inicializar com a próxima semana (futura) - Semana começa na TERÇA
+  const [currentWeekStart, setCurrentWeekStart] = useState(addWeeks(startOfWeek(new Date(), { weekStartsOn: 2 }), 1));
   const [selectedSector, setSelectedSector] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -25,11 +25,11 @@ export default function Planning() {
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [saveStatus, setSaveStatus] = useState('saved'); // 'saving', 'saved'
   const saveTimeoutRef = React.useRef(null);
-  const [panelWeekStart, setPanelWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 0 })); // Semana atual por padrão
+  const [panelWeekStart, setPanelWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 2 })); // Semana atual por padrão
 
-  const weekNumber = getWeek(currentWeekStart);
+  const weekNumber = getWeek(currentWeekStart, { weekStartsOn: 2 });
   const year = getYear(currentWeekStart);
-  const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 0 });
+  const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 2 });
   const weekDays = eachDayOfInterval({ start: currentWeekStart, end: weekEnd });
 
   const { data: products = [] } = useQuery({
@@ -166,8 +166,8 @@ export default function Planning() {
 
   // Verificar se a semana é passada ou atual
   const today = new Date();
-  const isWeekInPast = currentWeekStart < startOfWeek(today, { weekStartsOn: 0 });
-  const isCurrentWeek = format(currentWeekStart, 'yyyy-MM-dd') === format(startOfWeek(today, { weekStartsOn: 0 }), 'yyyy-MM-dd');
+  const isWeekInPast = currentWeekStart < startOfWeek(today, { weekStartsOn: 2 });
+  const isCurrentWeek = format(currentWeekStart, 'yyyy-MM-dd') === format(startOfWeek(today, { weekStartsOn: 2 }), 'yyyy-MM-dd');
 
   const handleQuantityChange = (productId, dayIndex, value) => {
     // Validação: apenas números inteiros positivos
@@ -204,18 +204,19 @@ export default function Planning() {
 
       const total = quantities.reduce((sum, q) => sum + q, 0);
 
+      // weekDays agora vai de Terça(idx 0) a Segunda(idx 6)
       const planningData = {
         product_id: productId,
         product_name: product.name,
         week_number: weekNumber,
         year: year,
-        quantidade_domingo: quantities[0],
-        quantidade_segunda: quantities[1],
-        quantidade_terca: quantities[2],
-        quantidade_quarta: quantities[3],
-        quantidade_quinta: quantities[4],
-        quantidade_sexta: quantities[5],
-        quantidade_sabado: quantities[6],
+        quantidade_terca: quantities[0],
+        quantidade_quarta: quantities[1],
+        quantidade_quinta: quantities[2],
+        quantidade_sexta: quantities[3],
+        quantidade_sabado: quantities[4],
+        quantidade_domingo: quantities[5],
+        quantidade_segunda: quantities[6],
         quantidade_total: total,
         data_planejamento: new Date().toISOString()
       };
@@ -345,7 +346,7 @@ export default function Planning() {
 
   const handleProductClick = (item) => {
     setSelectedProduct(item);
-    setPanelWeekStart(startOfWeek(new Date(), { weekStartsOn: 0 })); // Reset para semana atual
+    setPanelWeekStart(startOfWeek(new Date(), { weekStartsOn: 2 })); // Reset para semana atual
   };
 
   const handleClosePanel = () => {
@@ -379,9 +380,9 @@ export default function Planning() {
     if (!selectedProduct) return null;
 
     const productName = selectedProduct.product.name;
-    const panelWeekNumber = getWeek(panelWeekStart);
+    const panelWeekNumber = getWeek(panelWeekStart, { weekStartsOn: 2 });
     const panelYear = getYear(panelWeekStart);
-    const panelWeekEnd = endOfWeek(panelWeekStart, { weekStartsOn: 0 });
+    const panelWeekEnd = endOfWeek(panelWeekStart, { weekStartsOn: 2 });
 
     // Semana sendo analisada no painel (pode ser diferente da semana planejada)
     const currentWeekSales = salesRecords.filter(s => 
@@ -586,7 +587,7 @@ export default function Planning() {
                     onClick={() => {
                       const prevWeek = subWeeks(currentWeekStart, 1);
                       const today = new Date();
-                      const todayWeekStart = startOfWeek(today, { weekStartsOn: 0 });
+                      const todayWeekStart = startOfWeek(today, { weekStartsOn: 2 });
                       
                       if (prevWeek < todayWeekStart) {
                         toast.error("⚠️ Não é possível editar semanas passadas");
@@ -779,7 +780,7 @@ export default function Planning() {
                       Semana {productAnalysis?.panelWeekNumber}
                     </div>
                     <div className="text-xs text-slate-500">
-                      {format(panelWeekStart, "dd/MM", { locale: ptBR })} - {format(endOfWeek(panelWeekStart, { weekStartsOn: 0 }), "dd/MM", { locale: ptBR })}
+                      {format(panelWeekStart, "dd/MM", { locale: ptBR })} - {format(endOfWeek(panelWeekStart, { weekStartsOn: 2 }), "dd/MM", { locale: ptBR })}
                     </div>
                   </div>
                   <Button 
