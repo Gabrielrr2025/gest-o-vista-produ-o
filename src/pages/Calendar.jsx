@@ -192,19 +192,27 @@ export default function Calendar() {
                       </div>
                     </TooltipTrigger>
                     {hasEvents && (
-                      <TooltipContent 
-                        side="top" 
-                        className="max-w-xs bg-slate-900 text-white border-slate-800"
-                      >
-                        <div className="space-y-1">
-                          {dayEvents.map((event, idx) => (
-                            <div key={idx} className="text-sm">
-                              <span className="font-semibold">{event.name}</span>
-                              {event.type && <span className="text-slate-300 ml-1">• {event.type}</span>}
-                            </div>
-                          ))}
-                        </div>
-                      </TooltipContent>
+                     <TooltipContent 
+                       side="top" 
+                       className="max-w-xs bg-slate-800 text-white border-0 shadow-xl px-3 py-2"
+                     >
+                       <div className="space-y-2">
+                         {dayEvents.map((event, idx) => (
+                           <div key={idx} className="space-y-0.5">
+                             <p className="font-semibold text-sm">{event.name}</p>
+                             <p className="text-xs text-slate-300">{event.type}</p>
+                             {event.impact_percentage !== 0 && (
+                               <p className="text-xs text-slate-300">
+                                 Impacto: {event.impact_percentage > 0 ? '+' : ''}{event.impact_percentage}%
+                               </p>
+                             )}
+                             {event.notes && (
+                               <p className="text-xs text-slate-400 border-t border-slate-600 pt-1 mt-1">{event.notes}</p>
+                             )}
+                           </div>
+                         ))}
+                       </div>
+                     </TooltipContent>
                     )}
                   </Tooltip>
                 </TooltipProvider>
