@@ -195,7 +195,7 @@ export default function UserFormDialog({ user, onClose, onSave }) {
             <Button 
               type="submit" 
               disabled={isSubmitting}
-              className="bg-[hsl(var(--accent-primary))] hover:bg-[hsl(var(--accent-primary-hover))] text-white"
+              className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               {isSubmitting ? 'Salvando...' : (user ? 'Salvar Alterações' : 'Enviar Convite')}
             </Button>
