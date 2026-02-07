@@ -63,6 +63,18 @@ export default function CalendarEventDialog({ event, initialDate, onClose, onSav
     }
   };
 
+  const handleRemoveSector = (sector) => {
+    const newSectors = formData.sectors.filter(s => s !== sector);
+    setFormData({...formData, sectors: newSectors.length > 0 ? newSectors : ['Todos']});
+  };
+
+  const getSelectedSectorsLabel = () => {
+    if (formData.sectors.includes('Todos')) return 'Todos os setores';
+    if (formData.sectors.length === 0) return 'Selecione setores...';
+    if (formData.sectors.length === 1) return formData.sectors[0];
+    return `${formData.sectors.length} setores selecionados`;
+  };
+
   const handleSave = async () => {
     try {
       if (!formData.name || !formData.date) {
@@ -183,31 +195,74 @@ export default function CalendarEventDialog({ event, initialDate, onClose, onSav
 
           <div>
             <Label>Setores Afetados</Label>
-            <div className="space-y-2 mt-2">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={formData.sectors.includes('Todos')}
-                  onChange={() => handleSectorToggle('Todos')}
-                  className="w-4 h-4 rounded border-slate-300"
-                />
-                <span className="text-sm">Todos os setores</span>
-              </label>
-              <div className="pl-6 space-y-2">
-                {SECTORS.map(sector => (
-                  <label key={sector} className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.sectors.includes(sector)}
-                      onChange={() => handleSectorToggle(sector)}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full justify-between mt-2 h-auto min-h-[40px]"
+                >
+                  <span className="text-sm">{getSelectedSectorsLabel()}</span>
+                  <ChevronDown className="h-4 w-4 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-full p-2" align="start">
+                <div className="space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => handleSectorToggle('Todos')}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded hover:bg-slate-100 transition-colors ${
+                      formData.sectors.includes('Todos') ? 'bg-slate-50' : ''
+                    }`}
+                  >
+                    <div className={`w-4 h-4 border rounded flex items-center justify-center ${
+                      formData.sectors.includes('Todos') ? 'bg-slate-900 border-slate-900' : 'border-slate-300'
+                    }`}>
+                      {formData.sectors.includes('Todos') && <Check className="w-3 h-3 text-white" />}
+                    </div>
+                    <span className="font-medium">Todos os setores</span>
+                  </button>
+                  
+                  <div className="border-t my-1"></div>
+                  
+                  {SECTORS.map(sector => (
+                    <button
+                      key={sector}
+                      type="button"
+                      onClick={() => handleSectorToggle(sector)}
                       disabled={formData.sectors.includes('Todos')}
-                      className="w-4 h-4 rounded border-slate-300 disabled:opacity-50"
-                    />
-                    <span className="text-sm">{sector}</span>
-                  </label>
+                      className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded hover:bg-slate-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                        formData.sectors.includes(sector) ? 'bg-slate-50' : ''
+                      }`}
+                    >
+                      <div className={`w-4 h-4 border rounded flex items-center justify-center ${
+                        formData.sectors.includes(sector) ? 'bg-slate-900 border-slate-900' : 'border-slate-300'
+                      }`}>
+                        {formData.sectors.includes(sector) && <Check className="w-3 h-3 text-white" />}
+                      </div>
+                      <span>{sector}</span>
+                    </button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            {/* Tags dos setores selecionados */}
+            {formData.sectors.length > 0 && !formData.sectors.includes('Todos') && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {formData.sectors.map(sector => (
+                  <Badge key={sector} variant="secondary" className="gap-1 pr-1">
+                    {sector}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveSector(sector)}
+                      className="ml-1 hover:bg-slate-300 rounded-full p-0.5"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </Badge>
                 ))}
               </div>
-            </div>
+            )}
           </div>
 
           <div>
