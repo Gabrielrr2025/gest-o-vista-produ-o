@@ -94,29 +94,35 @@ Deno.serve(async (req) => {
       }
 
       // Query 3: Média de perdas das 4 semanas anteriores (para comparação de alertas)
-      let prevWeeksQuery = `
-        SELECT 
-          produto,
-          setor,
-          SUM(CASE WHEN tipo = 'perda' THEN quantidade ELSE 0 END) as total_perda,
-          SUM(CASE WHEN tipo = 'venda' THEN quantidade ELSE 0 END) as total_venda
-        FROM vw_movimentacoes
-        WHERE semana < $1
-          AND semana >= $1 - 4
-          AND EXTRACT(YEAR FROM data) = $2
-      `;
-
+      let prevWeeksResult;
       if (sector !== 'all') {
-        prevWeeksQuery += ` AND setor = $3`;
+        prevWeeksResult = await sql`
+          SELECT 
+            produto,
+            setor,
+            SUM(CASE WHEN tipo = 'perda' THEN quantidade ELSE 0 END) as total_perda,
+            SUM(CASE WHEN tipo = 'venda' THEN quantidade ELSE 0 END) as total_venda
+          FROM vw_movimentacoes
+          WHERE semana < ${weekNumber}
+            AND semana >= ${weekNumber - 4}
+            AND EXTRACT(YEAR FROM data) = ${year}
+            AND setor = ${sector}
+          GROUP BY produto, setor
+        `;
+      } else {
+        prevWeeksResult = await sql`
+          SELECT 
+            produto,
+            setor,
+            SUM(CASE WHEN tipo = 'perda' THEN quantidade ELSE 0 END) as total_perda,
+            SUM(CASE WHEN tipo = 'venda' THEN quantidade ELSE 0 END) as total_venda
+          FROM vw_movimentacoes
+          WHERE semana < ${weekNumber}
+            AND semana >= ${weekNumber - 4}
+            AND EXTRACT(YEAR FROM data) = ${year}
+          GROUP BY produto, setor
+        `;
       }
-
-      prevWeeksQuery += ` GROUP BY produto, setor`;
-
-      const prevParams = sector !== 'all' 
-        ? [weekNumber, year, sector]
-        : [weekNumber, year];
-
-      const prevWeeksResult = await sql(prevWeeksQuery, prevParams);
 
       // Query 4: Dados das 6 semanas anteriores para gráfico de tendência
       let trendQuery = `
