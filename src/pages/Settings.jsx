@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Settings as SettingsIcon, Save, Sparkles, Building2, Bell, Calendar, Eye, Shield } from "lucide-react";
+import { Settings as SettingsIcon, Save, Sparkles, Building2, Bell, Calendar, Eye, Shield, Upload, X, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import DataReset from "../components/settings/DataReset";
 
@@ -49,6 +49,19 @@ export default function Settings() {
     calendar_impact_enabled: true
   });
 
+  const [companyData, setCompanyData] = useState({
+    logo_url: '',
+    company_name: '',
+    cnpj: '',
+    address: '',
+    city: 'Itaperuna',
+    state: 'RJ',
+    phone: '',
+    email: ''
+  });
+
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+
   const { data: systemConfig = [] } = useQuery({
     queryKey: ['systemConfig'],
     queryFn: () => base44.entities.SystemConfig.list()
@@ -61,6 +74,15 @@ export default function Settings() {
         setConfig(JSON.parse(savedConfig.config_value));
       } catch (e) {
         console.error("Error parsing config", e);
+      }
+    }
+
+    const savedCompanyData = systemConfig.find(c => c.config_key === "company_data");
+    if (savedCompanyData) {
+      try {
+        setCompanyData(JSON.parse(savedCompanyData.config_value));
+      } catch (e) {
+        console.error("Error parsing company data", e);
       }
     }
   }, [systemConfig]);
@@ -90,6 +112,91 @@ export default function Settings() {
     saveConfigMutation.mutate(config);
     toast.success("✓ Configurações salvas");
   };
+
+  const saveCompanyDataMutation = useMutation({
+    mutationFn: async (data) => {
+      const existing = systemConfig.find(c => c.config_key === "company_data");
+      const payload = {
+        config_key: "company_data",
+        config_value: JSON.stringify(data),
+        description: "Dados da empresa para relatórios"
+      };
+
+      if (existing) {
+        return base44.entities.SystemConfig.update(existing.id, payload);
+      } else {
+        return base44.entities.SystemConfig.create(payload);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['systemConfig'] });
+      toast.success("✓ Dados da empresa salvos");
+    }
+  });
+
+  const handleSaveCompanyData = () => {
+    saveCompanyDataMutation.mutate(companyData);
+  };
+
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Arquivo muito grande. Máximo 2MB");
+      return;
+    }
+
+    if (!['image/png', 'image/jpeg', 'image/jpg'].includes(file.type)) {
+      toast.error("Formato inválido. Use PNG ou JPG");
+      return;
+    }
+
+    try {
+      setUploadingLogo(true);
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      setCompanyData({ ...companyData, logo_url: file_url });
+      toast.success("Logo enviada com sucesso");
+    } catch (error) {
+      toast.error("Erro ao enviar logo");
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    setCompanyData({ ...companyData, logo_url: '' });
+  };
+
+  const formatCNPJ = (value) => {
+    return value
+      .replace(/\D/g, '')
+      .replace(/(\d{2})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1/$2')
+      .replace(/(\d{4})(\d)/, '$1-$2')
+      .slice(0, 18);
+  };
+
+  const formatPhone = (value) => {
+    const cleaned = value.replace(/\D/g, '');
+    if (cleaned.length <= 10) {
+      return cleaned
+        .replace(/(\d{2})(\d)/, '($1) $2')
+        .replace(/(\d{4})(\d)/, '$1-$2')
+        .slice(0, 14);
+    } else {
+      return cleaned
+        .replace(/(\d{2})(\d)/, '($1) $2')
+        .replace(/(\d{5})(\d)/, '$1-$2')
+        .slice(0, 15);
+    }
+  };
+
+  const brazilianStates = [
+    'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG',
+    'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
+  ];
 
   const sections = [
     { id: 'company', name: 'Dados da Empresa', icon: Building2 },
@@ -158,35 +265,148 @@ export default function Settings() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Dados da Empresa</CardTitle>
-                <CardDescription>Informações básicas da sua empresa</CardDescription>
+                <CardDescription>Informações que aparecem nos relatórios e documentos exportados</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-6">
+                {/* LOGO DA EMPRESA */}
                 <div>
-                  <Label>Nome da Empresa</Label>
-                  <Input placeholder="Digite o nome da empresa" />
+                  <Label className="text-sm font-semibold mb-2 block">Logo da Empresa</Label>
+                  <div className="space-y-3">
+                    {companyData.logo_url ? (
+                      <div className="flex items-start gap-4">
+                        <div className="w-[300px] h-[100px] border-2 border-dashed border-slate-200 rounded-lg flex items-center justify-center bg-slate-50 overflow-hidden">
+                          <img 
+                            src={companyData.logo_url} 
+                            alt="Logo da empresa" 
+                            className="max-w-full max-h-full object-contain"
+                          />
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={handleRemoveLogo}
+                        >
+                          <X className="w-4 h-4 mr-1" />
+                          Remover Logo
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="w-[300px] h-[100px] border-2 border-dashed border-slate-300 rounded-lg flex flex-col items-center justify-center bg-slate-50 cursor-pointer hover:border-slate-400 transition-colors relative">
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/jpg"
+                          onChange={handleLogoUpload}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          disabled={uploadingLogo}
+                        />
+                        {uploadingLogo ? (
+                          <div className="text-sm text-slate-500">Enviando...</div>
+                        ) : (
+                          <>
+                            <ImageIcon className="w-8 h-8 text-slate-400 mb-2" />
+                            <div className="text-sm text-slate-500">Clique para fazer upload</div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                    <p className="text-xs text-slate-500">
+                      Formatos aceitos: PNG, JPG (até 2MB) • Dimensões recomendadas: 300x100px
+                    </p>
+                  </div>
                 </div>
+
+                {/* NOME DA EMPRESA */}
                 <div>
-                  <Label>CNPJ</Label>
-                  <Input placeholder="00.000.000/0000-00" />
+                  <Label className="text-sm font-semibold mb-2 block">
+                    Nome da Empresa <span className="text-red-500">*</span>
+                  </Label>
+                  <Input 
+                    placeholder="Ex: Panificadora São José"
+                    value={companyData.company_name}
+                    onChange={(e) => setCompanyData({...companyData, company_name: e.target.value})}
+                  />
                 </div>
+
+                {/* CNPJ */}
                 <div>
-                  <Label>Endereço</Label>
-                  <Input placeholder="Rua, número, bairro" />
+                  <Label className="text-sm font-semibold mb-2 block">CNPJ</Label>
+                  <Input 
+                    placeholder="00.000.000/0000-00"
+                    value={companyData.cnpj}
+                    onChange={(e) => setCompanyData({...companyData, cnpj: formatCNPJ(e.target.value)})}
+                    maxLength={18}
+                  />
                 </div>
+
+                {/* ENDEREÇO */}
+                <div>
+                  <Label className="text-sm font-semibold mb-2 block">Endereço</Label>
+                  <Input 
+                    placeholder="Ex: Rua Principal, 123 - Centro"
+                    value={companyData.address}
+                    onChange={(e) => setCompanyData({...companyData, address: e.target.value})}
+                  />
+                </div>
+
+                {/* CIDADE/ESTADO */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label>Cidade</Label>
-                    <Input placeholder="Cidade" />
+                    <Label className="text-sm font-semibold mb-2 block">Cidade</Label>
+                    <Input 
+                      placeholder="Cidade"
+                      value={companyData.city}
+                      onChange={(e) => setCompanyData({...companyData, city: e.target.value})}
+                    />
                   </div>
                   <div>
-                    <Label>Estado</Label>
-                    <Input placeholder="UF" maxLength="2" />
+                    <Label className="text-sm font-semibold mb-2 block">Estado</Label>
+                    <Select 
+                      value={companyData.state} 
+                      onValueChange={(value) => setCompanyData({...companyData, state: value})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="UF" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {brazilianStates.map(state => (
+                          <SelectItem key={state} value={state}>
+                            {state}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
+
+                {/* TELEFONE */}
+                <div>
+                  <Label className="text-sm font-semibold mb-2 block">Telefone</Label>
+                  <Input 
+                    placeholder="(00) 00000-0000"
+                    value={companyData.phone}
+                    onChange={(e) => setCompanyData({...companyData, phone: formatPhone(e.target.value)})}
+                    maxLength={15}
+                  />
+                </div>
+
+                {/* EMAIL */}
+                <div>
+                  <Label className="text-sm font-semibold mb-2 block">Email</Label>
+                  <Input 
+                    type="email"
+                    placeholder="contato@empresa.com"
+                    value={companyData.email}
+                    onChange={(e) => setCompanyData({...companyData, email: e.target.value})}
+                  />
+                </div>
+
                 <div className="pt-4 border-t">
-                  <Button onClick={handleSave}>
+                  <Button 
+                    onClick={handleSaveCompanyData}
+                    disabled={saveCompanyDataMutation.isPending || !companyData.company_name}
+                  >
                     <Save className="w-4 h-4 mr-2" />
-                    Salvar Alterações
+                    Salvar Dados da Empresa
                   </Button>
                 </div>
               </CardContent>
