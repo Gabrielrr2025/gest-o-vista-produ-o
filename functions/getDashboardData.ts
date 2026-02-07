@@ -39,18 +39,14 @@ Deno.serve(async (req) => {
           AND EXTRACT(YEAR FROM data) = $2
       `;
 
-      const params = [weekNumber, year];
-      let paramIndex = 3;
-
       if (sector !== 'all') {
-        topSalesQuery += ` AND setor = $${paramIndex}`;
-        params.push(sector);
-        paramIndex++;
+        topSalesQuery += ` AND setor = $3`;
       }
 
       topSalesQuery += ` GROUP BY produto ORDER BY total_vendas DESC LIMIT 5`;
 
-      const topSalesResult = await client.query(topSalesQuery, params);
+      const topSalesParams = sector !== 'all' ? [weekNumber, year, sector] : [weekNumber, year];
+      const topSalesResult = await sql(topSalesQuery, topSalesParams);
 
       // Query 2: Análise de perdas da semana
       let lossAnalysisQuery = `
