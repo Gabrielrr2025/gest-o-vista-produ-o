@@ -14,6 +14,7 @@ export default function Reports() {
   const [currentUser, setCurrentUser] = useState(null);
   const [hasAccess, setHasAccess] = useState(false);
   const [filters, setFilters] = useState({
+    period: '4weeks',
     startDate: format(subWeeks(new Date(), 4), 'yyyy-MM-dd'),
     endDate: format(new Date(), 'yyyy-MM-dd'),
     comparisonType: 'weeks',
@@ -57,35 +58,43 @@ export default function Reports() {
     enabled: hasAccess
   });
 
-  const handleQuickPeriod = (type) => {
+  const handlePeriodChange = (value) => {
     const today = new Date();
     let start;
     
-    switch(type) {
-      case 'week':
-        start = subWeeks(today, 1);
-        break;
-      case '4weeks':
-        start = subWeeks(today, 4);
-        break;
-      case 'month':
-        start = subMonths(today, 1);
-        break;
-      case '3months':
-        start = subMonths(today, 3);
-        break;
-      case 'year':
-        start = startOfYear(today);
-        break;
-      default:
-        start = subWeeks(today, 4);
+    if (value !== 'custom') {
+      switch(value) {
+        case 'week':
+          start = subWeeks(today, 1);
+          break;
+        case '4weeks':
+          start = subWeeks(today, 4);
+          break;
+        case 'month':
+          start = subMonths(today, 1);
+          break;
+        case '3months':
+          start = subMonths(today, 3);
+          break;
+        case 'year':
+          start = startOfYear(today);
+          break;
+        default:
+          start = subWeeks(today, 4);
+      }
+      
+      setFilters({
+        ...filters,
+        period: value,
+        startDate: format(start, 'yyyy-MM-dd'),
+        endDate: format(today, 'yyyy-MM-dd')
+      });
+    } else {
+      setFilters({
+        ...filters,
+        period: 'custom'
+      });
     }
-    
-    setFilters({
-      ...filters,
-      startDate: format(start, 'yyyy-MM-dd'),
-      endDate: format(today, 'yyyy-MM-dd')
-    });
   };
 
   const handleApplyFilters = () => {
@@ -147,131 +156,78 @@ export default function Reports() {
               {/* PERÍODO */}
               <div>
                 <Label className="text-sm font-semibold mb-2 block">Período</Label>
-                <div className="space-y-2">
-                  <div>
-                    <Label className="text-xs text-slate-600">Data Início</Label>
-                    <Input
-                      type="date"
-                      value={filters.startDate}
-                      onChange={(e) => setFilters({...filters, startDate: e.target.value})}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs text-slate-600">Data Fim</Label>
-                    <Input
-                      type="date"
-                      value={filters.endDate}
-                      onChange={(e) => setFilters({...filters, endDate: e.target.value})}
-                    />
-                  </div>
-                </div>
+                <Select 
+                  value={filters.period} 
+                  onValueChange={handlePeriodChange}
+                >
+                  <SelectTrigger className="h-10">
+                    <SelectValue placeholder="Selecione o período" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="week">Última semana</SelectItem>
+                    <SelectItem value="4weeks">Últimas 4 semanas</SelectItem>
+                    <SelectItem value="month">Último mês</SelectItem>
+                    <SelectItem value="3months">Últimos 3 meses</SelectItem>
+                    <SelectItem value="year">Ano atual</SelectItem>
+                    <SelectItem value="custom">Personalizado</SelectItem>
+                  </SelectContent>
+                </Select>
 
-                {/* Atalhos rápidos */}
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => handleQuickPeriod('week')}
-                    className="text-xs"
-                  >
-                    Última semana
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => handleQuickPeriod('4weeks')}
-                    className="text-xs"
-                  >
-                    4 semanas
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => handleQuickPeriod('month')}
-                    className="text-xs"
-                  >
-                    Último mês
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => handleQuickPeriod('3months')}
-                    className="text-xs"
-                  >
-                    3 meses
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => handleQuickPeriod('year')}
-                    className="text-xs"
-                  >
-                    Ano atual
-                  </Button>
-                </div>
+                {filters.period === 'custom' && (
+                  <div className="space-y-2 mt-3">
+                    <div>
+                      <Label className="text-xs text-slate-600">Data Início</Label>
+                      <Input
+                        type="date"
+                        value={filters.startDate}
+                        onChange={(e) => setFilters({...filters, startDate: e.target.value})}
+                        className="h-10"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-slate-600">Data Fim</Label>
+                      <Input
+                        type="date"
+                        value={filters.endDate}
+                        onChange={(e) => setFilters({...filters, endDate: e.target.value})}
+                        className="h-10"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div className="border-t pt-4">
-                <Label className="text-sm font-semibold mb-2 block">Tipo de Comparação</Label>
-                <div className="space-y-2">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="comparison"
-                      value="weeks"
-                      checked={filters.comparisonType === 'weeks'}
-                      onChange={(e) => setFilters({...filters, comparisonType: e.target.value})}
-                      className="w-4 h-4"
-                    />
-                    <span className="text-sm">Por Semanas</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="comparison"
-                      value="months"
-                      checked={filters.comparisonType === 'months'}
-                      onChange={(e) => setFilters({...filters, comparisonType: e.target.value})}
-                      className="w-4 h-4"
-                    />
-                    <span className="text-sm">Por Meses</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="comparison"
-                      value="products"
-                      checked={filters.comparisonType === 'products'}
-                      onChange={(e) => setFilters({...filters, comparisonType: e.target.value})}
-                      className="w-4 h-4"
-                    />
-                    <span className="text-sm">Por Produtos</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="comparison"
-                      value="sectors"
-                      checked={filters.comparisonType === 'sectors'}
-                      onChange={(e) => setFilters({...filters, comparisonType: e.target.value})}
-                      className="w-4 h-4"
-                    />
-                    <span className="text-sm">Por Setores</span>
-                  </label>
-                </div>
+              {/* TIPO DE COMPARAÇÃO */}
+              <div>
+                <Label className="text-sm font-semibold mb-2 block">Comparar por</Label>
+                <Select 
+                  value={filters.comparisonType} 
+                  onValueChange={(value) => setFilters({...filters, comparisonType: value})}
+                >
+                  <SelectTrigger className="h-10">
+                    <SelectValue placeholder="Selecione o tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="weeks">Semanas</SelectItem>
+                    <SelectItem value="months">Meses</SelectItem>
+                    <SelectItem value="products">Produtos</SelectItem>
+                    <SelectItem value="sectors">Setores</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
-              <div className="border-t pt-4">
-                <Label className="text-sm font-semibold mb-2 block">Filtro de Setor</Label>
+              {/* SETOR */}
+              <div>
+                <Label className="text-sm font-semibold mb-2 block">Filtrar por setor</Label>
                 <Select 
                   value={filters.sector} 
                   onValueChange={(value) => setFilters({...filters, sector: value})}
                 >
-                  <SelectTrigger>
-                    <SelectValue />
+                  <SelectTrigger className="h-10">
+                    <SelectValue placeholder="Todos os setores" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Todos os Setores</SelectItem>
+                    <SelectItem value="all">Todos os setores</SelectItem>
                     <SelectItem value="Padaria">Padaria</SelectItem>
                     <SelectItem value="Confeitaria">Confeitaria</SelectItem>
                     <SelectItem value="Salgados">Salgados</SelectItem>
@@ -282,18 +238,19 @@ export default function Reports() {
                 </Select>
               </div>
 
-              <div className="border-t pt-4">
-                <Label className="text-sm font-semibold mb-2 block">Filtro de Produto</Label>
+              {/* PRODUTO */}
+              <div>
+                <Label className="text-sm font-semibold mb-2 block">Filtrar por produto</Label>
                 <Select 
                   value={filters.product} 
                   onValueChange={(value) => setFilters({...filters, product: value})}
                   disabled={filters.comparisonType !== 'products'}
                 >
-                  <SelectTrigger>
-                    <SelectValue />
+                  <SelectTrigger className="h-10">
+                    <SelectValue placeholder="Todos os produtos" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Todos os Produtos</SelectItem>
+                    <SelectItem value="all">Todos os produtos</SelectItem>
                     {products.map(product => (
                       <SelectItem key={product.id} value={product.id}>
                         {product.name}
@@ -303,13 +260,13 @@ export default function Reports() {
                 </Select>
                 {filters.comparisonType !== 'products' && (
                   <p className="text-xs text-slate-500 mt-1">
-                    Disponível ao selecionar "Por Produtos"
+                    Disponível ao selecionar "Produtos"
                   </p>
                 )}
               </div>
 
               <Button 
-                className="w-full bg-blue-600 hover:bg-blue-700"
+                className="w-full bg-blue-600 hover:bg-blue-700 h-10"
                 onClick={handleApplyFilters}
               >
                 Aplicar Filtros
