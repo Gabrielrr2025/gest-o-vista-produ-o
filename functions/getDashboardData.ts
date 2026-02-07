@@ -136,6 +136,11 @@ Deno.serve(async (req) => {
     }
   } catch (error) {
     console.error('❌ Erro ao buscar dados do dashboard:', error.message);
+    try {
+      await sql?.end?.();
+    } catch (e) {
+      // Ignore cleanup errors
+    }
     return Response.json({ 
       error: error.message,
       details: 'Erro ao buscar dados de vw_movimentacoes'
