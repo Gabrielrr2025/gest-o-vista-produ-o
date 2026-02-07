@@ -163,11 +163,11 @@ export default function UserFormDialog({ user, onClose, onSave }) {
             />
           </div>
 
-          <div className="border-t pt-4 space-y-3">
+          <div className="border-t pt-3 space-y-2">
             <Label className="text-sm font-semibold">Permissões por Aba</Label>
             <p className="text-xs text-gray-500">Selecione quais abas o usuário pode acessar</p>
             
-            <div className="space-y-2 mt-3">
+            <div className="space-y-1 mt-2">
               {[
                 { key: 'dashboard', label: 'Dashboard', desc: 'Visão geral e indicadores' },
                 { key: 'products', label: 'Produtos', desc: 'Gerenciamento de produtos' },
@@ -182,7 +182,7 @@ export default function UserFormDialog({ user, onClose, onSave }) {
                 const disabled = isAdmin || (isAdminPerm && user?.role !== 'admin');
                 
                 return (
-                  <label key={perm.key} className={`flex items-start gap-2 p-2 rounded-lg hover:bg-gray-50 ${disabled ? 'opacity-60' : 'cursor-pointer'}`}>
+                  <label key={perm.key} className={`flex items-start gap-2 p-1.5 rounded-lg hover:bg-gray-50 ${disabled ? 'opacity-60' : 'cursor-pointer'}`}>
                     <input
                       type="checkbox"
                       checked={isAdmin ? true : (formData.permissions[perm.key] || false)}
