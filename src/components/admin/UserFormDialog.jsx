@@ -118,12 +118,13 @@ export default function UserFormDialog({ user, onClose, onSave }) {
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[600px] w-[95%] max-h-[85vh] flex flex-col p-0">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b flex-shrink-0">
           <DialogTitle>{user ? 'Editar Usuário' : 'Adicionar Novo Usuário'}</DialogTitle>
         </DialogHeader>
         
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
           <div>
             <Label htmlFor="full_name">Nome Completo *</Label>
             <Input
@@ -210,14 +211,14 @@ export default function UserFormDialog({ user, onClose, onSave }) {
             </div>
             
             {user?.role === 'admin' && (
-              <p className="text-xs text-amber-600 mt-2">
+              <p className="text-xs text-amber-600 mt-1">
                 ⚠️ Usuários MASTER têm acesso a todas as abas
               </p>
             )}
           </div>
 
           {user && (
-            <div className="border-t pt-4 space-y-3">
+            <div className="border-t pt-3 space-y-2">
               <Label className="text-sm font-semibold">Status</Label>
               
               <div className="flex gap-4">
@@ -245,8 +246,9 @@ export default function UserFormDialog({ user, onClose, onSave }) {
               </div>
             </div>
           )}
+          </div>
 
-          <DialogFooter className="gap-2">
+          <DialogFooter className="px-6 py-4 border-t bg-gray-50 gap-2 flex-shrink-0">
             <Button type="button" variant="outline" onClick={onClose}>
               Cancelar
             </Button>
@@ -254,6 +256,7 @@ export default function UserFormDialog({ user, onClose, onSave }) {
               type="submit" 
               disabled={isSubmitting}
               className="bg-blue-600 hover:bg-blue-700 text-white"
+              style={{ padding: '10px 20px', fontSize: '14px', fontWeight: 500 }}
             >
               {isSubmitting ? 'Salvando...' : (user ? 'Salvar Alterações' : 'Enviar Convite')}
             </Button>
