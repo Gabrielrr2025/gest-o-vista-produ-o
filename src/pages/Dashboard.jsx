@@ -208,21 +208,21 @@ export default function Dashboard() {
           selectedSector={selectedSector}
         />
         <LossAnalysis 
+            salesData={filteredData.sales}
+            lossData={filteredData.losses}
+            historicalLossData={historicalDataForLimits}
+            productMap={productMap}
+          />
+        </div>
+
+        <WeekAlerts 
           salesData={filteredData.sales}
           lossData={filteredData.losses}
-          historicalLossData={historicalData}
+          historicalLossData={historicalDataForLimits}
+          productionData={filteredData.production}
           productMap={productMap}
+          dateRange={dateRange}
         />
-      </div>
-
-      <WeekAlerts 
-        salesData={filteredData.sales}
-        lossData={filteredData.losses}
-        historicalLossData={historicalData}
-        productionData={filteredData.production}
-        productMap={productMap}
-        dateRange={dateRange}
-      />
 
       <ProductTrendChart 
         salesData={filteredData.sales}
