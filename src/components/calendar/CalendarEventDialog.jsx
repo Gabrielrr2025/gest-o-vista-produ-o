@@ -62,7 +62,15 @@ export default function CalendarEventDialog({ event, initialDate, onClose, onSav
         toast.success("Evento criado");
       }
 
+      // Invalidar queries para atualizar calendário E planejamento
       queryClient.invalidateQueries(['calendarEvents']);
+      queryClient.invalidateQueries(['planejamentos']);
+      
+      // Mostrar aviso se impacto foi configurado
+      if (formData.impact_percentage !== 0) {
+        toast.info("Planejamentos futuros serão ajustados automaticamente");
+      }
+      
       onSave();
     } catch (error) {
       toast.error("Erro ao salvar evento");
@@ -73,12 +81,16 @@ export default function CalendarEventDialog({ event, initialDate, onClose, onSav
   const handleDelete = async () => {
     if (!event) return;
     
-    if (!confirm("Tem certeza que deseja excluir este evento?")) return;
+    if (!confirm("Tem certeza que deseja excluir este evento? Planejamentos futuros serão recalculados.")) return;
 
     try {
       await base44.entities.CalendarEvent.delete(event.id);
       toast.success("Evento excluído");
+      
+      // Invalidar queries para atualizar calendário E planejamento
       queryClient.invalidateQueries(['calendarEvents']);
+      queryClient.invalidateQueries(['planejamentos']);
+      
       onClose();
     } catch (error) {
       toast.error("Erro ao excluir evento");
