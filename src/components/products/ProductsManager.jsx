@@ -228,10 +228,30 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
             </Select>
           </div>
           {showAddButton && (
-            <Button onClick={() => handleOpenDialog()} className="bg-[hsl(var(--accent-primary))] hover:bg-[hsl(var(--accent-primary-hover))] text-white">
-              <Plus className="w-4 h-4 mr-2" />
-              Adicionar Produto
-            </Button>
+            <button 
+              onClick={() => handleOpenDialog()}
+              style={{
+                backgroundColor: '#3B82F6',
+                color: '#FFFFFF',
+                border: 'none',
+                padding: '10px 20px',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: 500,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                transition: 'background-color 0.2s ease',
+                zIndex: 1,
+                position: 'relative'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1D4ED8'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3B82F6'}
+            >
+              <Plus className="w-4 h-4" />
+              Novo Produto
+            </button>
           )}
         </div>
 
@@ -310,14 +330,14 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-[500px] w-[95%] max-h-[80vh] flex flex-col p-0">
-          <DialogHeader className="px-6 pt-6 pb-4 border-b flex-shrink-0">
+        <DialogContent>
+          <DialogHeader>
             <DialogTitle>
               {editingProduct ? "Editar Produto" : "Novo Produto"}
             </DialogTitle>
           </DialogHeader>
           
-          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+          <div className="space-y-4">
             <div>
               <Label>Código do Produto (opcional)</Label>
               <Input
@@ -416,19 +436,11 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
             </div>
           </div>
 
-          <DialogFooter className="px-6 py-4 border-t bg-gray-50 gap-3 flex-shrink-0">
-            <Button 
-              variant="outline" 
-              onClick={() => setDialogOpen(false)}
-              style={{ padding: '8px 20px', fontSize: '14px', fontWeight: 500 }}
-            >
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button 
-              onClick={handleSave}
-              className="bg-green-600 hover:bg-green-700 text-white"
-              style={{ padding: '8px 20px', fontSize: '14px', fontWeight: 500, borderRadius: '8px' }}
-            >
+            <Button onClick={handleSave}>
               {editingProduct ? "Salvar" : "Criar"}
             </Button>
           </DialogFooter>
