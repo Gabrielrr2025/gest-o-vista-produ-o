@@ -71,6 +71,14 @@ export default function Settings() {
     high_sales_percent: 130
   });
 
+  const [planningSettings, setPlanningSettings] = useState({
+    calculation_weeks: 4,
+    safety_margin: 10,
+    holiday_impact: 30,
+    event_impact: 30,
+    auto_fill_enabled: true
+  });
+
   const [uploadingLogo, setUploadingLogo] = useState(false);
 
   const { data: systemConfig = [] } = useQuery({
@@ -103,6 +111,15 @@ export default function Settings() {
         setAlertSettings(JSON.parse(savedAlertSettings.config_value));
       } catch (e) {
         console.error("Error parsing alert settings", e);
+      }
+    }
+
+    const savedPlanningSettings = systemConfig.find(c => c.config_key === "planning_settings");
+    if (savedPlanningSettings) {
+      try {
+        setPlanningSettings(JSON.parse(savedPlanningSettings.config_value));
+      } catch (e) {
+        console.error("Error parsing planning settings", e);
       }
     }
   }, [systemConfig]);
@@ -181,6 +198,31 @@ export default function Settings() {
 
   const handleSaveAlertSettings = () => {
     saveAlertSettingsMutation.mutate(alertSettings);
+  };
+
+  const savePlanningSettingsMutation = useMutation({
+    mutationFn: async (data) => {
+      const existing = systemConfig.find(c => c.config_key === "planning_settings");
+      const payload = {
+        config_key: "planning_settings",
+        config_value: JSON.stringify(data),
+        description: "Configurações de planejamento de produção"
+      };
+
+      if (existing) {
+        return base44.entities.SystemConfig.update(existing.id, payload);
+      } else {
+        return base44.entities.SystemConfig.create(payload);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['systemConfig'] });
+      toast.success("✓ Configurações de planejamento salvas");
+    }
+  });
+
+  const handleSavePlanningSettings = () => {
+    savePlanningSettingsMutation.mutate(planningSettings);
   };
 
   const handleLogoUpload = async (e) => {
@@ -625,27 +667,133 @@ export default function Settings() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Planejamento</CardTitle>
-                <CardDescription>Configurações de planejamento de produção</CardDescription>
+                <CardDescription>Defina parâmetros para cálculo de sugestão automática</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label>Semanas de Antecedência</Label>
-                  <Input type="number" defaultValue="2" min="1" max="8" />
-                  <p className="text-xs text-slate-500 mt-1">
-                    Quantas semanas futuras exibir no planejamento
+              <CardContent className="space-y-6">
+                {/* BASE DE CÁLCULO */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-semibold">Base de Cálculo</Label>
+                  <div>
+                    <Label className="text-sm text-slate-600 mb-2 block">
+                      Calcular média com base em:
+                    </Label>
+                    <Select 
+                      value={planningSettings.calculation_weeks.toString()}
+                      onValueChange={(value) => setPlanningSettings({...planningSettings, calculation_weeks: parseInt(value)})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="2">Últimas 2 semanas</SelectItem>
+                        <SelectItem value="4">Últimas 4 semanas (recomendado)</SelectItem>
+                        <SelectItem value="6">Últimas 6 semanas</SelectItem>
+                        <SelectItem value="8">Últimas 8 semanas</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-slate-500 mt-1">Padrão: 4 semanas</p>
+                  </div>
+                </div>
+
+                {/* MARGEM DE SEGURANÇA */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-semibold">Margem de Segurança Padrão</Label>
+                  <div>
+                    <Label className="text-sm text-slate-600 mb-2 block">
+                      Acrescentar margem de segurança:
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        value={planningSettings.safety_margin}
+                        onChange={(e) => setPlanningSettings({...planningSettings, safety_margin: parseFloat(e.target.value)})}
+                        min="0"
+                        max="100"
+                        step="5"
+                        className="w-24"
+                      />
+                      <span className="text-sm text-slate-600">%</span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Aplicado quando vendas sobem e perdas caem (Padrão: 10%)
+                    </p>
+                  </div>
+                </div>
+
+                {/* IMPACTO DE FERIADO */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-semibold">Impacto de Feriado</Label>
+                  <div>
+                    <Label className="text-sm text-slate-600 mb-2 block">
+                      Aumentar produção em semanas com feriado:
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        value={planningSettings.holiday_impact}
+                        onChange={(e) => setPlanningSettings({...planningSettings, holiday_impact: parseFloat(e.target.value)})}
+                        min="0"
+                        max="200"
+                        step="5"
+                        className="w-24"
+                      />
+                      <span className="text-sm text-slate-600">%</span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">Padrão: 30%</p>
+                  </div>
+                </div>
+
+                {/* IMPACTO DE EVENTO ESPECIAL */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-semibold">Impacto de Evento Especial</Label>
+                  <div>
+                    <Label className="text-sm text-slate-600 mb-2 block">
+                      Aumentar produção em semanas com evento:
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        value={planningSettings.event_impact}
+                        onChange={(e) => setPlanningSettings({...planningSettings, event_impact: parseFloat(e.target.value)})}
+                        min="0"
+                        max="200"
+                        step="5"
+                        className="w-24"
+                      />
+                      <span className="text-sm text-slate-600">%</span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">Padrão: 30%</p>
+                  </div>
+                </div>
+
+                {/* AUTO-PREENCHER */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-semibold">Auto-preencher Planejamento</Label>
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={planningSettings.auto_fill_enabled}
+                        onCheckedChange={(checked) => setPlanningSettings({...planningSettings, auto_fill_enabled: checked})}
+                      />
+                      <span className="text-sm text-slate-600">
+                        {planningSettings.auto_fill_enabled ? 'Habilitado' : 'Desabilitado'}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    {planningSettings.auto_fill_enabled 
+                      ? 'Campos virão preenchidos automaticamente ao abrir' 
+                      : 'Será necessário clicar em "Recalcular" para sugestões'}
                   </p>
                 </div>
-                <div>
-                  <Label>Auto-save</Label>
-                  <Input type="number" defaultValue="30" min="10" max="120" />
-                  <p className="text-xs text-slate-500 mt-1">
-                    Salvar automaticamente a cada X segundos (após edição)
-                  </p>
-                </div>
+
                 <div className="pt-4 border-t">
-                  <Button onClick={handleSave}>
+                  <Button 
+                    onClick={handleSavePlanningSettings}
+                    disabled={savePlanningSettingsMutation.isPending}
+                  >
                     <Save className="w-4 h-4 mr-2" />
-                    Salvar Alterações
+                    Salvar Configurações de Planejamento
                   </Button>
                 </div>
               </CardContent>
