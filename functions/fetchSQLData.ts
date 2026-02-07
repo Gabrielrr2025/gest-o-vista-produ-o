@@ -12,25 +12,22 @@ Deno.serve(async (req) => {
 
         const { startDate, endDate } = await req.json();
 
-        // Connection string do Neon
         const DATABASE_URL = Deno.env.get('POSTGRES_CONNECTION_URL');
-        
         const sql = neon(DATABASE_URL);
 
-        // Query na view vw_movimentacoes
-        // Verifica se a coluna codigo_produto existe
-        const checkColumn = await sql`
-            SELECT column_name 
-            FROM information_schema.columns 
-            WHERE table_name = 'vw_movimentacoes' 
-            AND column_name = 'codigo_produto'
-        `;
-        
-        const hasCodigoColumn = checkColumn.length > 0;
-        
+        // ATUALIZADO: usar as novas colunas da view
         let query = `
-            SELECT data, semana, mes, produto, setor, quantidade, valor, tipo
-            ${hasCodigoColumn ? ', codigo_produto' : ', NULL as codigo_produto'}
+            SELECT 
+                data, 
+                numero_semana,
+                ano,
+                data_inicio,
+                data_fim,
+                produto, 
+                setor, 
+                quantidade, 
+                valor, 
+                tipo
             FROM vw_movimentacoes
             WHERE 1=1
         `;
@@ -48,55 +45,41 @@ Deno.serve(async (req) => {
 
         const results = await sql(query, params);
 
-            // Transformar para formato compatível com o sistema atual
-            const salesData = [];
-            const lossData = [];
+        const salesData = [];
+        const lossData = [];
 
-            for (const row of results) {
-                const record = {
-                    product_code: row.codigo_produto || null,
-                    product_name: row.produto,
-                    sector: row.setor,
-                    quantity: parseFloat(row.quantidade),
-                    date: row.data,
-                    week_number: parseInt(row.semana),
-                    month: parseInt(row.mes),
-                    year: new Date(row.data).getFullYear()
-                };
+        for (const row of results) {
+            const record = {
+                product_name: row.produto,
+                sector: row.setor,
+                quantity: parseFloat(row.quantidade),
+                value: parseFloat(row.valor),
+                date: row.data,
+                week_number: row.numero_semana,  // ATUALIZADO
+                year: row.ano,  // ATUALIZADO
+                week_start: row.data_inicio,  // NOVO
+                week_end: row.data_fim  // NOVO
+            };
 
-                if (row.tipo.toLowerCase() === 'venda') {
-                    salesData.push(record);
-                } else if (row.tipo.toLowerCase() === 'perda') {
-                    lossData.push(record);
-                }
+            if (row.tipo.toLowerCase() === 'venda') {
+                salesData.push(record);
+            } else if (row.tipo.toLowerCase() === 'perda') {
+                lossData.push(record);
             }
+        }
 
-            return Response.json({
-                success: true,
-                salesData,
-                lossData,
-                totalRecords: results.length
-            });
+        return Response.json({
+            success: true,
+            salesData,
+            lossData,
+            totalRecords: results.length
+        });
 
     } catch (error) {
-        console.error('=== ERRO SQL COMPLETO ===');
-        console.error('Nome:', error.name);
-        console.error('Mensagem:', error.message);
-        console.error('Stack:', error.stack);
-        console.error('Código:', error.code);
-        console.error('Detalhes:', error.detail);
-        console.error('Erro completo:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
-        console.error('========================');
-        
+        console.error('=== ERRO SQL ===', error);
         return Response.json({ 
             success: false,
-            error: 'Erro ao buscar dados do banco de dados',
-            errorMessage: error.message,
-            errorName: error.name,
-            errorCode: error.code,
-            errorStack: error.stack,
-            errorDetails: error.detail,
-            fullError: JSON.stringify(error, Object.getOwnPropertyNames(error))
-        }, { status: 200 });
+            error: error.message
+        }, { status: 500 });
     }
 });
