@@ -86,7 +86,8 @@ export default function Admin() {
             setSelectedUser(null);
             setShowDialog(true);
           }}
-          className="bg-[hsl(var(--accent-primary))] hover:bg-[hsl(var(--accent-primary-hover))] text-white"
+          className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-all duration-200"
+          style={{ padding: '10px 20px', fontSize: '14px', fontWeight: 500, borderRadius: '6px' }}
         >
           <UserPlus className="w-4 h-4 mr-2" />
           Adicionar Usuário
