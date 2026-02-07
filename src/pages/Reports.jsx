@@ -12,6 +12,7 @@ import { format, subDays, subWeeks, subMonths, startOfYear, parseISO, getWeek, g
 import SalesLossChart from "../components/reports/SalesLossChart";
 import LossRateChart from "../components/reports/LossRateChart";
 import RevenueChart from "../components/reports/RevenueChart";
+import SummaryTable from "../components/reports/SummaryTable";
 
 export default function Reports() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -389,6 +390,7 @@ export default function Reports() {
           <SalesLossChart data={chartData} />
           <LossRateChart data={chartData} />
           <RevenueChart data={chartData} products={products} />
+          <SummaryTable data={chartData} products={products} />
         </div>
       </div>
     </div>
