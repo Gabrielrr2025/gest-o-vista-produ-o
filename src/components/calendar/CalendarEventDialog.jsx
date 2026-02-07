@@ -131,37 +131,59 @@ export default function CalendarEventDialog({ event, initialDate, onClose, onSav
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{event ? 'Editar Evento' : 'Novo Evento'}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="space-y-3 py-2">
           <div>
-            <Label>Nome do Evento *</Label>
+            <Label className="text-sm">Nome do Evento *</Label>
             <Input
               value={formData.name}
               onChange={(e) => setFormData({...formData, name: e.target.value})}
               placeholder="Ex: Páscoa, Black Friday, Natal..."
+              className="h-9"
             />
           </div>
 
-          <div>
-            <Label>Data *</Label>
-            <Input
-              type="date"
-              value={formData.date}
-              onChange={(e) => setFormData({...formData, date: e.target.value})}
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-sm">Data *</Label>
+              <Input
+                type="date"
+                value={formData.date}
+                onChange={(e) => setFormData({...formData, date: e.target.value})}
+                className="h-9"
+              />
+            </div>
+            <div>
+              <Label className="text-sm">Impacto na Produção</Label>
+              <Select 
+                value={formData.impact_percentage.toString()} 
+                onValueChange={(value) => setFormData({...formData, impact_percentage: parseFloat(value)})}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {IMPACT_OPTIONS.map(opt => (
+                    <SelectItem key={opt.value} value={opt.value.toString()}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div>
-            <Label>Tipo de Evento</Label>
+            <Label className="text-sm">Tipo de Evento</Label>
             <Select 
               value={formData.type} 
               onValueChange={(value) => setFormData({...formData, type: value})}
             >
-              <SelectTrigger>
+              <SelectTrigger className="h-9">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -175,34 +197,12 @@ export default function CalendarEventDialog({ event, initialDate, onClose, onSav
           </div>
 
           <div>
-            <Label>Impacto na Produção</Label>
-            <Select 
-              value={formData.impact_percentage.toString()} 
-              onValueChange={(value) => setFormData({...formData, impact_percentage: parseFloat(value)})}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {IMPACT_OPTIONS.map(opt => (
-                  <SelectItem key={opt.value} value={opt.value.toString()}>
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-slate-500 mt-1">
-              Este valor será usado no cálculo do planejamento
-            </p>
-          </div>
-
-          <div>
-            <Label>Setores Afetados</Label>
+            <Label className="text-sm">Setores Afetados</Label>
             <Popover>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
-                  className="w-full justify-between mt-2 h-auto min-h-[40px]"
+                  className="w-full justify-between mt-1 h-9"
                 >
                   <span className="text-sm">{getSelectedSectorsLabel()}</span>
                   <ChevronDown className="h-4 w-4 opacity-50" />
@@ -268,59 +268,61 @@ export default function CalendarEventDialog({ event, initialDate, onClose, onSav
             )}
           </div>
 
-          <div>
-            <Label>Prioridade/Importância</Label>
-            <div className="space-y-2 mt-2">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="priority"
-                  value="baixa"
-                  checked={formData.priority === 'baixa'}
-                  onChange={(e) => setFormData({...formData, priority: e.target.value})}
-                  className="w-4 h-4"
-                />
-                <span className="text-sm flex items-center gap-1">
-                  <span className="text-green-500">🟢</span> Baixa
-                </span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="priority"
-                  value="media"
-                  checked={formData.priority === 'media'}
-                  onChange={(e) => setFormData({...formData, priority: e.target.value})}
-                  className="w-4 h-4"
-                />
-                <span className="text-sm flex items-center gap-1">
-                  <span className="text-yellow-500">🟡</span> Média
-                </span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="priority"
-                  value="alta"
-                  checked={formData.priority === 'alta'}
-                  onChange={(e) => setFormData({...formData, priority: e.target.value})}
-                  className="w-4 h-4"
-                />
-                <span className="text-sm flex items-center gap-1">
-                  <span className="text-red-500">🔴</span> Alta
-                </span>
-              </label>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label className="text-sm">Prioridade</Label>
+              <div className="space-y-1.5 mt-1">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="priority"
+                    value="baixa"
+                    checked={formData.priority === 'baixa'}
+                    onChange={(e) => setFormData({...formData, priority: e.target.value})}
+                    className="w-3.5 h-3.5"
+                  />
+                  <span className="text-xs flex items-center gap-1">
+                    🟢 Baixa
+                  </span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="priority"
+                    value="media"
+                    checked={formData.priority === 'media'}
+                    onChange={(e) => setFormData({...formData, priority: e.target.value})}
+                    className="w-3.5 h-3.5"
+                  />
+                  <span className="text-xs flex items-center gap-1">
+                    🟡 Média
+                  </span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="priority"
+                    value="alta"
+                    checked={formData.priority === 'alta'}
+                    onChange={(e) => setFormData({...formData, priority: e.target.value})}
+                    className="w-3.5 h-3.5"
+                  />
+                  <span className="text-xs flex items-center gap-1">
+                    🔴 Alta
+                  </span>
+                </label>
+              </div>
             </div>
-          </div>
-
-          <div>
-            <Label>Observações</Label>
-            <Textarea
-              value={formData.notes}
-              onChange={(e) => setFormData({...formData, notes: e.target.value})}
-              placeholder="Notas adicionais sobre o evento..."
-              rows={3}
-            />
+            <div>
+              <Label className="text-sm">Observações</Label>
+              <Textarea
+                value={formData.notes}
+                onChange={(e) => setFormData({...formData, notes: e.target.value})}
+                placeholder="Notas..."
+                rows={4}
+                className="text-sm mt-1"
+              />
+            </div>
           </div>
         </div>
 
