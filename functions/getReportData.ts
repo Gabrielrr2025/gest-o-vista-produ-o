@@ -10,7 +10,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { startDate, endDate, sector = 'all', product = 'all', groupBy = 'week' } = body;
+    const { startDate, endDate, sector = 'all', product = 'all', year = 2026 } = body;
 
     if (!startDate || !endDate) {
       return Response.json({ error: 'Missing startDate or endDate' }, { status: 400 });
@@ -27,24 +27,21 @@ Deno.serve(async (req) => {
     await client.connect();
 
     try {
-      // Validação de datas
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      
       console.log(`📊 Buscando dados de relatório: ${startDate} a ${endDate}, setor=${sector}, produto=${product}`);
 
-      // Query 1: Vendas x Perdas em R$
+      // Query 1: Vendas x Perdas em R$ (CORRIGIDO)
       let salesLossQuery = `
         SELECT 
-          semana,
+          numero_semana,
           SUM(CASE WHEN tipo = 'venda' THEN valor ELSE 0 END) as vendas_reais,
           SUM(CASE WHEN tipo = 'perda' THEN valor ELSE 0 END) as perdas_reais
         FROM vw_movimentacoes
         WHERE data BETWEEN $1 AND $2
+          AND ano = $3
       `;
 
-      const params = [startDate, endDate];
-      let paramIndex = 3;
+      const params = [startDate, endDate, year];
+      let paramIndex = 4;
 
       if (sector !== 'all') {
         salesLossQuery += ` AND setor = $${paramIndex}`;
@@ -58,58 +55,57 @@ Deno.serve(async (req) => {
         paramIndex++;
       }
 
-      salesLossQuery += ` GROUP BY semana ORDER BY semana`;
+      salesLossQuery += ` GROUP BY numero_semana ORDER BY numero_semana`;
 
       const salesLossResult = await client.query(salesLossQuery, params);
-      const salesLossData = salesLossResult.rows;
 
-      // Query 2: Taxa de Perda %
+      // Query 2: Taxa de Perda % (CORRIGIDO)
       let lossRateQuery = `
         SELECT 
-          semana,
+          numero_semana,
           (SUM(CASE WHEN tipo = 'perda' THEN quantidade ELSE 0 END) / 
            NULLIF(SUM(CASE WHEN tipo = 'venda' THEN quantidade ELSE 0 END), 0) * 100) as taxa_perda
         FROM vw_movimentacoes
         WHERE data BETWEEN $1 AND $2
+          AND ano = $3
       `;
 
       if (sector !== 'all') {
-        lossRateQuery += ` AND setor = $${paramIndex - Object.keys(params).length + 2}`;
+        lossRateQuery += ` AND setor = $4`;
       }
       if (product !== 'all') {
-        lossRateQuery += ` AND produto = $${paramIndex - Object.keys(params).length + 3}`;
+        lossRateQuery += ` AND produto = $${sector !== 'all' ? 5 : 4}`;
       }
 
-      lossRateQuery += ` GROUP BY semana ORDER BY semana`;
+      lossRateQuery += ` GROUP BY numero_semana ORDER BY numero_semana`;
 
-      const lossRateResult = await client.query(lossRateQuery, params.slice(0, sector !== 'all' || product !== 'all' ? paramIndex - 1 : 2));
-      const lossRateData = lossRateResult.rows;
+      const lossRateResult = await client.query(lossRateQuery, params);
 
-      // Query 3: Faturamento R$
+      // Query 3: Faturamento R$ (CORRIGIDO)
       let revenueQuery = `
         SELECT 
-          semana,
+          numero_semana,
           SUM(CASE WHEN tipo = 'venda' THEN valor ELSE 0 END) as faturamento
         FROM vw_movimentacoes
         WHERE data BETWEEN $1 AND $2
+          AND ano = $3
       `;
 
       if (sector !== 'all') {
-        revenueQuery += ` AND setor = $${paramIndex - Object.keys(params).length + 2}`;
+        revenueQuery += ` AND setor = $4`;
       }
       if (product !== 'all') {
-        revenueQuery += ` AND produto = $${paramIndex - Object.keys(params).length + 3}`;
+        revenueQuery += ` AND produto = $${sector !== 'all' ? 5 : 4}`;
       }
 
-      revenueQuery += ` GROUP BY semana ORDER BY semana`;
+      revenueQuery += ` GROUP BY numero_semana ORDER BY numero_semana`;
 
-      const revenueResult = await client.query(revenueQuery, params.slice(0, sector !== 'all' || product !== 'all' ? paramIndex - 1 : 2));
-      const revenueData = revenueResult.rows;
+      const revenueResult = await client.query(revenueQuery, params);
 
-      // Query 4: Tabela Resumo
+      // Query 4: Tabela Resumo (CORRIGIDO)
       let summaryQuery = `
         SELECT 
-          semana,
+          numero_semana,
           SUM(CASE WHEN tipo = 'venda' THEN quantidade ELSE 0 END) as vendas_qtd,
           SUM(CASE WHEN tipo = 'perda' THEN quantidade ELSE 0 END) as perdas_qtd,
           (SUM(CASE WHEN tipo = 'perda' THEN quantidade ELSE 0 END) / 
@@ -117,32 +113,27 @@ Deno.serve(async (req) => {
           SUM(CASE WHEN tipo = 'venda' THEN valor ELSE 0 END) as faturamento
         FROM vw_movimentacoes
         WHERE data BETWEEN $1 AND $2
+          AND ano = $3
       `;
 
       if (sector !== 'all') {
-        summaryQuery += ` AND setor = $${paramIndex - Object.keys(params).length + 2}`;
+        summaryQuery += ` AND setor = $4`;
       }
       if (product !== 'all') {
-        summaryQuery += ` AND produto = $${paramIndex - Object.keys(params).length + 3}`;
+        summaryQuery += ` AND produto = $${sector !== 'all' ? 5 : 4}`;
       }
 
-      summaryQuery += ` GROUP BY semana ORDER BY semana`;
+      summaryQuery += ` GROUP BY numero_semana ORDER BY numero_semana`;
 
-      const summaryResult = await client.query(summaryQuery, params.slice(0, sector !== 'all' || product !== 'all' ? paramIndex - 1 : 2));
-      const summaryData = summaryResult.rows;
+      const summaryResult = await client.query(summaryQuery, params);
 
-      console.log(`✅ Dados de relatório obtidos com sucesso:`, {
-        salesLoss: salesLossData.length,
-        lossRate: lossRateData.length,
-        revenue: revenueData.length,
-        summary: summaryData.length
-      });
+      console.log(`✅ Dados de relatório obtidos`);
 
       return Response.json({
-        salesLoss: salesLossData,
-        lossRate: lossRateData,
-        revenue: revenueData,
-        summary: summaryData
+        salesLoss: salesLossResult.rows,
+        lossRate: lossRateResult.rows,
+        revenue: revenueResult.rows,
+        summary: summaryResult.rows
       });
     } finally {
       await client.end();
@@ -150,8 +141,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('❌ Erro ao buscar dados:', error.message);
     return Response.json({ 
-      error: error.message,
-      details: 'Erro ao buscar dados de vw_movimentacoes'
+      error: error.message
     }, { status: 500 });
   }
 });
