@@ -69,39 +69,50 @@ export default function UserFormDialog({ user, onClose, onSave }) {
     setIsSubmitting(true);
 
     try {
-      if (user) {
-        // Editar usuário existente
-        await base44.entities.User.update(user.id, {
-          full_name: formData.full_name,
-          position: formData.position,
-          permissions: formData.permissions,
-          active: formData.active
-        });
-        toast.success("Usuário atualizado com sucesso");
-      } else {
-        // Convidar novo usuário
-        await base44.users.inviteUser(formData.email, "user");
-        
-        // Atualizar dados do usuário após convite
-        // Precisamos buscar o usuário recém-criado para atualizar
-        setTimeout(async () => {
-          try {
-            const users = await base44.entities.User.list();
-            const newUser = users.find(u => u.email === formData.email);
-            if (newUser) {
-              await base44.entities.User.update(newUser.id, {
-                full_name: formData.full_name,
-                position: formData.position,
-                permissions: formData.permissions
-              });
-            }
-          } catch (err) {
-            console.error("Erro ao atualizar dados do usuário:", err);
-          }
-        }, 1000);
-        
-        toast.success("Convite enviado com sucesso");
-      }
+       if (user) {
+         // Editar usuário existente
+         console.log("💾 Salvando permissões do usuário:", {
+           userId: user.id,
+           permissions: formData.permissions
+         });
+         await base44.entities.User.update(user.id, {
+           full_name: formData.full_name,
+           position: formData.position,
+           permissions: formData.permissions,
+           active: formData.active
+         });
+         console.log("✅ Permissões salvas com sucesso no banco");
+         toast.success("Usuário atualizado com sucesso");
+       } else {
+         // Convidar novo usuário
+         console.log("📧 Enviando convite para:", formData.email);
+         await base44.users.inviteUser(formData.email, "user");
+
+         // Atualizar dados do usuário após convite
+         // Precisamos buscar o usuário recém-criado para atualizar
+         setTimeout(async () => {
+           try {
+             const users = await base44.entities.User.list();
+             const newUser = users.find(u => u.email === formData.email);
+             if (newUser) {
+               console.log("💾 Salvando dados do novo usuário:", {
+                 userId: newUser.id,
+                 permissions: formData.permissions
+               });
+               await base44.entities.User.update(newUser.id, {
+                 full_name: formData.full_name,
+                 position: formData.position,
+                 permissions: formData.permissions
+               });
+               console.log("✅ Dados do novo usuário salvos com sucesso");
+             }
+           } catch (err) {
+             console.error("❌ Erro ao atualizar dados do usuário:", err);
+           }
+         }, 1000);
+
+         toast.success("Convite enviado com sucesso");
+       }
       
       onSave(formData);
     } catch (error) {
