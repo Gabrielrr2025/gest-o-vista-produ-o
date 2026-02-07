@@ -24,15 +24,9 @@ export default function Dashboard() {
 
   // Calcular semana e ano a partir da data selecionada
   const weekInfo = useMemo(() => {
-    const d = new Date(currentDate);
-    d.setHours(0, 0, 0, 0);
-    d.setDate(d.getDate() - d.getDay() + (d.getDay() === 0 ? -6 : 1)); // Início da semana (segunda)
-    const firstWeek = new Date(d.getFullYear(), 0, 4);
-    firstWeek.setHours(0, 0, 0, 0);
-    firstWeek.setDate(firstWeek.getDate() - firstWeek.getDay() + (firstWeek.getDay() === 0 ? -6 : 1));
-    const weekNumber = Math.ceil((d - firstWeek) / (7 * 24 * 60 * 60 * 1000)) + 1;
-    const year = d.getFullYear();
-    return { weekNumber, year };
+    const week = getWeek(currentDate, { weekStartsOn: 2 });
+    const year = getYear(currentDate);
+    return { weekNumber: week, year };
   }, [currentDate]);
 
   const dateRange = useMemo(() => {
