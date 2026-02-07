@@ -231,6 +231,20 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
             <button 
               onClick={() => handleOpenDialog()}
               className="btn-primary"
+              style={{
+                backgroundColor: '#3B82F6 !important',
+                color: '#FFFFFF !important',
+                border: 'none !important',
+                padding: '10px 20px !important',
+                borderRadius: '8px !important',
+                fontSize: '14px !important',
+                fontWeight: '500 !important',
+                cursor: 'pointer !important',
+                display: 'inline-flex !important',
+                alignItems: 'center !important',
+                gap: '8px !important',
+                zIndex: '10 !important'
+              }}
             >
               <Plus className="w-4 h-4" />
               Novo Produto
@@ -420,16 +434,10 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
           </div>
 
           <div className="modal-footer">
-            <button 
-              onClick={() => setDialogOpen(false)}
-              className="btn-secondary"
-            >
+            <button onClick={() => setDialogOpen(false)} className="btn-secondary">
               Cancelar
             </button>
-            <button 
-              onClick={handleSave}
-              className="btn-primary"
-            >
+            <button onClick={handleSave} className="btn-primary">
               {editingProduct ? "Salvar" : "Criar"}
             </button>
           </div>
@@ -450,17 +458,10 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
             </p>
           </div>
           <div className="modal-footer">
-            <button 
-              onClick={() => setDeleteDialog(false)}
-              className="btn-secondary"
-            >
+            <button onClick={() => setDeleteDialog(false)} className="btn-secondary">
               Cancelar
             </button>
-            <button 
-              onClick={handleDeleteConfirm}
-              style={{ backgroundColor: '#EF4444', color: '#FFFFFF' }}
-              className="btn-primary"
-            >
+            <button onClick={handleDeleteConfirm} className="btn-primary" style={{ backgroundColor: '#EF4444' }}>
               Excluir
             </button>
           </div>
