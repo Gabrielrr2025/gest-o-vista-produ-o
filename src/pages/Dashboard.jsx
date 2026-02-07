@@ -95,6 +95,17 @@ export default function Dashboard() {
   const products = productsQuery.data || [];
   const productMap = useMemo(() => new Map(products.map(p => [p.name, p])), [products]);
 
+  // Preparar dados históricos para cálculos de limite
+  const historicalDataForLimits = useMemo(() => {
+    if (!dashboardQuery.data?.previousWeeksAvg) return [];
+    return dashboardQuery.data.previousWeeksAvg.map(item => ({
+      product_name: item.produto,
+      type: item.total_perda > 0 ? 'loss' : 'sale',
+      quantity: item.total_perda > 0 ? item.total_perda : item.total_venda,
+      sector: item.setor
+    }));
+  }, [dashboardQuery.data?.previousWeeksAvg]);
+
   const kpis = useMemo(() => {
     // Período atual
     const salesKG = filteredData.sales.filter(r => {
