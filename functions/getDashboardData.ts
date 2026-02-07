@@ -28,25 +28,37 @@ Deno.serve(async (req) => {
       console.log(`📊 Buscando dados do Dashboard: semana=${weekNumber}, ano=${year}, setor=${sector}`);
 
       // Query 1: Top 5 mais vendidos da semana
-      let topSalesQuery = `
-        SELECT 
-          produto,
-          SUM(quantidade) as total_vendas,
-          SUM(valor) as total_valor
-        FROM vw_movimentacoes
-        WHERE tipo = 'venda'
-          AND semana = $1
-          AND EXTRACT(YEAR FROM data) = $2
-      `;
-
+      let topSalesResult;
       if (sector !== 'all') {
-        topSalesQuery += ` AND setor = $3`;
+        topSalesResult = await sql`
+          SELECT 
+            produto,
+            SUM(quantidade) as total_vendas,
+            SUM(valor) as total_valor
+          FROM vw_movimentacoes
+          WHERE tipo = 'venda'
+            AND semana = ${weekNumber}
+            AND EXTRACT(YEAR FROM data) = ${year}
+            AND setor = ${sector}
+          GROUP BY produto 
+          ORDER BY total_vendas DESC 
+          LIMIT 5
+        `;
+      } else {
+        topSalesResult = await sql`
+          SELECT 
+            produto,
+            SUM(quantidade) as total_vendas,
+            SUM(valor) as total_valor
+          FROM vw_movimentacoes
+          WHERE tipo = 'venda'
+            AND semana = ${weekNumber}
+            AND EXTRACT(YEAR FROM data) = ${year}
+          GROUP BY produto 
+          ORDER BY total_vendas DESC 
+          LIMIT 5
+        `;
       }
-
-      topSalesQuery += ` GROUP BY produto ORDER BY total_vendas DESC LIMIT 5`;
-
-      const topSalesParams = sector !== 'all' ? [weekNumber, year, sector] : [weekNumber, year];
-      const topSalesResult = await sql(topSalesQuery, topSalesParams);
 
       // Query 2: Análise de perdas da semana
       let lossAnalysisQuery = `
