@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FileText, Download, FileSpreadsheet } from "lucide-react";
 import { toast } from "sonner";
-import { format, subDays, subWeeks, subMonths, startOfYear } from "date-fns";
+import { format, subDays, subWeeks, subMonths, startOfYear, parseISO, getWeek, getMonth, getYear } from "date-fns";
+import SalesLossChart from "../components/reports/SalesLossChart";
 
 export default function Reports() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -58,6 +59,18 @@ export default function Reports() {
     enabled: hasAccess
   });
 
+  const { data: salesData = [] } = useQuery({
+    queryKey: ['salesRecords'],
+    queryFn: () => base44.entities.SalesRecord.list(),
+    enabled: hasAccess
+  });
+
+  const { data: lossData = [] } = useQuery({
+    queryKey: ['lossRecords'],
+    queryFn: () => base44.entities.LossRecord.list(),
+    enabled: hasAccess
+  });
+
   const handlePeriodChange = (value) => {
     const today = new Date();
     let start;
@@ -97,9 +110,92 @@ export default function Reports() {
     }
   };
 
+  // Processar dados do gráfico
+  const chartData = useMemo(() => {
+    // Filtrar por período
+    const filteredSales = salesData.filter(record => {
+      const recordDate = new Date(record.date);
+      const startDate = new Date(filters.startDate);
+      const endDate = new Date(filters.endDate);
+      
+      if (recordDate < startDate || recordDate > endDate) return false;
+      if (filters.sector !== 'all' && record.sector !== filters.sector) return false;
+      if (filters.product !== 'all' && record.product_id !== filters.product) return false;
+      
+      return true;
+    });
+
+    const filteredLosses = lossData.filter(record => {
+      const recordDate = new Date(record.date);
+      const startDate = new Date(filters.startDate);
+      const endDate = new Date(filters.endDate);
+      
+      if (recordDate < startDate || recordDate > endDate) return false;
+      if (filters.sector !== 'all' && record.sector !== filters.sector) return false;
+      if (filters.product !== 'all' && record.product_id !== filters.product) return false;
+      
+      return true;
+    });
+
+    // Agrupar dados conforme tipo de comparação
+    const grouped = {};
+
+    if (filters.comparisonType === 'weeks') {
+      filteredSales.forEach(record => {
+        const week = `Semana ${record.week_number}`;
+        if (!grouped[week]) grouped[week] = { sales: 0, losses: 0 };
+        grouped[week].sales += record.quantity || 0;
+      });
+      filteredLosses.forEach(record => {
+        const week = `Semana ${record.week_number}`;
+        if (!grouped[week]) grouped[week] = { sales: 0, losses: 0 };
+        grouped[week].losses += record.quantity || 0;
+      });
+    } else if (filters.comparisonType === 'months') {
+      const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+      filteredSales.forEach(record => {
+        const month = monthNames[record.month - 1];
+        if (!grouped[month]) grouped[month] = { sales: 0, losses: 0 };
+        grouped[month].sales += record.quantity || 0;
+      });
+      filteredLosses.forEach(record => {
+        const month = monthNames[record.month - 1];
+        if (!grouped[month]) grouped[month] = { sales: 0, losses: 0 };
+        grouped[month].losses += record.quantity || 0;
+      });
+    } else if (filters.comparisonType === 'products') {
+      filteredSales.forEach(record => {
+        const productName = record.product_name;
+        if (!grouped[productName]) grouped[productName] = { sales: 0, losses: 0 };
+        grouped[productName].sales += record.quantity || 0;
+      });
+      filteredLosses.forEach(record => {
+        const productName = record.product_name;
+        if (!grouped[productName]) grouped[productName] = { sales: 0, losses: 0 };
+        grouped[productName].losses += record.quantity || 0;
+      });
+    } else if (filters.comparisonType === 'sectors') {
+      filteredSales.forEach(record => {
+        const sector = record.sector;
+        if (!grouped[sector]) grouped[sector] = { sales: 0, losses: 0 };
+        grouped[sector].sales += record.quantity || 0;
+      });
+      filteredLosses.forEach(record => {
+        const sector = record.sector;
+        if (!grouped[sector]) grouped[sector] = { sales: 0, losses: 0 };
+        grouped[sector].losses += record.quantity || 0;
+      });
+    }
+
+    return Object.entries(grouped).map(([period, data]) => ({
+      period,
+      sales: data.sales,
+      losses: data.losses
+    }));
+  }, [salesData, lossData, filters]);
+
   const handleApplyFilters = () => {
     toast.success("Filtros aplicados");
-    // Aqui virão os cálculos e gráficos
   };
 
   const handleExportPDF = () => {
@@ -276,14 +372,8 @@ export default function Reports() {
         </div>
 
         {/* ÁREA DE GRÁFICOS/CONTEÚDO */}
-        <div className="lg:col-span-3">
-          <Card>
-            <CardContent className="py-20 text-center">
-              <div className="text-slate-400 text-sm">
-                Os gráficos e análises aparecerão aqui após configurar os filtros
-              </div>
-            </CardContent>
-          </Card>
+        <div className="lg:col-span-3 space-y-6">
+          <SalesLossChart data={chartData} />
         </div>
       </div>
     </div>
