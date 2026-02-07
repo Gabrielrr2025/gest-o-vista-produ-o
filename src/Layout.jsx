@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { base44 } from "@/api/base44Client";
 import { 
   LayoutDashboard, 
-  Upload, 
   Package, 
   CalendarDays, 
   ClipboardList, 
@@ -13,7 +12,6 @@ import {
   Menu,
   X,
   ChefHat,
-  History,
   Settings,
   Shield
 } from "lucide-react";
@@ -24,8 +22,6 @@ const navigation = [
   { name: "Planejamento", page: "Planning", icon: ClipboardList },
   { name: "Calendário", page: "Calendar", icon: CalendarDays },
   { name: "Relatórios", page: "Reports", icon: FileSpreadsheet },
-  { name: "Histórico", page: "History", icon: History },
-  { name: "Importar", page: "Import", icon: Upload },
   { name: "Configurações", page: "Settings", icon: Settings },
 ];
 
