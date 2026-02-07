@@ -98,38 +98,37 @@ export default function LossAnalysis({ salesData, lossData, historicalLossData, 
               <TableHead>Produto</TableHead>
               <TableHead className="text-right">Perda</TableHead>
               <TableHead className="text-right">Venda</TableHead>
-              <TableHead className="text-right">Taxa de Perda</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {lossAnalysis.map((item, idx) => (
-              <TableRow key={idx}>
+              <TableRow 
+                key={idx}
+                className={item.isOverLimit ? 'bg-red-50' : ''}
+              >
                 <TableCell className="font-medium">{item.name}</TableCell>
                 <TableCell className="text-right">
-                  {item.unit === 'KG' 
-                    ? item.loss.toFixed(1) 
-                    : item.loss.toLocaleString('pt-BR')} {item.unit}
+                  <div className="flex items-center justify-end gap-2">
+                    <span className={item.isOverLimit ? 'font-bold text-red-600' : 'text-slate-900'}>
+                      {item.unit === 'KG' 
+                        ? item.loss.toFixed(1) 
+                        : item.loss.toLocaleString('pt-BR')} {item.unit}
+                    </span>
+                    {item.isOverLimit && (
+                      <span className="text-orange-500 text-lg" title={`Limite: ${item.limit.toFixed(1)}%`}>⚠️</span>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell className="text-right">
                   {item.unit === 'KG' 
                     ? item.sales.toFixed(1) 
                     : item.sales.toLocaleString('pt-BR')} {item.unit}
                 </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <span className={`font-semibold ${item.isOverLimit ? 'text-red-600' : 'text-green-600'}`}>
-                      {item.isOverLimit ? '🔴' : '🟢'} {item.lossRate.toFixed(1)}%
-                    </span>
-                    <Badge variant="outline" className="text-xs">
-                      limite: {item.limit.toFixed(1)}%
-                    </Badge>
-                  </div>
-                </TableCell>
               </TableRow>
             ))}
             {lossAnalysis.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-slate-500 py-8">
+                <TableCell colSpan={3} className="text-center text-slate-500 py-8">
                   Nenhuma perda registrada nesta semana
                 </TableCell>
               </TableRow>
