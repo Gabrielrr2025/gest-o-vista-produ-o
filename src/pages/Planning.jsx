@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronLeft, ChevronRight, Printer, Download, RefreshCw, Save, Filter, FileDown } from "lucide-react";
+import { ChevronLeft, ChevronRight, Printer, Download, RefreshCw, Save, Filter, FileDown, TrendingUp, TrendingDown, Minus, Lightbulb, ArrowUp, ArrowDown, X } from "lucide-react";
 import { startOfWeek, endOfWeek, format, addWeeks, subWeeks, getWeek, getYear, eachDayOfInterval, parseISO, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import SectorBadge from "../components/common/SectorBadge";
@@ -257,6 +257,107 @@ export default function Planning() {
     setSelectedProduct(null);
   };
 
+  // Análise do produto selecionado
+  const productAnalysis = useMemo(() => {
+    if (!selectedProduct) return null;
+
+    const productName = selectedProduct.product.name;
+
+    // Semana atual (a semana em visualização)
+    const currentWeekSales = salesRecords.filter(s => 
+      s.product_name === productName && 
+      s.week_number === weekNumber &&
+      s.year === year
+    );
+    const currentWeekLosses = lossRecords.filter(l => 
+      l.product_name === productName && 
+      l.week_number === weekNumber &&
+      l.year === year
+    );
+
+    const currentSales = currentWeekSales.reduce((sum, s) => sum + (s.quantity || 0), 0);
+    const currentLosses = currentWeekLosses.reduce((sum, l) => sum + (l.quantity || 0), 0);
+    const currentLossRate = currentSales > 0 ? ((currentLosses / currentSales) * 100) : 0;
+
+    // Últimas 4 semanas (anteriores à semana atual)
+    const last4WeeksStart = subWeeks(currentWeekStart, 4);
+    const last4WeeksSales = salesRecords.filter(s => 
+      s.product_name === productName && 
+      new Date(s.date) >= last4WeeksStart &&
+      new Date(s.date) < currentWeekStart
+    );
+    const last4WeeksLosses = lossRecords.filter(l => 
+      l.product_name === productName && 
+      new Date(l.date) >= last4WeeksStart &&
+      new Date(l.date) < currentWeekStart
+    );
+
+    const avgSales = last4WeeksSales.reduce((sum, s) => sum + (s.quantity || 0), 0) / 4;
+    const avgLosses = last4WeeksLosses.reduce((sum, l) => sum + (l.quantity || 0), 0) / 4;
+    const avgLossRate = avgSales > 0 ? ((avgLosses / avgSales) * 100) : 0;
+
+    // Variação percentual
+    const salesChange = avgSales > 0 ? (((currentSales - avgSales) / avgSales) * 100) : 0;
+    const lossesChange = avgLosses > 0 ? (((currentLosses - avgLosses) / avgLosses) * 100) : 0;
+
+    // Tendência (baseada nas últimas 4 semanas)
+    const weeklySales = [];
+    for (let i = 3; i >= 0; i--) {
+      const weekStart = subWeeks(currentWeekStart, i + 1);
+      const weekSales = salesRecords.filter(s => 
+        s.product_name === productName && 
+        new Date(s.date) >= weekStart &&
+        new Date(s.date) < addWeeks(weekStart, 1)
+      ).reduce((sum, s) => sum + (s.quantity || 0), 0);
+      weeklySales.push(weekSales);
+    }
+
+    const weeklyLosses = [];
+    for (let i = 3; i >= 0; i--) {
+      const weekStart = subWeeks(currentWeekStart, i + 1);
+      const weekLosses = lossRecords.filter(l => 
+        l.product_name === productName && 
+        new Date(l.date) >= weekStart &&
+        new Date(l.date) < addWeeks(weekStart, 1)
+      ).reduce((sum, l) => sum + (l.quantity || 0), 0);
+      weeklyLosses.push(weekLosses);
+    }
+
+    // Calcular tendência (comparar primeiras 2 semanas com últimas 2)
+    const firstHalfSales = (weeklySales[0] + weeklySales[1]) / 2;
+    const secondHalfSales = (weeklySales[2] + weeklySales[3]) / 2;
+    const salesTrendChange = firstHalfSales > 0 ? (((secondHalfSales - firstHalfSales) / firstHalfSales) * 100) : 0;
+
+    const firstHalfLosses = (weeklyLosses[0] + weeklyLosses[1]) / 2;
+    const secondHalfLosses = (weeklyLosses[2] + weeklyLosses[3]) / 2;
+    const lossesTrendChange = firstHalfLosses > 0 ? (((secondHalfLosses - firstHalfLosses) / firstHalfLosses) * 100) : 0;
+
+    const salesTrend = salesTrendChange > 10 ? 'growing' : salesTrendChange < -10 ? 'decreasing' : 'stable';
+    const lossesTrend = lossesTrendChange > 10 ? 'growing' : lossesTrendChange < -10 ? 'decreasing' : 'stable';
+
+    // Sugestão
+    let suggestion = 'Manter produção';
+    if (salesTrend === 'growing' && currentLossRate < 15) {
+      suggestion = 'Aumentar produção';
+    } else if (salesTrend === 'decreasing' || currentLossRate > 20) {
+      suggestion = 'Reduzir produção';
+    }
+
+    return {
+      currentSales: Math.round(currentSales),
+      currentLosses: Math.round(currentLosses),
+      currentLossRate: currentLossRate.toFixed(1),
+      avgSales: Math.round(avgSales),
+      avgLosses: Math.round(avgLosses),
+      avgLossRate: avgLossRate.toFixed(1),
+      salesChange: salesChange.toFixed(1),
+      lossesChange: lossesChange.toFixed(1),
+      salesTrend,
+      lossesTrend,
+      suggestion
+    };
+  }, [selectedProduct, salesRecords, lossRecords, weekNumber, year, currentWeekStart]);
+
   const handleExport = () => {
     const headers = ["Produto", "Setor", "Rend.", "Média/dia", ...DIAS_SEMANA, "Total"];
     const rows = filteredPlanning.map(p => [
@@ -458,97 +559,189 @@ export default function Planning() {
         </div>
 
         {/* PAINEL LATERAL - 30% */}
-        {selectedProduct && (
+        {selectedProduct && productAnalysis && (
           <div className="w-[30%] animate-in slide-in-from-right duration-300">
-            <Card className="border-0 shadow-lg h-full">
-              <CardHeader className="flex flex-row items-center justify-between pb-3">
-                <CardTitle className="text-lg">Detalhes do Produto</CardTitle>
+            <Card className="border-0 shadow-lg h-full overflow-y-auto">
+              <CardHeader className="flex flex-row items-center justify-between pb-3 border-b">
+                <div>
+                  <h3 className="font-bold text-slate-900 text-lg">
+                    {selectedProduct.product.name}
+                  </h3>
+                  <div className="flex items-center gap-2 mt-1">
+                    <SectorBadge sector={selectedProduct.product.sector} />
+                    <span className="text-xs text-slate-500">
+                      {selectedProduct.product.recipe_yield} {selectedProduct.product.unit}
+                    </span>
+                  </div>
+                </div>
                 <Button 
                   variant="ghost" 
                   size="icon" 
                   onClick={handleClosePanel}
-                  className="h-8 w-8"
+                  className="h-8 w-8 hover:bg-slate-100"
                 >
-                  ×
+                  <X className="w-4 h-4" />
                 </Button>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Informações do Produto */}
-                <div>
-                  <h3 className="font-bold text-slate-900 text-lg mb-1">
-                    {selectedProduct.product.name}
-                  </h3>
-                  {selectedProduct.product.code && (
-                    <p className="text-xs text-slate-500">
-                      Código: {selectedProduct.product.code}
-                    </p>
-                  )}
-                </div>
 
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-slate-600">Setor:</span>
-                    <SectorBadge sector={selectedProduct.product.sector} />
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-600">Rendimento:</span>
-                    <span className="font-medium">
-                      {selectedProduct.product.recipe_yield} {selectedProduct.product.unit}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-600">Unidade:</span>
-                    <span className="font-medium">{selectedProduct.product.unit}</span>
-                  </div>
-                </div>
-
-                <div className="border-t pt-3">
-                  <h4 className="text-sm font-semibold text-slate-700 mb-2">Dias de Produção</h4>
-                  <div className="flex flex-wrap gap-1">
-                    {["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"].map(day => {
-                      const isProduction = selectedProduct.product.production_days?.includes(day);
-                      return (
-                        <span
-                          key={day}
-                          className={`px-2 py-1 rounded text-xs ${
-                            isProduction 
-                              ? 'bg-slate-700 text-white' 
-                              : 'bg-slate-100 text-slate-400'
-                          }`}
-                        >
-                          {day.slice(0, 3)}
+              <CardContent className="space-y-4 pt-4">
+                {/* SEÇÃO 1: SEMANA ATUAL */}
+                <div className="bg-slate-50 rounded-lg p-3">
+                  <h4 className="text-sm font-semibold text-slate-700 mb-3">
+                    Semana Atual (Semana {weekNumber})
+                  </h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-slate-600">Vendas:</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-900">
+                          {productAnalysis.currentSales} UN
                         </span>
-                      );
-                    })}
+                        {parseFloat(productAnalysis.salesChange) !== 0 && (
+                          <span className={`flex items-center text-xs font-medium ${
+                            parseFloat(productAnalysis.salesChange) > 0 ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {parseFloat(productAnalysis.salesChange) > 0 ? (
+                              <ArrowUp className="w-3 h-3" />
+                            ) : (
+                              <ArrowDown className="w-3 h-3" />
+                            )}
+                            {Math.abs(parseFloat(productAnalysis.salesChange))}%
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-slate-600">Perdas:</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-900">
+                          {productAnalysis.currentLosses} UN
+                        </span>
+                        {parseFloat(productAnalysis.lossesChange) !== 0 && (
+                          <span className={`flex items-center text-xs font-medium ${
+                            parseFloat(productAnalysis.lossesChange) > 0 ? 'text-red-600' : 'text-green-600'
+                          }`}>
+                            {parseFloat(productAnalysis.lossesChange) > 0 ? (
+                              <ArrowUp className="w-3 h-3" />
+                            ) : (
+                              <ArrowDown className="w-3 h-3" />
+                            )}
+                            {Math.abs(parseFloat(productAnalysis.lossesChange))}%
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center pt-1 border-t">
+                      <span className="text-sm text-slate-600">Taxa de Perda:</span>
+                      <span className="font-bold text-slate-900">
+                        {productAnalysis.currentLossRate}%
+                      </span>
+                    </div>
                   </div>
                 </div>
 
+                {/* SEÇÃO 2: MÉDIA 4 SEMANAS */}
                 <div className="border-t pt-3">
-                  <h4 className="text-sm font-semibold text-slate-700 mb-2">Estatísticas da Semana</h4>
+                  <h4 className="text-sm font-semibold text-slate-700 mb-3">
+                    Média Últimas 4 Semanas
+                  </h4>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-slate-600">Média diária:</span>
-                      <span className="font-medium">
-                        {Math.round(selectedProduct.avgByWeekday / 7)}
+                      <span className="text-slate-600">Vendas:</span>
+                      <span className="font-medium text-slate-900">
+                        {productAnalysis.avgSales} UN/semana
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-600">Total projetado:</span>
-                      <span className="font-medium">{selectedProduct.total}</span>
+                      <span className="text-slate-600">Perdas:</span>
+                      <span className="font-medium text-slate-900">
+                        {productAnalysis.avgLosses} UN/semana
+                      </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-600">Total planejado:</span>
-                      <span className="font-bold text-blue-600">
-                        {selectedProduct.projectedByDay.reduce((sum, _, idx) => 
-                          sum + (plannedQuantities[`${selectedProduct.product.id}-${idx}`] || selectedProduct.projectedByDay[idx]), 0
-                        )}
+                      <span className="text-slate-600">Taxa de Perda:</span>
+                      <span className="font-medium text-slate-900">
+                        {productAnalysis.avgLossRate}%
                       </span>
                     </div>
                   </div>
                 </div>
 
+                {/* SEÇÃO 3: TENDÊNCIA E SUGESTÃO */}
                 <div className="border-t pt-3">
-                  <h4 className="text-sm font-semibold text-slate-700 mb-2">Planejamento por Dia</h4>
+                  <h4 className="text-sm font-semibold text-slate-700 mb-3">
+                    Tendência
+                  </h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-600">Vendas:</span>
+                      <div className="flex items-center gap-1.5">
+                        {productAnalysis.salesTrend === 'growing' && (
+                          <>
+                            <TrendingUp className="w-4 h-4 text-green-600" />
+                            <span className="font-medium text-green-600">Crescendo</span>
+                          </>
+                        )}
+                        {productAnalysis.salesTrend === 'decreasing' && (
+                          <>
+                            <TrendingDown className="w-4 h-4 text-red-600" />
+                            <span className="font-medium text-red-600">Diminuindo</span>
+                          </>
+                        )}
+                        {productAnalysis.salesTrend === 'stable' && (
+                          <>
+                            <Minus className="w-4 h-4 text-slate-500" />
+                            <span className="font-medium text-slate-500">Estável</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-600">Perdas:</span>
+                      <div className="flex items-center gap-1.5">
+                        {productAnalysis.lossesTrend === 'growing' && (
+                          <>
+                            <TrendingUp className="w-4 h-4 text-red-600" />
+                            <span className="font-medium text-red-600">Crescendo</span>
+                          </>
+                        )}
+                        {productAnalysis.lossesTrend === 'decreasing' && (
+                          <>
+                            <TrendingDown className="w-4 h-4 text-green-600" />
+                            <span className="font-medium text-green-600">Diminuindo</span>
+                          </>
+                        )}
+                        {productAnalysis.lossesTrend === 'stable' && (
+                          <>
+                            <Minus className="w-4 h-4 text-slate-500" />
+                            <span className="font-medium text-slate-500">Estável</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <div className="flex items-start gap-2">
+                      <Lightbulb className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <span className="text-xs font-semibold text-blue-700 block">
+                          Sugestão
+                        </span>
+                        <span className="text-sm font-medium text-blue-900">
+                          {productAnalysis.suggestion}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Planejamento por Dia */}
+                <div className="border-t pt-3">
+                  <h4 className="text-sm font-semibold text-slate-700 mb-2">Planejamento Diário</h4>
                   <div className="space-y-1.5">
                     {weekDays.map((day, idx) => {
                       const qty = selectedProduct.projectedByDay[idx];
@@ -558,7 +751,7 @@ export default function Planning() {
                           <span className="text-slate-600">
                             {format(day, "EEE dd/MM", { locale: ptBR })}:
                           </span>
-                          <span className={`font-medium ${planned !== qty ? 'text-blue-600' : ''}`}>
+                          <span className={`font-medium ${planned !== qty ? 'text-blue-600' : 'text-slate-900'}`}>
                             {planned}
                             {planned !== qty && (
                               <span className="text-xs text-slate-500 ml-1">
