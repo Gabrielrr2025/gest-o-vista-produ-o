@@ -228,10 +228,13 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
             </Select>
           </div>
           {showAddButton && (
-            <Button onClick={() => handleOpenDialog()} className="bg-[hsl(var(--accent-primary))] hover:bg-[hsl(var(--accent-primary-hover))] text-white">
-              <Plus className="w-4 h-4 mr-2" />
-              Adicionar Produto
-            </Button>
+            <button 
+              onClick={() => handleOpenDialog()}
+              className="btn-primary"
+            >
+              <Plus className="w-4 h-4" />
+              Novo Produto
+            </button>
           )}
         </div>
 
