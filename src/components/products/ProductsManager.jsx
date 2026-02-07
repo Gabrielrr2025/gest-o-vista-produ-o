@@ -228,9 +228,13 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
             </Select>
           </div>
           {showAddButton && (
-            <Button onClick={() => handleOpenDialog()} className="bg-[hsl(var(--accent-primary))] hover:bg-[hsl(var(--accent-primary-hover))] text-white">
+            <Button 
+              onClick={() => handleOpenDialog()} 
+              className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-all duration-200"
+              style={{ padding: '10px 20px', fontSize: '14px', fontWeight: 500, borderRadius: '8px' }}
+            >
               <Plus className="w-4 h-4 mr-2" />
-              Adicionar Produto
+              Novo Produto
             </Button>
           )}
         </div>
@@ -310,7 +314,7 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-h-[80vh] overflow-y-auto">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>
               {editingProduct ? "Editar Produto" : "Novo Produto"}
@@ -420,10 +424,7 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button 
-              onClick={handleSave}
-              className="bg-[hsl(var(--accent-primary))] hover:bg-[hsl(var(--accent-primary-hover))] text-white"
-            >
+            <Button onClick={handleSave}>
               {editingProduct ? "Salvar" : "Criar"}
             </Button>
           </DialogFooter>
