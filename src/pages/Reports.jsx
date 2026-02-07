@@ -10,6 +10,7 @@ import { FileText, Download, FileSpreadsheet } from "lucide-react";
 import { toast } from "sonner";
 import { format, subDays, subWeeks, subMonths, startOfYear, parseISO, getWeek, getMonth, getYear } from "date-fns";
 import SalesLossChart from "../components/reports/SalesLossChart";
+import LossRateChart from "../components/reports/LossRateChart";
 
 export default function Reports() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -374,6 +375,7 @@ export default function Reports() {
         {/* ÁREA DE GRÁFICOS/CONTEÚDO */}
         <div className="lg:col-span-3 space-y-6">
           <SalesLossChart data={chartData} />
+          <LossRateChart data={chartData} />
         </div>
       </div>
     </div>
