@@ -31,6 +31,7 @@ const navigation = [
 export default function Layout({ children, currentPageName }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarMinimized, setSidebarMinimized] = useState(false);
+  const [showToggleButton, setShowToggleButton] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
 
   useEffect(() => {
@@ -82,13 +83,17 @@ export default function Layout({ children, currentPageName }) {
       )}
 
       {/* Sidebar */}
-      <aside className={`
-        fixed top-0 left-0 h-full bg-[hsl(var(--bg-tertiary))] border-r border-[hsl(var(--border-light))] z-50 shadow-lg
-        transform transition-all duration-300 ease-in-out
-        lg:translate-x-0
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-        ${sidebarMinimized ? 'w-20' : 'w-64'}
-      `}>
+      <aside 
+        className={`
+          fixed top-0 left-0 h-full bg-[hsl(var(--bg-tertiary))] border-r border-[hsl(var(--border-light))] z-50 shadow-lg
+          transform transition-all duration-300 ease-in-out
+          lg:translate-x-0
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+          ${sidebarMinimized ? 'w-20' : 'w-64'}
+        `}
+        onMouseEnter={() => setShowToggleButton(true)}
+        onMouseLeave={() => setShowToggleButton(false)}
+      >
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="h-16 flex items-center gap-3 px-5 border-b border-[hsl(var(--border-light))]">
@@ -186,22 +191,29 @@ export default function Layout({ children, currentPageName }) {
             </nav>
           </TooltipProvider>
 
-          {/* Toggle Button - Desktop Only */}
-          <div className="hidden lg:block p-4 border-t border-[hsl(var(--border-light))]">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleSidebar}
-              className="w-full hover:bg-[hsl(var(--bg-secondary))] transition-colors"
-              title={sidebarMinimized ? "Expandir menu" : "Minimizar menu"}
-            >
-              {sidebarMinimized ? (
-                <ChevronRight className="w-5 h-5" />
-              ) : (
-                <ChevronLeft className="w-5 h-5" />
-              )}
-            </Button>
-          </div>
+          {/* Toggle Button - Borda Direita (Desktop Only) */}
+          <button
+            onClick={toggleSidebar}
+            className={`
+              hidden lg:block
+              absolute top-1/2 -translate-y-1/2 -right-3
+              w-6 h-10
+              bg-slate-200/80 hover:bg-slate-300/90
+              border border-[hsl(var(--border-light))]
+              rounded-r-lg
+              shadow-md
+              flex items-center justify-center
+              transition-all duration-200
+              ${showToggleButton ? 'opacity-100' : 'opacity-0 pointer-events-none'}
+            `}
+            title={sidebarMinimized ? "Expandir menu" : "Minimizar menu"}
+          >
+            {sidebarMinimized ? (
+              <ChevronRight className="w-4 h-4 text-slate-700" />
+            ) : (
+              <ChevronLeft className="w-4 h-4 text-slate-700" />
+            )}
+          </button>
 
 
         </div>
