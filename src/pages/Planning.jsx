@@ -397,27 +397,39 @@ export default function Planning() {
                       className={`hover:bg-slate-50 cursor-pointer transition-colors ${selectedProduct?.product.id === item.product.id ? 'bg-blue-50' : ''}`}
                       onClick={() => handleProductClick(item)}
                     >
-                      <TableCell className="font-medium text-sm sticky left-0 bg-white z-10">{item.product.name}</TableCell>
-                      <TableCell><SectorBadge sector={item.product.sector} /></TableCell>
+                      <TableCell className="font-medium text-sm sticky left-0 bg-white z-10 hover:text-blue-600 transition-colors">
+                        {item.product.name}
+                      </TableCell>
+                      <TableCell>
+                        <SectorBadge sector={item.product.sector} />
+                      </TableCell>
                       <TableCell className="text-center text-xs text-slate-600">
-                        {item.product.recipe_yield} {item.product.unit}
+                        {item.product.recipe_yield > 1 ? `${item.product.recipe_yield}/dia` : `1 ${item.product.unit}`}
                       </TableCell>
                       <TableCell className="text-center text-sm text-slate-700">
                         {Math.round(item.avgByWeekday / 7)}/dia
                       </TableCell>
-                      {item.projectedByDay.map((qty, idx) => (
-                        <TableCell key={idx} className="text-center p-1">
-                          <Input
-                            type="number"
-                            min="0"
-                            value={plannedQuantities[`${item.product.id}-${idx}`] ?? qty}
-                            onChange={(e) => handleQuantityChange(item.product.id, idx, e.target.value)}
-                            onClick={(e) => e.stopPropagation()}
-                            disabled={isWeekInPast || isCurrentWeek}
-                            className={`h-8 text-center text-sm w-full ${(isWeekInPast || isCurrentWeek) ? 'bg-slate-100 cursor-not-allowed' : ''}`}
-                          />
-                        </TableCell>
-                      ))}
+                      {item.projectedByDay.map((qty, idx) => {
+                        const dayOfWeek = weekDays[idx].getDay();
+                        const dayNames = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+                        const dayName = dayNames[dayOfWeek];
+                        const isProductionDay = (item.product.production_days || []).includes(dayName);
+                        const isDisabled = isWeekInPast || isCurrentWeek || !isProductionDay;
+                        
+                        return (
+                          <TableCell key={idx} className="text-center p-1">
+                            <Input
+                              type="number"
+                              min="0"
+                              value={plannedQuantities[`${item.product.id}-${idx}`] ?? qty}
+                              onChange={(e) => handleQuantityChange(item.product.id, idx, e.target.value)}
+                              onClick={(e) => e.stopPropagation()}
+                              disabled={isDisabled}
+                              className={`h-8 text-center text-sm w-full ${isDisabled ? 'bg-slate-100 cursor-not-allowed text-slate-400' : 'bg-white'}`}
+                            />
+                          </TableCell>
+                        );
+                      })}
                       <TableCell className="text-center font-bold">
                         <div className="flex flex-col items-center">
                           <span>{totalPlanned}</span>
