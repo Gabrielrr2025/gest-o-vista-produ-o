@@ -107,84 +107,41 @@ export default function Dashboard() {
   }, [dashboardQuery.data?.previousWeeksAvg]);
 
   const kpis = useMemo(() => {
-    // Período atual
-    const salesKG = filteredData.sales.filter(r => {
-      const prod = productMap.get(r.product_name);
+    if (!dashboardQuery.data) return { kg: {}, un: {}, avgAssertiveness: 0 };
+
+    const salesData = dashboardQuery.data.topSales || [];
+    const lossesData = dashboardQuery.data.lossAnalysis || [];
+    const trendData = dashboardQuery.data.trendData || [];
+
+    const salesKG = salesData.filter(r => {
+      const prod = productMap.get(r.produto);
       return prod?.unit === 'kilo';
     });
-    const salesUN = filteredData.sales.filter(r => {
-      const prod = productMap.get(r.product_name);
+    const salesUN = salesData.filter(r => {
+      const prod = productMap.get(r.produto);
       return prod?.unit !== 'kilo';
     });
-    const lossesKG = filteredData.losses.filter(r => {
-      const prod = productMap.get(r.product_name);
+    const lossesKG = lossesData.filter(r => {
+      const prod = productMap.get(r.produto);
       return prod?.unit === 'kilo';
     });
-    const lossesUN = filteredData.losses.filter(r => {
-      const prod = productMap.get(r.product_name);
+    const lossesUN = lossesData.filter(r => {
+      const prod = productMap.get(r.produto);
       return prod?.unit !== 'kilo';
     });
 
-    const totalSalesKG = salesKG.reduce((sum, r) => sum + (r.quantity || 0), 0);
-    const totalSalesUN = salesUN.reduce((sum, r) => sum + (r.quantity || 0), 0);
-    const totalLossesKG = lossesKG.reduce((sum, r) => sum + (r.quantity || 0), 0);
-    const totalLossesUN = lossesUN.reduce((sum, r) => sum + (r.quantity || 0), 0);
+    const totalSalesKG = salesKG.reduce((sum, r) => sum + (r.total_vendas || 0), 0);
+    const totalSalesUN = salesUN.reduce((sum, r) => sum + (r.total_vendas || 0), 0);
+    const totalLossesKG = lossesKG.reduce((sum, r) => sum + (r.perda || 0), 0);
+    const totalLossesUN = lossesUN.reduce((sum, r) => sum + (r.perda || 0), 0);
 
     const lossRateKG = totalSalesKG > 0 ? (totalLossesKG / totalSalesKG) * 100 : 0;
     const lossRateUN = totalSalesUN > 0 ? (totalLossesUN / totalSalesUN) * 100 : 0;
 
-    // Período anterior para comparação
-    const prevSalesKG = previousPeriodData.sales.filter(r => {
-      const prod = productMap.get(r.product_name);
-      const sectorMatch = selectedSector === "all" || r.sector === selectedSector;
-      return prod?.unit === 'kilo' && sectorMatch;
-    });
-    const prevSalesUN = previousPeriodData.sales.filter(r => {
-      const prod = productMap.get(r.product_name);
-      const sectorMatch = selectedSector === "all" || r.sector === selectedSector;
-      return prod?.unit !== 'kilo' && sectorMatch;
-    });
-    const prevLossesKG = previousPeriodData.losses.filter(r => {
-      const prod = productMap.get(r.product_name);
-      const sectorMatch = selectedSector === "all" || r.sector === selectedSector;
-      return prod?.unit === 'kilo' && sectorMatch;
-    });
-    const prevLossesUN = previousPeriodData.losses.filter(r => {
-      const prod = productMap.get(r.product_name);
-      const sectorMatch = selectedSector === "all" || r.sector === selectedSector;
-      return prod?.unit !== 'kilo' && sectorMatch;
-    });
-
-    const prevTotalSalesKG = prevSalesKG.reduce((sum, r) => sum + (r.quantity || 0), 0);
-    const prevTotalSalesUN = prevSalesUN.reduce((sum, r) => sum + (r.quantity || 0), 0);
-    const prevTotalLossesKG = prevLossesKG.reduce((sum, r) => sum + (r.quantity || 0), 0);
-    const prevTotalLossesUN = prevLossesUN.reduce((sum, r) => sum + (r.quantity || 0), 0);
-    const prevLossRateKG = prevTotalSalesKG > 0 ? (prevTotalLossesKG / prevTotalSalesKG) * 100 : 0;
-    const prevLossRateUN = prevTotalSalesUN > 0 ? (prevTotalLossesUN / prevTotalSalesUN) * 100 : 0;
-
-    // Calcular variação %
-    const calcChange = (current, previous) => {
-      if (previous === 0) return current > 0 ? 100 : 0;
-      return ((current - previous) / previous) * 100;
-    };
-
-    // Dados últimas 4 semanas (sparkline)
-    const getLast4Weeks = (data, isKG) => {
-      const weeks = [];
-      for (let i = 3; i >= 0; i--) {
-        const weekStart = subDays(new Date(), (i + 1) * 7);
-        const weekEnd = subDays(new Date(), i * 7);
-        const weekData = data.filter(r => {
-          const prod = productMap.get(r.product_name);
-          const matchUnit = isKG ? prod?.unit === 'kilo' : prod?.unit !== 'kilo';
-          const recordDate = new Date(r.date);
-          const sectorMatch = selectedSector === "all" || r.sector === selectedSector;
-          return matchUnit && recordDate >= weekStart && recordDate <= weekEnd && sectorMatch;
-        });
-        weeks.push({ value: weekData.reduce((sum, r) => sum + (r.quantity || 0), 0) });
-      }
-      return weeks;
-    };
+    // Sparkline das 6 semanas anteriores
+    const sparkline = trendData.map(item => ({
+      value: item.vendas_qtd || 0
+    }));
 
     const productionWithAssertiveness = filteredData.production.filter(p => p.assertiveness !== undefined);
     const avgAssertiveness = productionWithAssertiveness.length > 0
@@ -196,25 +153,19 @@ export default function Dashboard() {
         sales: totalSalesKG, 
         losses: totalLossesKG, 
         lossRate: lossRateKG,
-        salesChange: calcChange(totalSalesKG, prevTotalSalesKG),
-        lossesChange: calcChange(totalLossesKG, prevTotalLossesKG),
-        lossRateChange: calcChange(lossRateKG, prevLossRateKG),
-        salesSparkline: getLast4Weeks(sqlData.sales, true),
-        lossesSparkline: getLast4Weeks(sqlData.losses, true)
+        salesSparkline: sparkline,
+        lossesSparkline: sparkline
       },
       un: { 
         sales: totalSalesUN, 
         losses: totalLossesUN, 
         lossRate: lossRateUN,
-        salesChange: calcChange(totalSalesUN, prevTotalSalesUN),
-        lossesChange: calcChange(totalLossesUN, prevTotalLossesUN),
-        lossRateChange: calcChange(lossRateUN, prevLossRateUN),
-        salesSparkline: getLast4Weeks(sqlData.sales, false),
-        lossesSparkline: getLast4Weeks(sqlData.losses, false)
+        salesSparkline: sparkline,
+        lossesSparkline: sparkline
       },
       avgAssertiveness
     };
-  }, [filteredData, productMap, previousPeriodData, selectedSector, sqlData]);
+  }, [dashboardQuery.data, filteredData.production, productMap]);
 
   return (
     <div className="space-y-6">
