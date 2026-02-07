@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
         ? [weekNumber, year, sector]
         : [weekNumber, year];
 
-      const prevWeeksResult = await client.query(prevWeeksQuery, prevParams);
+      const prevWeeksResult = await sql(prevWeeksQuery, prevParams);
 
       // Query 4: Dados das 6 semanas anteriores para gráfico de tendência
       let trendQuery = `
