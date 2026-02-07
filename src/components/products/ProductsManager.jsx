@@ -425,16 +425,33 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSave}>
-              {editingProduct ? "Salvar" : "Criar"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </div>
+
+            <div className="modal-footer" style={{ padding: "16px 24px", borderTop: "1px solid #E5E7EB", display: "flex", justifyContent: "flex-end", gap: "12px", flexShrink: 0 }}>
+              <button
+                onClick={() => setDialogOpen(false)}
+                className="btn-secondary"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSave}
+                className="btn-primary"
+                style={{
+                  backgroundColor: "#10B981 !important",
+                  color: "#FFFFFF !important",
+                  border: "none !important",
+                  padding: "10px 20px !important",
+                  borderRadius: "8px !important",
+                  fontWeight: "500 !important"
+                }}
+              >
+                {editingProduct ? "Salvar" : "Criar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Dialog open={deleteDialog} onOpenChange={setDeleteDialog}>
         <DialogContent>
