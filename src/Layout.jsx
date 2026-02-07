@@ -38,6 +38,8 @@ export default function Layout({ children, currentPageName }) {
     const loadUser = async () => {
       try {
         const user = await base44.auth.me();
+        console.log("🔐 Usuário carregado:", user);
+        console.log("📋 Permissões do usuário:", user.permissions);
         setCurrentUser(user);
       } catch (error) {
         console.error("Erro ao carregar usuário:", error);
