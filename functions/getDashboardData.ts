@@ -108,28 +108,31 @@ Deno.serve(async (req) => {
           AND EXTRACT(YEAR FROM data) = $2
       `;
 
-      const trendParams = [weekNumber, year];
+      const trendParams = sector !== 'all' 
+        ? [weekNumber, year, sector]
+        : [weekNumber, year];
 
       if (sector !== 'all') {
         trendQuery += ` AND setor = $3`;
-        trendParams.push(sector);
       }
 
       trendQuery += ` GROUP BY semana ORDER BY semana`;
 
-      const trendResult = await client.query(trendQuery, trendParams);
+      const trendResult = await sql(trendQuery, trendParams);
+
+      await sql.end();
 
       return Response.json({
-        topSales: topSalesResult.rows,
-        lossAnalysis: lossAnalysisResult.rows,
-        previousWeeksAvg: prevWeeksResult.rows,
-        trendData: trendResult.rows,
+        topSales: topSalesResult,
+        lossAnalysis: lossAnalysisResult,
+        previousWeeksAvg: prevWeeksResult,
+        trendData: trendResult,
         week: weekNumber,
         year: year
       });
-    } finally {
-      client.release();
-      await pool.end();
+    } catch (error) {
+      await sql.end();
+      throw error;
     }
   } catch (error) {
     console.error('❌ Erro ao buscar dados do dashboard:', error.message);
