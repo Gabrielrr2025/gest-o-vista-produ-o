@@ -165,10 +165,10 @@ export default function Planning() {
     return filtered;
   }, [planningData, selectedSector, searchTerm]);
 
-  // Verificar se a semana é passada ou atual
+  // Verificar se a semana é passada (não incluir semana atual)
   const today = new Date();
-  const isWeekInPast = currentWeekStart < startOfWeek(today, { weekStartsOn: 2 });
-  const isCurrentWeek = format(currentWeekStart, 'yyyy-MM-dd') === format(startOfWeek(today, { weekStartsOn: 2 }), 'yyyy-MM-dd');
+  const todayWeekStart = startOfWeek(today, { weekStartsOn: 2 });
+  const isWeekInPast = currentWeekStart < todayWeekStart;
 
   const handleQuantityChange = (productId, dayIndex, value) => {
     // Validação: apenas números inteiros positivos
@@ -524,23 +524,42 @@ export default function Planning() {
     };
   }, [selectedProduct, salesRecords, lossRecords, panelWeekStart, calendarEvents]);
 
-  const handleExport = () => {
-    const headers = ["Produto", "Setor", "Rend.", "Média/dia", ...DIAS_SEMANA, "Total"];
-    const rows = filteredPlanning.map(p => [
-      p.product.name,
-      p.product.sector,
-      `${p.product.recipe_yield} ${p.product.unit}`,
-      `${Math.round(p.avgByWeekday / 7)}/dia`,
-      ...p.projectedByDay.map(q => plannedQuantities[`${p.product.id}-${p.projectedByDay.indexOf(q)}`] || q),
-      p.total
-    ]);
+  const handleExportExcel = async () => {
+    try {
+      const XLSX = await import('xlsx');
+      
+      // Preparar dados para exportação
+      const headers = ["Produto", "Setor", ...DIAS_SEMANA, "Total"];
+      const rows = filteredPlanning.map(p => {
+        const quantities = p.projectedByDay.map((qty, idx) => 
+          plannedQuantities[`${p.product.id}-${idx}`] ?? qty
+        );
+        const total = quantities.reduce((sum, q) => sum + q, 0);
+        
+        return [
+          p.product.name,
+          p.product.sector,
+          ...quantities,
+          total
+        ];
+      });
 
-    const csvContent = [headers, ...rows].map(row => row.join(",")).join("\n");
-    const blob = new Blob(["\ufeff" + csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `planejamento_semana${weekNumber}_${year}.csv`;
-    link.click();
+      // Criar worksheet
+      const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+      
+      // Criar workbook
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, `Semana ${weekNumber}`);
+      
+      // Gerar e baixar
+      const fileName = `planejamento_semana_${weekNumber}_${format(new Date(), 'ddMMyyyy')}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+      
+      toast.success("✓ Excel exportado com sucesso!");
+    } catch (error) {
+      toast.error("✗ Erro ao exportar. Tente novamente");
+      console.error(error);
+    }
   };
 
   return (
@@ -561,11 +580,8 @@ export default function Planning() {
           ) : (
             <span className="text-xs text-green-600 mr-2">Salvo ✓</span>
           )}
-          <Button variant="outline" size="sm" onClick={() => window.print()}>
-            <Printer className="w-4 h-4 mr-1" /> Imprimir
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleExportPDF}>
-            <Download className="w-4 h-4 mr-1" /> Exportar
+          <Button variant="outline" size="sm" onClick={handleExportExcel}>
+            <FileDown className="w-4 h-4 mr-1" /> Exportar Excel
           </Button>
           <Button variant="outline" size="sm" onClick={handleRecalculate}>
             <RefreshCw className="w-4 h-4 mr-1" /> Recalcular
@@ -586,17 +602,7 @@ export default function Planning() {
                   <Button 
                     variant="outline" 
                     size="icon" 
-                    onClick={() => {
-                      const prevWeek = subWeeks(currentWeekStart, 1);
-                      const today = new Date();
-                      const todayWeekStart = startOfWeek(today, { weekStartsOn: 2 });
-                      
-                      if (prevWeek < todayWeekStart) {
-                        toast.error("⚠️ Não é possível editar semanas passadas");
-                        return;
-                      }
-                      setCurrentWeekStart(prevWeek);
-                    }}
+                    onClick={() => setCurrentWeekStart(subWeeks(currentWeekStart, 1))}
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </Button>
@@ -615,10 +621,10 @@ export default function Planning() {
                   </Button>
                 </div>
 
-                {/* Alerta se semana passada/atual */}
-                {(isWeekInPast || isCurrentWeek) && (
+                {/* Alerta se semana passada */}
+                {isWeekInPast && (
                   <div className="bg-amber-50 border border-amber-200 text-amber-700 px-3 py-1.5 rounded text-sm">
-                    {isWeekInPast ? "⚠️ Semana passada - Edição bloqueada" : "⚠️ Semana atual - Edição bloqueada"}
+                    ⚠️ Semana passada - apenas visualização
                   </div>
                 )}
               </div>
@@ -696,7 +702,7 @@ export default function Planning() {
                         const dayNames = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
                         const dayName = dayNames[dayOfWeek];
                         const isProductionDay = (item.product.production_days || []).includes(dayName);
-                        const isDisabled = isWeekInPast || isCurrentWeek || !isProductionDay;
+                        const isDisabled = isWeekInPast || !isProductionDay;
                         
                         return (
                           <TableCell key={idx} className="text-center p-1">
@@ -956,7 +962,7 @@ export default function Planning() {
                       size="sm" 
                       className="w-full mt-2 bg-blue-600 hover:bg-blue-700"
                       onClick={handleApplySuggestion}
-                      disabled={isWeekInPast || isCurrentWeek}
+                      disabled={isWeekInPast}
                     >
                       Aplicar Sugestão
                     </Button>
