@@ -1,5 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import { getWeek, getYear, parse } from 'npm:date-fns@3.6.0';
+import postgres from 'npm:postgres@3.4.4';
 
 Deno.serve(async (req) => {
   try {
@@ -17,156 +17,127 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Missing weekNumber or year' }, { status: 400 });
     }
 
-    console.log(`📊 Buscando dados do Dashboard: semana=${weekNumber}, ano=${year}, setor=${sector}`);
+    const connectionString = Deno.env.get('POSTGRES_CONNECTION_URL');
+    if (!connectionString) {
+      return Response.json({ error: 'Database connection not configured' }, { status: 500 });
+    }
 
-    // Buscar dados das entidades em memória
-    const [salesRecords, lossRecords] = await Promise.all([
-      base44.asServiceRole.entities.SalesRecord.list(),
-      base44.asServiceRole.entities.LossRecord.list()
-    ]);
+    const sql = postgres(connectionString);
 
-    // Filtrar e processar dados
-    const filterByWeekYear = (record) => {
-      const recordWeek = getWeek(parse(record.date, 'yyyy-MM-dd', new Date()), { weekStartsOn: 2 });
-      const recordYear = getYear(parse(record.date, 'yyyy-MM-dd', new Date()));
-      const matchWeek = recordWeek === weekNumber;
-      const matchYear = recordYear === year;
-      const matchSector = sector === 'all' || record.sector === sector;
-      return matchWeek && matchYear && matchSector;
-    };
+    try {
+      console.log(`📊 Buscando dados do Dashboard: semana=${weekNumber}, ano=${year}, setor=${sector}`);
 
-    const currentWeekSales = salesRecords.filter(filterByWeekYear);
-    const currentWeekLosses = lossRecords.filter(filterByWeekYear);
-
-    // Top 5 mais vendidos
-    const salesByProduct = new Map();
-    currentWeekSales.forEach(sale => {
-      const key = sale.product_name;
-      if (!salesByProduct.has(key)) {
-        salesByProduct.set(key, { produto: key, total_vendas: 0, total_valor: 0 });
-      }
-      const item = salesByProduct.get(key);
-      item.total_vendas += sale.quantity;
-      item.total_valor += (sale.quantity * 10); // Aproximação, sem preço real
-    });
-
-    const topSales = Array.from(salesByProduct.values())
-      .sort((a, b) => b.total_vendas - a.total_vendas)
-      .slice(0, 5);
-
-    // Análise de perdas
-    const lossesByProduct = new Map();
-    currentWeekLosses.forEach(loss => {
-      const key = loss.product_name;
-      if (!lossesByProduct.has(key)) {
-        lossesByProduct.set(key, { produto: key, perda: 0, venda: 0, setor: loss.sector });
-      }
-      const item = lossesByProduct.get(key);
-      item.perda += loss.quantity;
-    });
-
-    // Adicionar vendas às perdas para referência
-    currentWeekSales.forEach(sale => {
-      const key = sale.product_name;
-      if (lossesByProduct.has(key)) {
-        const item = lossesByProduct.get(key);
-        item.venda += sale.quantity;
+      // Query 1: Top 5 mais vendidos da semana
+      let topSalesResult;
+      if (sector !== 'all') {
+        topSalesResult = await sql`
+          SELECT 
+            produto,
+            SUM(quantidade) as total_vendas
+          FROM vw_movimentacoes
+          WHERE tipo = 'venda'
+            AND numero_semana = ${weekNumber}
+            AND ano = ${year}
+            AND setor = ${sector}
+          GROUP BY produto 
+          ORDER BY total_vendas DESC 
+          LIMIT 5
+        `;
       } else {
-        lossesByProduct.set(key, {
-          produto: key,
-          perda: 0,
-          venda: sale.quantity,
-          setor: sale.sector
-        });
+        topSalesResult = await sql`
+          SELECT 
+            produto,
+            SUM(quantidade) as total_vendas
+          FROM vw_movimentacoes
+          WHERE tipo = 'venda'
+            AND numero_semana = ${weekNumber}
+            AND ano = ${year}
+          GROUP BY produto 
+          ORDER BY total_vendas DESC 
+          LIMIT 5
+        `;
       }
-    });
 
-    const lossAnalysis = Array.from(lossesByProduct.values())
-      .filter(item => item.perda > 0)
-      .sort((a, b) => b.perda - a.perda);
-
-    // Dados das 4 semanas anteriores para comparação
-    const prevWeeksFilter = (record) => {
-      const recordWeek = getWeek(parse(record.date, 'yyyy-MM-dd', new Date()), { weekStartsOn: 2 });
-      const recordYear = getYear(parse(record.date, 'yyyy-MM-dd', new Date()));
-      const matchWeek = recordWeek < weekNumber && recordWeek >= (weekNumber - 4);
-      const matchYear = recordYear === year;
-      const matchSector = sector === 'all' || record.sector === sector;
-      return matchWeek && matchYear && matchSector;
-    };
-
-    const prevWeeksSales = salesRecords.filter(prevWeeksFilter);
-    const prevWeeksLosses = lossRecords.filter(prevWeeksFilter);
-
-    const prevWeeksMap = new Map();
-    prevWeeksSales.forEach(sale => {
-      const key = `${sale.product_name}-${sale.sector}`;
-      if (!prevWeeksMap.has(key)) {
-        prevWeeksMap.set(key, { produto: sale.product_name, setor: sale.sector, total_perda: 0, total_venda: 0 });
+      // Query 2: Análise de perdas da semana
+      let lossAnalysisResult;
+      if (sector !== 'all') {
+        lossAnalysisResult = await sql`
+          SELECT 
+            produto,
+            SUM(CASE WHEN tipo = 'perda' THEN quantidade ELSE 0 END) as perda,
+            SUM(CASE WHEN tipo = 'venda' THEN quantidade ELSE 0 END) as venda
+          FROM vw_movimentacoes
+          WHERE numero_semana = ${weekNumber}
+            AND ano = ${year}
+            AND setor = ${sector}
+          GROUP BY produto
+          HAVING SUM(CASE WHEN tipo = 'perda' THEN quantidade ELSE 0 END) > 0
+          ORDER BY perda DESC
+        `;
+      } else {
+        lossAnalysisResult = await sql`
+          SELECT 
+            produto,
+            SUM(CASE WHEN tipo = 'perda' THEN quantidade ELSE 0 END) as perda,
+            SUM(CASE WHEN tipo = 'venda' THEN quantidade ELSE 0 END) as venda
+          FROM vw_movimentacoes
+          WHERE numero_semana = ${weekNumber}
+            AND ano = ${year}
+          GROUP BY produto
+          HAVING SUM(CASE WHEN tipo = 'perda' THEN quantidade ELSE 0 END) > 0
+          ORDER BY perda DESC
+        `;
       }
-      const item = prevWeeksMap.get(key);
-      item.total_venda += sale.quantity;
-    });
 
-    prevWeeksLosses.forEach(loss => {
-      const key = `${loss.product_name}-${loss.sector}`;
-      if (!prevWeeksMap.has(key)) {
-        prevWeeksMap.set(key, { produto: loss.product_name, setor: loss.sector, total_perda: 0, total_venda: 0 });
+      // Query 3: Dados das 6 semanas anteriores para gráfico de tendência
+      let trendResult;
+      if (sector !== 'all') {
+        trendResult = await sql`
+          SELECT 
+            numero_semana,
+            SUM(CASE WHEN tipo = 'venda' THEN quantidade ELSE 0 END) as vendas,
+            SUM(CASE WHEN tipo = 'perda' THEN quantidade ELSE 0 END) as perdas
+          FROM vw_movimentacoes
+          WHERE numero_semana <= ${weekNumber}
+            AND numero_semana > ${weekNumber - 6}
+            AND ano = ${year}
+            AND setor = ${sector}
+          GROUP BY numero_semana
+          ORDER BY numero_semana
+        `;
+      } else {
+        trendResult = await sql`
+          SELECT 
+            numero_semana,
+            SUM(CASE WHEN tipo = 'venda' THEN quantidade ELSE 0 END) as vendas,
+            SUM(CASE WHEN tipo = 'perda' THEN quantidade ELSE 0 END) as perdas
+          FROM vw_movimentacoes
+          WHERE numero_semana <= ${weekNumber}
+            AND numero_semana > ${weekNumber - 6}
+            AND ano = ${year}
+          GROUP BY numero_semana
+          ORDER BY numero_semana
+        `;
       }
-      const item = prevWeeksMap.get(key);
-      item.total_perda += loss.quantity;
-    });
 
-    const previousWeeksAvg = Array.from(prevWeeksMap.values());
+      await sql.end();
 
-    // Dados de tendência (6 semanas anteriores)
-    const trendFilter = (record) => {
-      const recordWeek = getWeek(parse(record.date, 'yyyy-MM-dd', new Date()), { weekStartsOn: 2 });
-      const recordYear = getYear(parse(record.date, 'yyyy-MM-dd', new Date()));
-      const matchWeek = recordWeek >= (weekNumber - 6) && recordWeek < weekNumber;
-      const matchYear = recordYear === year;
-      const matchSector = sector === 'all' || record.sector === sector;
-      return matchWeek && matchYear && matchSector;
-    };
-
-    const trendSales = salesRecords.filter(trendFilter);
-    const trendLosses = lossRecords.filter(trendFilter);
-
-    const trendMap = new Map();
-    trendSales.forEach(sale => {
-      const week = getWeek(parse(sale.date, 'yyyy-MM-dd', new Date()), { weekStartsOn: 2 });
-      if (!trendMap.has(week)) {
-        trendMap.set(week, { semana: week, vendas_qtd: 0, perdas_qtd: 0, vendas_valor: 0 });
-      }
-      const item = trendMap.get(week);
-      item.vendas_qtd += sale.quantity;
-      item.vendas_valor += (sale.quantity * 10);
-    });
-
-    trendLosses.forEach(loss => {
-      const week = getWeek(parse(loss.date, 'yyyy-MM-dd', new Date()), { weekStartsOn: 2 });
-      if (!trendMap.has(week)) {
-        trendMap.set(week, { semana: week, vendas_qtd: 0, perdas_qtd: 0, vendas_valor: 0 });
-      }
-      const item = trendMap.get(week);
-      item.perdas_qtd += loss.quantity;
-    });
-
-    const trendData = Array.from(trendMap.values()).sort((a, b) => a.semana - b.semana);
-
-    return Response.json({
-      topSales,
-      lossAnalysis,
-      previousWeeksAvg,
-      trendData,
-      week: weekNumber,
-      year: year
-    });
+      return Response.json({
+        topSales: topSalesResult,
+        lossAnalysis: lossAnalysisResult,
+        trendData: trendResult,
+        week: weekNumber,
+        year: year
+      });
+    } catch (error) {
+      await sql.end();
+      throw error;
+    }
   } catch (error) {
     console.error('❌ Erro ao buscar dados do dashboard:', error.message);
     return Response.json({ 
       error: error.message,
-      details: 'Erro ao processar dados do dashboard'
+      details: 'Erro ao buscar dados de vw_movimentacoes'
     }, { status: 500 });
   }
 });
