@@ -212,15 +212,256 @@ export default function Reports() {
   }, [salesData, lossData, filters, products]);
 
   const handleApplyFilters = () => {
-    toast.success("Filtros aplicados");
+    // Filtros já estão aplicados automaticamente via useMemo
   };
 
-  const handleExportPDF = () => {
-    toast.info("Exportação em PDF em desenvolvimento");
+  const handleExportPDF = async () => {
+    try {
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      let yPosition = 20;
+
+      // Página 1: Cabeçalho
+      pdf.setFontSize(20);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Relatório de Produção', pageWidth / 2, yPosition, { align: 'center' });
+      
+      yPosition += 15;
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(`Data de geração: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, pageWidth / 2, yPosition, { align: 'center' });
+      
+      yPosition += 15;
+      pdf.setFontSize(12);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Filtros Aplicados:', 20, yPosition);
+      
+      yPosition += 8;
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(`Período: ${format(new Date(filters.startDate), 'dd/MM/yyyy')} a ${format(new Date(filters.endDate), 'dd/MM/yyyy')}`, 20, yPosition);
+      
+      yPosition += 6;
+      const comparisonLabels = {
+        'weeks': 'Por Semanas',
+        'months': 'Por Meses',
+        'products': 'Por Produtos',
+        'sectors': 'Por Setores'
+      };
+      pdf.text(`Comparação: ${comparisonLabels[filters.comparisonType]}`, 20, yPosition);
+      
+      yPosition += 6;
+      pdf.text(`Setor: ${filters.sector === 'all' ? 'Todos' : filters.sector}`, 20, yPosition);
+      
+      if (filters.product !== 'all') {
+        yPosition += 6;
+        const selectedProduct = products.find(p => p.id === filters.product);
+        pdf.text(`Produto: ${selectedProduct?.name || 'N/A'}`, 20, yPosition);
+      }
+
+      // Capturar gráficos como imagens
+      pdf.addPage();
+      yPosition = 20;
+
+      // Gráfico 1
+      const chart1Element = document.querySelector('#sales-loss-chart');
+      if (chart1Element) {
+        const canvas1 = await html2canvas(chart1Element, { scale: 2 });
+        const imgData1 = canvas1.toDataURL('image/png');
+        pdf.text('Vendas e Perdas no Período', pageWidth / 2, yPosition, { align: 'center' });
+        yPosition += 10;
+        pdf.addImage(imgData1, 'PNG', 15, yPosition, 180, 80);
+        yPosition += 90;
+      }
+
+      // Gráfico 2
+      if (yPosition > 200) {
+        pdf.addPage();
+        yPosition = 20;
+      }
+      const chart2Element = document.querySelector('#loss-rate-chart');
+      if (chart2Element) {
+        const canvas2 = await html2canvas(chart2Element, { scale: 2 });
+        const imgData2 = canvas2.toDataURL('image/png');
+        pdf.text('Taxa de Perda no Período', pageWidth / 2, yPosition, { align: 'center' });
+        yPosition += 10;
+        pdf.addImage(imgData2, 'PNG', 15, yPosition, 180, 80);
+        yPosition += 90;
+      }
+
+      // Gráfico 3 (se houver preço)
+      const chart3Element = document.querySelector('#revenue-chart');
+      if (chart3Element) {
+        if (yPosition > 200) {
+          pdf.addPage();
+          yPosition = 20;
+        }
+        const canvas3 = await html2canvas(chart3Element, { scale: 2 });
+        const imgData3 = canvas3.toDataURL('image/png');
+        pdf.text('Faturamento no Período', pageWidth / 2, yPosition, { align: 'center' });
+        yPosition += 10;
+        pdf.addImage(imgData3, 'PNG', 15, yPosition, 180, 80);
+      }
+
+      // Tabela
+      pdf.addPage();
+      yPosition = 20;
+      pdf.text('Resumo Detalhado', pageWidth / 2, yPosition, { align: 'center' });
+      yPosition += 10;
+
+      // Criar tabela manualmente
+      const hasPrice = products.some(p => p.price > 0);
+      const headers = ['Período', 'Vendas', 'Perdas', 'Taxa', ...(hasPrice ? ['Faturamento'] : [])];
+      const colWidths = hasPrice ? [50, 35, 35, 25, 45] : [60, 40, 40, 30];
+      
+      // Cabeçalho da tabela
+      pdf.setFillColor(71, 85, 105);
+      pdf.rect(15, yPosition, 180, 8, 'F');
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFontSize(9);
+      pdf.setFont('helvetica', 'bold');
+      
+      let xPos = 15;
+      headers.forEach((header, i) => {
+        pdf.text(header, xPos + 2, yPosition + 5);
+        xPos += colWidths[i];
+      });
+      
+      yPosition += 8;
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFont('helvetica', 'normal');
+
+      // Dados da tabela
+      chartData.forEach((row, index) => {
+        const rate = row.sales > 0 ? (row.losses / row.sales) * 100 : 0;
+        if (yPosition > 270) {
+          pdf.addPage();
+          yPosition = 20;
+        }
+
+        if (index % 2 === 0) {
+          pdf.setFillColor(248, 250, 252);
+          pdf.rect(15, yPosition, 180, 7, 'F');
+        }
+
+        xPos = 15;
+        pdf.text(row.period.substring(0, 20), xPos + 2, yPosition + 5);
+        xPos += colWidths[0];
+        pdf.text(`${row.sales.toFixed(2)} KG`, xPos + 2, yPosition + 5);
+        xPos += colWidths[1];
+        pdf.text(`${row.losses.toFixed(2)} KG`, xPos + 2, yPosition + 5);
+        xPos += colWidths[2];
+        pdf.text(`${rate.toFixed(1)}%`, xPos + 2, yPosition + 5);
+        if (hasPrice) {
+          xPos += colWidths[3];
+          pdf.text(`R$ ${row.revenue.toFixed(2)}`, xPos + 2, yPosition + 5);
+        }
+
+        yPosition += 7;
+      });
+
+      // Linha de total
+      const totals = chartData.reduce((acc, item) => ({
+        sales: acc.sales + item.sales,
+        losses: acc.losses + item.losses,
+        revenue: acc.revenue + item.revenue
+      }), { sales: 0, losses: 0, revenue: 0 });
+      const totalRate = totals.sales > 0 ? (totals.losses / totals.sales) * 100 : 0;
+
+      pdf.setFillColor(226, 232, 240);
+      pdf.rect(15, yPosition, 180, 8, 'F');
+      pdf.setFont('helvetica', 'bold');
+      
+      xPos = 15;
+      pdf.text('TOTAL', xPos + 2, yPosition + 5);
+      xPos += colWidths[0];
+      pdf.text(`${totals.sales.toFixed(2)} KG`, xPos + 2, yPosition + 5);
+      xPos += colWidths[1];
+      pdf.text(`${totals.losses.toFixed(2)} KG`, xPos + 2, yPosition + 5);
+      xPos += colWidths[2];
+      pdf.text(`${totalRate.toFixed(1)}%`, xPos + 2, yPosition + 5);
+      if (hasPrice) {
+        xPos += colWidths[3];
+        pdf.text(`R$ ${totals.revenue.toFixed(2)}`, xPos + 2, yPosition + 5);
+      }
+
+      // Salvar PDF
+      const fileName = `relatorio_producao_${format(new Date(), 'ddMMyyyy')}.pdf`;
+      pdf.save(fileName);
+      toast.success('PDF exportado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao gerar PDF:', error);
+      toast.error('Erro ao gerar PDF. Tente novamente.');
+    }
   };
 
   const handleExportExcel = () => {
-    toast.info("Exportação em Excel em desenvolvimento");
+    try {
+      const hasPrice = products.some(p => p.price > 0);
+
+      // Preparar dados para a aba "Resumo"
+      const summaryData = chartData.map(row => {
+        const rate = row.sales > 0 ? (row.losses / row.sales) * 100 : 0;
+        const baseRow = {
+          'Período': row.period,
+          'Vendas (KG)': row.sales.toFixed(2),
+          'Perdas (KG)': row.losses.toFixed(2),
+          'Taxa Perda (%)': rate.toFixed(2)
+        };
+        
+        if (hasPrice) {
+          baseRow['Faturamento (R$)'] = row.revenue.toFixed(2);
+        }
+        
+        return baseRow;
+      });
+
+      // Adicionar linha de total
+      const totals = chartData.reduce((acc, item) => ({
+        sales: acc.sales + item.sales,
+        losses: acc.losses + item.losses,
+        revenue: acc.revenue + item.revenue
+      }), { sales: 0, losses: 0, revenue: 0 });
+      const totalRate = totals.sales > 0 ? (totals.losses / totals.sales) * 100 : 0;
+
+      const totalRow = {
+        'Período': 'TOTAL',
+        'Vendas (KG)': totals.sales.toFixed(2),
+        'Perdas (KG)': totals.losses.toFixed(2),
+        'Taxa Perda (%)': totalRate.toFixed(2)
+      };
+      if (hasPrice) {
+        totalRow['Faturamento (R$)'] = totals.revenue.toFixed(2);
+      }
+      summaryData.push(totalRow);
+
+      // Criar workbook
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(summaryData);
+
+      // Aplicar formatação condicional (largura de colunas)
+      const colWidths = [
+        { wch: 20 }, // Período
+        { wch: 15 }, // Vendas
+        { wch: 15 }, // Perdas
+        { wch: 15 }, // Taxa
+      ];
+      if (hasPrice) {
+        colWidths.push({ wch: 18 }); // Faturamento
+      }
+      ws['!cols'] = colWidths;
+
+      // Adicionar aba
+      XLSX.utils.book_append_sheet(wb, ws, 'Resumo');
+
+      // Salvar arquivo
+      const fileName = `relatorio_producao_${format(new Date(), 'ddMMyyyy')}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+      toast.success('Excel exportado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao gerar Excel:', error);
+      toast.error('Erro ao gerar Excel. Tente novamente.');
+    }
   };
 
   if (!hasAccess) {
