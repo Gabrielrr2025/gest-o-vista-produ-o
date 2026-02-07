@@ -301,7 +301,7 @@ export default function Planning() {
         // Cabeçalho da tabela
         doc.setFontSize(8);
         doc.setFillColor(71, 85, 105);
-        pdf.rect(15, yPosition, 180, 6, 'F');
+        doc.rect(15, yPosition, 180, 6, 'F');
         doc.setTextColor(255, 255, 255);
         
         const colWidths = [50, 15, 15, 15, 15, 15, 15, 15, 20];
