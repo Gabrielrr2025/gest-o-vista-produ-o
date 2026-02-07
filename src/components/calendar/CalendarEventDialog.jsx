@@ -131,7 +131,7 @@ export default function CalendarEventDialog({ event, initialDate, onClose, onSav
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{event ? 'Editar Evento' : 'Novo Evento'}</DialogTitle>
         </DialogHeader>
@@ -336,7 +336,10 @@ export default function CalendarEventDialog({ event, initialDate, onClose, onSav
             <Button variant="outline" onClick={onClose}>
               Cancelar
             </Button>
-            <Button onClick={handleSave}>
+            <Button 
+              onClick={handleSave}
+              className="bg-[hsl(var(--accent-primary))] hover:bg-[hsl(var(--accent-primary-hover))] text-white"
+            >
               {event ? 'Salvar' : 'Criar'}
             </Button>
           </div>

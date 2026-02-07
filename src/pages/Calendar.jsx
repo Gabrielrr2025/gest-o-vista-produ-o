@@ -16,22 +16,27 @@ const MONTHS = [
 ];
 
 const EVENT_COLORS = {
-  "Feriado Nacional": "bg-red-500",
-  "Feriado Regional": "bg-orange-500",
-  "Evento Especial": "bg-yellow-500",
-  "Alta Demanda": "bg-blue-500",
-  "Observação": "bg-green-500"
+  "Feriado Nacional": "bg-[#DC2626]",
+  "Feriado Regional": "bg-[#F59E0B]",
+  "Evento Especial": "bg-[#FBBF24]",
+  "Alta Demanda": "bg-[#3B82F6]",
+  "Observação": "bg-[#10B981]"
 };
 
 export default function Calendar() {
   const [currentYear, setCurrentYear] = useState(getYear(new Date()));
-  const [zoom, setZoom] = useState(0.85); // Zoom inicial menor
+  const [zoom, setZoom] = useState(0.85);
   const [showDialog, setShowDialog] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
   const [loadingHolidays, setLoadingHolidays] = useState(false);
 
   const queryClient = useQueryClient();
+  
+  // Carregar feriados automaticamente ao mudar de ano
+  React.useEffect(() => {
+    loadHolidays();
+  }, [currentYear]);
 
   const { data: events = [] } = useQuery({
     queryKey: ['calendarEvents'],
@@ -187,12 +192,15 @@ export default function Calendar() {
                       </div>
                     </TooltipTrigger>
                     {hasEvents && (
-                      <TooltipContent side="top" className="max-w-xs">
+                      <TooltipContent 
+                        side="top" 
+                        className="max-w-xs bg-slate-900 text-white border-slate-800"
+                      >
                         <div className="space-y-1">
                           {dayEvents.map((event, idx) => (
-                            <div key={idx} className="text-xs">
+                            <div key={idx} className="text-sm">
                               <span className="font-semibold">{event.name}</span>
-                              {event.type && <span className="text-slate-500 ml-1">• {event.type}</span>}
+                              {event.type && <span className="text-slate-300 ml-1">• {event.type}</span>}
                             </div>
                           ))}
                         </div>
@@ -262,16 +270,6 @@ export default function Calendar() {
             </Button>
           </div>
 
-          {/* Carregar Feriados */}
-          <Button 
-            variant="outline"
-            onClick={loadHolidays}
-            disabled={loadingHolidays}
-          >
-            <CalendarIcon className="w-4 h-4 mr-2" />
-            {loadingHolidays ? 'Carregando...' : 'Carregar Feriados'}
-          </Button>
-
           {/* Novo Evento */}
           <Button onClick={() => {
             setSelectedEvent(null);
@@ -300,23 +298,23 @@ export default function Calendar() {
         <CardContent>
           <div className="flex flex-wrap gap-4 text-sm">
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-red-500" />
+              <div className="w-3 h-3 rounded-full bg-[#DC2626]" />
               <span className="text-slate-700">Feriado Nacional</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-orange-500" />
+              <div className="w-3 h-3 rounded-full bg-[#F59E0B]" />
               <span className="text-slate-700">Feriado Regional/Local</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-yellow-500" />
+              <div className="w-3 h-3 rounded-full bg-[#FBBF24]" />
               <span className="text-slate-700">Evento Especial</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-blue-500" />
+              <div className="w-3 h-3 rounded-full bg-[#3B82F6]" />
               <span className="text-slate-700">Período de Alta Demanda</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-green-500" />
+              <div className="w-3 h-3 rounded-full bg-[#10B981]" />
               <span className="text-slate-700">Observação Personalizada</span>
             </div>
           </div>
