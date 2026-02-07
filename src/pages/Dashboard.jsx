@@ -20,26 +20,25 @@ import ProductTrendChart from "../components/dashboard/ProductTrendChart";
 export default function Dashboard() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedSector, setSelectedSector] = useState("all");
-  const [sqlData, setSqlData] = useState({ sales: [], losses: [] });
-  const [previousPeriodData, setPreviousPeriodData] = useState({ sales: [], losses: [] });
-  const [historicalData, setHistoricalData] = useState([]);
+  const [dashboardData, setDashboardData] = useState(null);
+
+  // Calcular semana e ano a partir da data selecionada
+  const weekInfo = useMemo(() => {
+    const d = new Date(currentDate);
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - d.getDay() + (d.getDay() === 0 ? -6 : 1)); // Início da semana (segunda)
+    const firstWeek = new Date(d.getFullYear(), 0, 4);
+    firstWeek.setHours(0, 0, 0, 0);
+    firstWeek.setDate(firstWeek.getDate() - firstWeek.getDay() + (firstWeek.getDay() === 0 ? -6 : 1));
+    const weekNumber = Math.ceil((d - firstWeek) / (7 * 24 * 60 * 60 * 1000)) + 1;
+    const year = d.getFullYear();
+    return { weekNumber, year };
+  }, [currentDate]);
 
   const dateRange = useMemo(() => {
     const bounds = getWeekBounds(currentDate);
     return { from: bounds.start, to: bounds.end };
   }, [currentDate]);
-
-  const previousDateRange = useMemo(() => {
-    const prevWeekDate = subWeeks(currentDate, 1);
-    const bounds = getWeekBounds(prevWeekDate);
-    return { from: bounds.start, to: bounds.end };
-  }, [currentDate]);
-
-  const historicalDateRange = useMemo(() => {
-    const fourWeeksAgo = subWeeks(currentDate, 4);
-    const bounds = getWeekBounds(fourWeeksAgo);
-    return { from: bounds.start, to: dateRange.from };
-  }, [currentDate, dateRange]);
 
   const productionQuery = useQuery({
     queryKey: ['productionRecords'],
