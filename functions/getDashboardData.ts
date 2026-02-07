@@ -60,18 +60,16 @@ Deno.serve(async (req) => {
           AND EXTRACT(YEAR FROM data) = $2
       `;
 
-      const lossParams = [weekNumber, year];
-      
       if (sector !== 'all') {
         lossAnalysisQuery += ` AND setor = $3`;
-        lossParams.push(sector);
       }
 
       lossAnalysisQuery += ` GROUP BY produto, setor
                           HAVING SUM(CASE WHEN tipo = 'perda' THEN quantidade ELSE 0 END) > 0
                           ORDER BY perda DESC`;
 
-      const lossAnalysisResult = await client.query(lossAnalysisQuery, lossParams);
+      const lossParams = sector !== 'all' ? [weekNumber, year, sector] : [weekNumber, year];
+      const lossAnalysisResult = await sql(lossAnalysisQuery, lossParams);
 
       // Query 3: Média de perdas das 4 semanas anteriores (para comparação de alertas)
       let prevWeeksQuery = `
