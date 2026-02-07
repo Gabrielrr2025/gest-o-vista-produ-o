@@ -144,7 +144,7 @@ Deno.serve(async (req) => {
         trendResult = await sql`
           SELECT 
             semana,
-            SUM(CASE WHEN tipo = 'venda' ENTÃO quantidade ELSE 0 END) as vendas_qtd,
+            SUM(CASE WHEN tipo = 'venda' THEN quantidade ELSE 0 END) as vendas_qtd,
             SUM(CASE WHEN tipo = 'perda' THEN quantidade ELSE 0 END) as perdas_qtd,
             SUM(CASE WHEN tipo = 'venda' THEN valor ELSE 0 END) as vendas_valor
           FROM vw_movimentacoes
