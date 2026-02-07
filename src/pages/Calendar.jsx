@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { ChevronLeft, ChevronRight, Plus, Minus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Minus, Calendar as CalendarIcon } from "lucide-react";
 import { format, getYear, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, parseISO, getWeek } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { toast } from "sonner";
 import CalendarEventDialog from '../components/calendar/CalendarEventDialog';
 
 const MONTHS = [
@@ -29,11 +30,84 @@ export default function Calendar() {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
   const [hoveredWeek, setHoveredWeek] = useState(null);
+  const [loadingHolidays, setLoadingHolidays] = useState(false);
+
+  const queryClient = useQueryClient();
 
   const { data: events = [] } = useQuery({
     queryKey: ['calendarEvents'],
     queryFn: () => base44.entities.CalendarEvent.list()
   });
+
+  const loadHolidays = async () => {
+    try {
+      setLoadingHolidays(true);
+      toast.info("Buscando feriados...");
+
+      const response = await base44.integrations.Core.InvokeLLM({
+        prompt: `Liste TODOS os feriados brasileiros (nacionais, estaduais do RJ e municipais de Itaperuna/RJ) para o ano ${currentYear}. 
+        
+        Para cada feriado, retorne:
+        - name: nome do feriado
+        - date: data no formato YYYY-MM-DD
+        - type: "Feriado Nacional" para feriados nacionais, "Feriado Regional" para estaduais/municipais
+        - impact_percentage: 0 (será ajustado pelo usuário depois)
+        
+        IMPORTANTE: Retorne a data exata. Carnaval e Corpus Christi são móveis, calcule as datas corretas para ${currentYear}.`,
+        add_context_from_internet: true,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            holidays: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  name: { type: "string" },
+                  date: { type: "string" },
+                  type: { type: "string" },
+                  impact_percentage: { type: "number" }
+                }
+              }
+            }
+          }
+        }
+      });
+
+      const holidays = response.holidays || [];
+      
+      // Filtrar feriados que já existem no banco
+      const existingDates = events.map(e => e.date);
+      const newHolidays = holidays.filter(h => !existingDates.includes(h.date));
+
+      if (newHolidays.length === 0) {
+        toast.info("Todos os feriados já estão cadastrados");
+        return;
+      }
+
+      // Criar os novos feriados
+      await Promise.all(
+        newHolidays.map(holiday => 
+          base44.entities.CalendarEvent.create({
+            name: holiday.name,
+            date: holiday.date,
+            type: holiday.type,
+            impact_percentage: holiday.impact_percentage || 0,
+            sector: 'Todos',
+            notes: 'Feriado carregado automaticamente'
+          })
+        )
+      );
+
+      queryClient.invalidateQueries(['calendarEvents']);
+      toast.success(`${newHolidays.length} feriados adicionados ao calendário`);
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao carregar feriados");
+    } finally {
+      setLoadingHolidays(false);
+    }
+  };
 
   const yearEvents = events.filter(e => {
     const eventDate = parseISO(e.date);
@@ -197,9 +271,20 @@ export default function Calendar() {
             </Button>
           </div>
 
+          {/* Carregar Feriados */}
+          <Button 
+            variant="outline"
+            onClick={loadHolidays}
+            disabled={loadingHolidays}
+          >
+            <CalendarIcon className="w-4 h-4 mr-2" />
+            {loadingHolidays ? 'Carregando...' : 'Carregar Feriados'}
+          </Button>
+
           {/* Novo Evento */}
           <Button onClick={() => {
             setSelectedEvent(null);
+            setSelectedDate(null);
             setShowDialog(true);
           }}>
             <Plus className="w-4 h-4 mr-2" />

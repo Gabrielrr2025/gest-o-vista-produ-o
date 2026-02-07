@@ -21,6 +21,14 @@ export default function CalendarEventDialog({ event, initialDate, onClose, onSav
     notes: ''
   });
 
+  const IMPACT_OPTIONS = [
+    { label: 'Sem impacto', value: 0 },
+    { label: 'Aumentar 30%', value: 30 },
+    { label: 'Aumentar 50%', value: 50 },
+    { label: 'Reduzir 20%', value: -20 },
+    { label: 'Reduzir 50%', value: -50 },
+  ];
+
   useEffect(() => {
     if (event) {
       setFormData({
@@ -124,15 +132,24 @@ export default function CalendarEventDialog({ event, initialDate, onClose, onSav
           </div>
 
           <div>
-            <Label>Impacto na Produção (%)</Label>
-            <Input
-              type="number"
-              value={formData.impact_percentage}
-              onChange={(e) => setFormData({...formData, impact_percentage: parseFloat(e.target.value) || 0})}
-              placeholder="Ex: +30 para aumentar, -20 para reduzir"
-            />
+            <Label>Impacto na Produção</Label>
+            <Select 
+              value={formData.impact_percentage.toString()} 
+              onValueChange={(value) => setFormData({...formData, impact_percentage: parseFloat(value)})}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {IMPACT_OPTIONS.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value.toString()}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <p className="text-xs text-slate-500 mt-1">
-              Valores positivos aumentam produção, negativos reduzem
+              Este valor será usado no cálculo do planejamento
             </p>
           </div>
 
