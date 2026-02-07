@@ -200,8 +200,6 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
     "Sábado": 6
   };
 
-  console.log('ProductsManager renderizado - showAddButton:', showAddButton);
-
   return (
     <>
       <div className="space-y-4">
@@ -229,12 +227,10 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
               </SelectContent>
             </Select>
           </div>
-          {showAddButton && (
-            <Button onClick={() => handleOpenDialog()} className="bg-[hsl(var(--accent-primary))] hover:bg-[hsl(var(--accent-primary-hover))] text-white">
-              <Plus className="w-4 h-4 mr-2" />
-              Adicionar Produto
-            </Button>
-          )}
+          <Button onClick={() => handleOpenDialog()} className="bg-blue-600 hover:bg-blue-700 text-white">
+            <Plus className="w-4 h-4 mr-2" />
+            Novo Produto
+          </Button>
         </div>
 
         <div className="border rounded-lg overflow-hidden">
