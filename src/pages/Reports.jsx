@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { format, subDays, subWeeks, subMonths, startOfYear, parseISO, getWeek, getMonth, getYear } from "date-fns";
 import SalesLossChart from "../components/reports/SalesLossChart";
 import LossRateChart from "../components/reports/LossRateChart";
+import RevenueChart from "../components/reports/RevenueChart";
 
 export default function Reports() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -113,6 +114,12 @@ export default function Reports() {
 
   // Processar dados do gráfico
   const chartData = useMemo(() => {
+    // Criar mapa de preços
+    const priceMap = {};
+    products.forEach(product => {
+      priceMap[product.id] = product.price || 0;
+    });
+
     // Filtrar por período
     const filteredSales = salesData.filter(record => {
       const recordDate = new Date(record.date);
@@ -144,46 +151,50 @@ export default function Reports() {
     if (filters.comparisonType === 'weeks') {
       filteredSales.forEach(record => {
         const week = `Semana ${record.week_number}`;
-        if (!grouped[week]) grouped[week] = { sales: 0, losses: 0 };
+        if (!grouped[week]) grouped[week] = { sales: 0, losses: 0, revenue: 0 };
         grouped[week].sales += record.quantity || 0;
+        grouped[week].revenue += (record.quantity || 0) * (priceMap[record.product_id] || 0);
       });
       filteredLosses.forEach(record => {
         const week = `Semana ${record.week_number}`;
-        if (!grouped[week]) grouped[week] = { sales: 0, losses: 0 };
+        if (!grouped[week]) grouped[week] = { sales: 0, losses: 0, revenue: 0 };
         grouped[week].losses += record.quantity || 0;
       });
     } else if (filters.comparisonType === 'months') {
       const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
       filteredSales.forEach(record => {
         const month = monthNames[record.month - 1];
-        if (!grouped[month]) grouped[month] = { sales: 0, losses: 0 };
+        if (!grouped[month]) grouped[month] = { sales: 0, losses: 0, revenue: 0 };
         grouped[month].sales += record.quantity || 0;
+        grouped[month].revenue += (record.quantity || 0) * (priceMap[record.product_id] || 0);
       });
       filteredLosses.forEach(record => {
         const month = monthNames[record.month - 1];
-        if (!grouped[month]) grouped[month] = { sales: 0, losses: 0 };
+        if (!grouped[month]) grouped[month] = { sales: 0, losses: 0, revenue: 0 };
         grouped[month].losses += record.quantity || 0;
       });
     } else if (filters.comparisonType === 'products') {
       filteredSales.forEach(record => {
         const productName = record.product_name;
-        if (!grouped[productName]) grouped[productName] = { sales: 0, losses: 0 };
+        if (!grouped[productName]) grouped[productName] = { sales: 0, losses: 0, revenue: 0 };
         grouped[productName].sales += record.quantity || 0;
+        grouped[productName].revenue += (record.quantity || 0) * (priceMap[record.product_id] || 0);
       });
       filteredLosses.forEach(record => {
         const productName = record.product_name;
-        if (!grouped[productName]) grouped[productName] = { sales: 0, losses: 0 };
+        if (!grouped[productName]) grouped[productName] = { sales: 0, losses: 0, revenue: 0 };
         grouped[productName].losses += record.quantity || 0;
       });
     } else if (filters.comparisonType === 'sectors') {
       filteredSales.forEach(record => {
         const sector = record.sector;
-        if (!grouped[sector]) grouped[sector] = { sales: 0, losses: 0 };
+        if (!grouped[sector]) grouped[sector] = { sales: 0, losses: 0, revenue: 0 };
         grouped[sector].sales += record.quantity || 0;
+        grouped[sector].revenue += (record.quantity || 0) * (priceMap[record.product_id] || 0);
       });
       filteredLosses.forEach(record => {
         const sector = record.sector;
-        if (!grouped[sector]) grouped[sector] = { sales: 0, losses: 0 };
+        if (!grouped[sector]) grouped[sector] = { sales: 0, losses: 0, revenue: 0 };
         grouped[sector].losses += record.quantity || 0;
       });
     }
@@ -191,9 +202,10 @@ export default function Reports() {
     return Object.entries(grouped).map(([period, data]) => ({
       period,
       sales: data.sales,
-      losses: data.losses
+      losses: data.losses,
+      revenue: data.revenue
     }));
-  }, [salesData, lossData, filters]);
+  }, [salesData, lossData, filters, products]);
 
   const handleApplyFilters = () => {
     toast.success("Filtros aplicados");
@@ -376,6 +388,7 @@ export default function Reports() {
         <div className="lg:col-span-3 space-y-6">
           <SalesLossChart data={chartData} />
           <LossRateChart data={chartData} />
+          <RevenueChart data={chartData} products={products} />
         </div>
       </div>
     </div>
