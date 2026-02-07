@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import postgres from 'npm:postgres@3.4.4';
 
 Deno.serve(async (req) => {
   try {
