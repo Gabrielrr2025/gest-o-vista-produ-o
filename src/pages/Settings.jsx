@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Settings as SettingsIcon, Save, Sparkles, Building2, Bell, Calendar, Eye, Shield, Upload, X, Image as ImageIcon } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import DataReset from "../components/settings/DataReset";
 
@@ -60,6 +61,16 @@ export default function Settings() {
     email: ''
   });
 
+  const [alertSettings, setAlertSettings] = useState({
+    loss_calc_type: 'average_plus', // 'fixed' ou 'average_plus'
+    loss_fixed_percent: 10,
+    loss_average_plus: 5,
+    low_sales_percent: 50,
+    no_sales_days: 4,
+    high_sales_enabled: false,
+    high_sales_percent: 130
+  });
+
   const [uploadingLogo, setUploadingLogo] = useState(false);
 
   const { data: systemConfig = [] } = useQuery({
@@ -83,6 +94,15 @@ export default function Settings() {
         setCompanyData(JSON.parse(savedCompanyData.config_value));
       } catch (e) {
         console.error("Error parsing company data", e);
+      }
+    }
+
+    const savedAlertSettings = systemConfig.find(c => c.config_key === "alert_settings");
+    if (savedAlertSettings) {
+      try {
+        setAlertSettings(JSON.parse(savedAlertSettings.config_value));
+      } catch (e) {
+        console.error("Error parsing alert settings", e);
       }
     }
   }, [systemConfig]);
@@ -136,6 +156,31 @@ export default function Settings() {
 
   const handleSaveCompanyData = () => {
     saveCompanyDataMutation.mutate(companyData);
+  };
+
+  const saveAlertSettingsMutation = useMutation({
+    mutationFn: async (data) => {
+      const existing = systemConfig.find(c => c.config_key === "alert_settings");
+      const payload = {
+        config_key: "alert_settings",
+        config_value: JSON.stringify(data),
+        description: "Configurações de limites e alertas do sistema"
+      };
+
+      if (existing) {
+        return base44.entities.SystemConfig.update(existing.id, payload);
+      } else {
+        return base44.entities.SystemConfig.create(payload);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['systemConfig'] });
+      toast.success("✓ Limites e alertas salvos");
+    }
+  });
+
+  const handleSaveAlertSettings = () => {
+    saveAlertSettingsMutation.mutate(alertSettings);
   };
 
   const handleLogoUpload = async (e) => {
@@ -417,72 +462,158 @@ export default function Settings() {
           {activeSection === 'alerts' && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Sparkles className="w-5 h-5" />
-                  Motor de Sugestão
-                </CardTitle>
-                <CardDescription>Configure como o sistema calcula as sugestões de produção</CardDescription>
+                <CardTitle className="text-lg">Limites e Alertas</CardTitle>
+                <CardDescription>Defina quando o sistema deve gerar alertas no Dashboard</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div>
-                  <Label>Limite de Aumento (%)</Label>
-                  <Input
-                    type="number"
-                    value={config.increase_threshold}
-                    onChange={(e) => setConfig({ ...config, increase_threshold: parseFloat(e.target.value) })}
-                    min="0"
-                    step="1"
-                  />
-                  <p className="text-xs text-slate-500 mt-1">
-                    Percentual máximo de aumento automático na produção quando vendas sobem e perdas caem
-                  </p>
+                {/* LIMITE DE PERDA */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-semibold">Limite de Perda</Label>
+                  <div>
+                    <Label className="text-sm text-slate-600 mb-2 block">Tipo de cálculo</Label>
+                    <Select 
+                      value={alertSettings.loss_calc_type}
+                      onValueChange={(value) => setAlertSettings({...alertSettings, loss_calc_type: value})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="fixed">Percentual fixo</SelectItem>
+                        <SelectItem value="average_plus">Média + percentual (recomendado)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {alertSettings.loss_calc_type === 'fixed' ? (
+                    <div>
+                      <Label className="text-sm text-slate-600">Percentual fixo</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          value={alertSettings.loss_fixed_percent}
+                          onChange={(e) => setAlertSettings({...alertSettings, loss_fixed_percent: parseFloat(e.target.value)})}
+                          min="0"
+                          max="100"
+                          step="1"
+                          className="w-24"
+                        />
+                        <span className="text-sm text-slate-600">%</span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1">Exemplo: 10%</p>
+                    </div>
+                  ) : (
+                    <div>
+                      <Label className="text-sm text-slate-600">Média + percentual adicional</Label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-slate-600">Média +</span>
+                        <Input
+                          type="number"
+                          value={alertSettings.loss_average_plus}
+                          onChange={(e) => setAlertSettings({...alertSettings, loss_average_plus: parseFloat(e.target.value)})}
+                          min="0"
+                          max="100"
+                          step="1"
+                          className="w-24"
+                        />
+                        <span className="text-sm text-slate-600">%</span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1">Padrão: 5%</p>
+                    </div>
+                  )}
                 </div>
 
-                <div>
-                  <Label>Limite de Redução (%)</Label>
-                  <Input
-                    type="number"
-                    value={config.decrease_threshold}
-                    onChange={(e) => setConfig({ ...config, decrease_threshold: parseFloat(e.target.value) })}
-                    max="0"
-                    step="1"
-                  />
-                  <p className="text-xs text-slate-500 mt-1">
-                    Percentual máximo de redução automática na produção quando perdas sobem e vendas caem
-                  </p>
+                {/* ALERTA DE VENDA BAIXA */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-semibold">Alerta de Venda Baixa</Label>
+                  <div>
+                    <Label className="text-sm text-slate-600 mb-2 block">
+                      Alertar quando venda for menor que:
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        value={alertSettings.low_sales_percent}
+                        onChange={(e) => setAlertSettings({...alertSettings, low_sales_percent: parseFloat(e.target.value)})}
+                        min="0"
+                        max="100"
+                        step="5"
+                        className="w-24"
+                      />
+                      <span className="text-sm text-slate-600">% do planejado</span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">Padrão: 50%</p>
+                  </div>
                 </div>
 
-                <div>
-                  <Label>Semanas de Histórico Mínimo</Label>
-                  <Input
-                    type="number"
-                    value={config.min_history_weeks}
-                    onChange={(e) => setConfig({ ...config, min_history_weeks: parseInt(e.target.value) })}
-                    min="1"
-                    max="12"
-                  />
-                  <p className="text-xs text-slate-500 mt-1">
-                    Número mínimo de semanas necessárias para calcular a média histórica
-                  </p>
+                {/* ALERTA DE PRODUTO SEM VENDA */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-semibold">Alerta de Produto Sem Venda</Label>
+                  <div>
+                    <Label className="text-sm text-slate-600 mb-2 block">
+                      Alertar quando produto não vender por:
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        value={alertSettings.no_sales_days}
+                        onChange={(e) => setAlertSettings({...alertSettings, no_sales_days: parseInt(e.target.value)})}
+                        min="1"
+                        max="30"
+                        step="1"
+                        className="w-24"
+                      />
+                      <span className="text-sm text-slate-600">dias</span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">Padrão: 4 dias</p>
+                  </div>
                 </div>
 
-                <Card className="bg-blue-50 border-blue-200">
-                  <CardContent className="p-4">
-                    <h4 className="font-medium text-blue-900 mb-2">Como funciona:</h4>
-                    <ol className="list-decimal list-inside space-y-1 text-sm text-blue-800">
-                      <li>Calcula média de vendas e perdas das últimas semanas</li>
-                      <li>Analisa tendência: se perdas aumentam e vendas caem → reduz produção</li>
-                      <li>Se vendas aumentam e perdas caem → aumenta produção</li>
-                      <li>Considera eventos do calendário com impacto configurado</li>
-                      <li>Aplica rendimento da receita para calcular unidades de produção</li>
-                    </ol>
-                  </CardContent>
-                </Card>
+                {/* ALERTA DE VENDA ALTA */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-semibold">Alerta de Venda Alta</Label>
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={alertSettings.high_sales_enabled}
+                        onCheckedChange={(checked) => setAlertSettings({...alertSettings, high_sales_enabled: checked})}
+                      />
+                      <span className="text-sm text-slate-600">
+                        {alertSettings.high_sales_enabled ? 'Habilitado' : 'Desabilitado'}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <Label className="text-sm text-slate-600 mb-2 block">
+                      Alertar quando venda for maior que:
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        value={alertSettings.high_sales_percent}
+                        onChange={(e) => setAlertSettings({...alertSettings, high_sales_percent: parseFloat(e.target.value)})}
+                        min="100"
+                        max="300"
+                        step="5"
+                        className="w-24"
+                        disabled={!alertSettings.high_sales_enabled}
+                      />
+                      <span className={`text-sm ${alertSettings.high_sales_enabled ? 'text-slate-600' : 'text-slate-400'}`}>
+                        % do planejado
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">Padrão: 130%</p>
+                  </div>
+                </div>
 
                 <div className="pt-4 border-t">
-                  <Button onClick={handleSave} disabled={saveConfigMutation.isPending}>
+                  <Button 
+                    onClick={handleSaveAlertSettings}
+                    disabled={saveAlertSettingsMutation.isPending}
+                  >
                     <Save className="w-4 h-4 mr-2" />
-                    Salvar Alterações
+                    Salvar Limites e Alertas
                   </Button>
                 </div>
               </CardContent>
