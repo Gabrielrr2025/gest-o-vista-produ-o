@@ -228,35 +228,10 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
             </Select>
           </div>
           {showAddButton && (
-            <div 
-              onClick={() => handleOpenDialog()}
-              style={{
-                backgroundColor: '#3B82F6',
-                color: '#FFFFFF',
-                border: 'none',
-                padding: '10px 20px',
-                borderRadius: '8px',
-                fontSize: '14px',
-                fontWeight: 500,
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                transition: 'all 0.2s ease'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#1D4ED8';
-                e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#3B82F6';
-                e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-              }}
-            >
-              <Plus className="w-4 h-4" />
-              Novo Produto
-            </div>
+            <Button onClick={() => handleOpenDialog()} className="bg-[hsl(var(--accent-primary))] hover:bg-[hsl(var(--accent-primary-hover))] text-white">
+              <Plus className="w-4 h-4 mr-2" />
+              Adicionar Produto
+            </Button>
           )}
         </div>
 
@@ -335,14 +310,14 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
+        <DialogContent className="modal-container w-[95%] sm:max-w-[500px] p-0" style={{ maxHeight: '85vh' }}>
+          <div className="modal-header">
             <DialogTitle>
               {editingProduct ? "Editar Produto" : "Novo Produto"}
             </DialogTitle>
-          </DialogHeader>
+          </div>
           
-          <div className="space-y-4">
+          <div className="modal-body space-y-3">
             <div>
               <Label>Código do Produto (opcional)</Label>
               <Input
@@ -441,36 +416,38 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+          <div className="modal-footer">
+            <button onClick={() => setDialogOpen(false)} className="btn-secondary">
               Cancelar
-            </Button>
-            <Button onClick={handleSave}>
+            </button>
+            <button onClick={handleSave} className="btn-primary">
               {editingProduct ? "Salvar" : "Criar"}
-            </Button>
-          </DialogFooter>
+            </button>
+          </div>
         </DialogContent>
       </Dialog>
 
       <Dialog open={deleteDialog} onOpenChange={setDeleteDialog}>
-        <DialogContent>
-          <DialogHeader>
+        <DialogContent className="modal-container w-[95%] sm:max-w-[500px] p-0">
+          <div className="modal-header">
             <DialogTitle className="text-red-900">Excluir Produto</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-slate-600">
-            Tem certeza que deseja excluir <strong>"{productToDelete?.name}"</strong>?
-          </p>
-          <p className="text-sm text-slate-600">
-            Todos os registros relacionados (vendas, perdas, planos) também serão excluídos. Esta ação não pode ser desfeita.
-          </p>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialog(false)}>
+          </div>
+          <div className="modal-body">
+            <p className="text-sm text-slate-600">
+              Tem certeza que deseja excluir <strong>"{productToDelete?.name}"</strong>?
+            </p>
+            <p className="text-sm text-slate-600 mt-3">
+              Todos os registros relacionados (vendas, perdas, planos) também serão excluídos. Esta ação não pode ser desfeita.
+            </p>
+          </div>
+          <div className="modal-footer">
+            <button onClick={() => setDeleteDialog(false)} className="btn-secondary">
               Cancelar
-            </Button>
-            <Button variant="destructive" onClick={handleDeleteConfirm}>
+            </button>
+            <button onClick={handleDeleteConfirm} className="btn-primary" style={{ backgroundColor: '#EF4444' }}>
               Excluir
-            </Button>
-          </DialogFooter>
+            </button>
+          </div>
         </DialogContent>
       </Dialog>
     </>
