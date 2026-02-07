@@ -23,6 +23,8 @@ export default function Planning() {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [plannedQuantities, setPlannedQuantities] = useState({});
   const [lastUpdate, setLastUpdate] = useState(new Date());
+  const [saveStatus, setSaveStatus] = useState('saved'); // 'saving', 'saved'
+  const saveTimeoutRef = React.useRef(null);
 
   const weekNumber = getWeek(currentWeekStart);
   const year = getYear(currentWeekStart);
@@ -166,79 +168,110 @@ export default function Planning() {
       ...prev,
       [`${productId}-${dayIndex}`]: parseInt(value) || 0
     }));
+
+    // Auto-save após 2 segundos
+    setSaveStatus('saving');
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    saveTimeoutRef.current = setTimeout(() => {
+      setSaveStatus('saved');
+      setLastUpdate(new Date());
+    }, 2000);
   };
 
-  const handleSavePlanning = async () => {
+  const handleExportPDF = async () => {
     try {
-      // Gerar PDF do planejamento
       const { jsPDF } = await import('jspdf');
       const doc = new jsPDF('l', 'mm', 'a4');
       
       // Título
       doc.setFontSize(18);
-      doc.text(`Planejamento de Produção - Semana ${weekNumber}/${year}`, 15, 15);
+      doc.text(`Planejamento de Produção - Semana ${weekNumber}`, 15, 15);
       doc.setFontSize(10);
-      doc.text(`${format(currentWeekStart, "dd/MM/yyyy", { locale: ptBR })} - ${format(weekEnd, "dd/MM/yyyy", { locale: ptBR })}`, 15, 22);
+      doc.text(`${format(currentWeekStart, "dd/MM", { locale: ptBR })} a ${format(weekEnd, "dd/MM", { locale: ptBR })}`, 15, 22);
       
-      // Tabela
-      let y = 30;
-      doc.setFontSize(9);
+      let y = 35;
+      const sectors = ["Padaria", "Salgados", "Confeitaria", "Minimercado", "Restaurante", "Frios"];
       
-      // Headers
-      const headers = ["Produto", "Setor", "Rend.", "Média", ...DIAS_SEMANA, "Total"];
-      let x = 15;
-      headers.forEach((header, idx) => {
-        const width = idx === 0 ? 40 : idx === 1 ? 25 : idx === 2 || idx === 3 ? 15 : 18;
-        doc.text(header, x, y);
-        x += width;
-      });
-      
-      y += 7;
-      
-      // Dados
-      filteredPlanning.forEach(item => {
-        if (y > 180) {
+      sectors.forEach(sector => {
+        const sectorProducts = filteredPlanning.filter(p => p.product.sector === sector);
+        if (sectorProducts.length === 0) return;
+        
+        // Verificar se precisa de nova página
+        if (y > 160) {
           doc.addPage();
           y = 20;
         }
         
-        x = 15;
-        doc.text(item.product.name.substring(0, 20), x, y);
-        x += 40;
-        doc.text(item.product.sector.substring(0, 10), x, y);
-        x += 25;
-        doc.text(`${item.product.recipe_yield}`, x, y);
-        x += 15;
-        doc.text(`${Math.round(item.avgByWeekday / 7)}`, x, y);
-        x += 15;
+        // Título do setor
+        doc.setFontSize(12);
+        doc.setFont(undefined, 'bold');
+        doc.text(sector, 15, y);
+        y += 8;
         
-        item.projectedByDay.forEach((qty, idx) => {
-          const val = plannedQuantities[`${item.product.id}-${idx}`] ?? qty;
-          doc.text(val.toString(), x, y);
-          x += 18;
+        // Headers
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'normal');
+        const headers = ["Produto", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom", "Seg", "Total"];
+        let x = 15;
+        const colWidths = [60, 18, 18, 18, 18, 18, 18, 18, 20];
+        
+        headers.forEach((header, idx) => {
+          doc.text(header, x, y);
+          x += colWidths[idx];
+        });
+        y += 6;
+        
+        // Produtos do setor
+        sectorProducts.forEach(item => {
+          if (y > 180) {
+            doc.addPage();
+            y = 20;
+          }
+          
+          const totalPlanned = item.projectedByDay.reduce((sum, _, idx) => 
+            sum + (plannedQuantities[`${item.product.id}-${idx}`] || item.projectedByDay[idx]), 0
+          );
+          
+          // Mostrar apenas se total > 0
+          if (totalPlanned === 0) return;
+          
+          x = 15;
+          doc.text(item.product.name.substring(0, 28), x, y);
+          x += colWidths[0];
+          
+          // Dias (Ter a Seg)
+          const dayOrder = [2, 3, 4, 5, 6, 0, 1]; // Terça a Segunda
+          dayOrder.forEach(dayIdx => {
+            const qty = plannedQuantities[`${item.product.id}-${dayIdx}`] ?? item.projectedByDay[dayIdx];
+            doc.text(qty > 0 ? qty.toString() : '-', x, y);
+            x += colWidths[dayOrder.indexOf(dayIdx) + 1];
+          });
+          
+          doc.setFont(undefined, 'bold');
+          doc.text(totalPlanned.toString(), x, y);
+          doc.setFont(undefined, 'normal');
+          
+          y += 5;
         });
         
-        const totalPlanned = item.projectedByDay.reduce((sum, _, idx) => 
-          sum + (plannedQuantities[`${item.product.id}-${idx}`] || item.projectedByDay[idx]), 0
-        );
-        doc.text(totalPlanned.toString(), x, y);
-        
-        y += 6;
+        y += 8; // Espaço entre setores
       });
       
-      // Salvar PDF
-      const pdfBlob = doc.output('blob');
-      const file = new File([pdfBlob], `planejamento_semana${weekNumber}_${year}.pdf`, { type: 'application/pdf' });
+      // Rodapé
+      const pageCount = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 15, 200);
+        doc.text(`Página ${i} de ${pageCount}`, 260, 200);
+      }
       
-      // Upload usando Core integration
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      
-      toast.success("Planejamento salvo! Acesse em Histórico para baixar.");
+      doc.save(`planejamento_semana${weekNumber}_${year}.pdf`);
+      toast.success("PDF exportado com sucesso!");
     } catch (error) {
-      toast.error("Erro ao salvar planejamento");
+      toast.error("Erro ao exportar PDF");
       console.error(error);
     }
   };
@@ -452,11 +485,16 @@ export default function Planning() {
           </p>
         </div>
         
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 no-print">
+          {saveStatus === 'saving' ? (
+            <span className="text-xs text-slate-500 mr-2">Salvando...</span>
+          ) : (
+            <span className="text-xs text-green-600 mr-2">Salvo ✓</span>
+          )}
           <Button variant="outline" size="sm" onClick={() => window.print()}>
             <Printer className="w-4 h-4 mr-1" /> Imprimir
           </Button>
-          <Button variant="outline" size="sm" onClick={handleExport}>
+          <Button variant="outline" size="sm" onClick={handleExportPDF}>
             <Download className="w-4 h-4 mr-1" /> Exportar
           </Button>
           <Button variant="outline" size="sm" onClick={handleRecalculate}>
@@ -466,7 +504,7 @@ export default function Planning() {
       </div>
 
       {/* LAYOUT PRINCIPAL: 70% Tabela + 30% Painel Lateral */}
-      <div className="flex gap-4">
+      <div className="flex gap-4" id="planning-print-area">
         {/* TABELA PRINCIPAL - 70% */}
         <div className={`transition-all duration-300 ${selectedProduct ? 'w-[70%]' : 'w-full'}`}>
 
@@ -623,7 +661,7 @@ export default function Planning() {
 
         {/* PAINEL LATERAL - 30% */}
         {selectedProduct && productAnalysis && (
-          <div className="w-[30%] animate-in slide-in-from-right duration-300">
+          <div className="w-[30%] animate-in slide-in-from-right duration-300" id="planning-sidebar-panel">
             <Card className="border-0 shadow-lg h-full overflow-y-auto">
               <CardHeader className="flex flex-row items-center justify-between pb-3 border-b">
                 <div>

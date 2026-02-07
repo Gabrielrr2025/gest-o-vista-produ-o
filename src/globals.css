@@ -1,4 +1,3 @@
-css
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -105,5 +104,50 @@ css
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Print styles */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  
+  #planning-print-area,
+  #planning-print-area * {
+    visibility: visible;
+  }
+  
+  #planning-print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+  
+  /* Hide sidebar panel */
+  #planning-sidebar-panel {
+    display: none !important;
+  }
+  
+  /* Hide buttons */
+  .no-print {
+    display: none !important;
+  }
+  
+  /* Adjust table for print */
+  table {
+    width: 100%;
+    font-size: 10pt;
+  }
+  
+  th, td {
+    padding: 4px 6px;
+    border: 1px solid #ddd;
+  }
+  
+  /* Add page break for long tables */
+  tr {
+    page-break-inside: avoid;
   }
 }
