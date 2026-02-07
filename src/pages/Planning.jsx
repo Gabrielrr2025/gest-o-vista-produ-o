@@ -369,12 +369,109 @@ export default function Planning() {
   };
 
   const handleRecalculate = () => {
-    setPlannedQuantities({});
+    console.log("🔄 Iniciando recálculo de planejamento");
+    
+    const newPlannedQuantities = {};
+    
+    filteredPlanning.forEach(item => {
+      const productName = item.product.name;
+      
+      // Dados da semana atual
+      const currentWeekSales = salesRecords.filter(s => 
+        s.product_name === productName && 
+        s.week_number === weekNumber &&
+        s.year === year
+      ).reduce((sum, s) => sum + (s.quantity || 0), 0);
+      
+      const currentWeekLosses = lossRecords.filter(l => 
+        l.product_name === productName && 
+        l.week_number === weekNumber &&
+        l.year === year
+      ).reduce((sum, l) => sum + (l.quantity || 0), 0);
+
+      // Última 4 semanas (anteriores à semana de planejamento)
+      const last4WeeksStart = subWeeks(currentWeekStart, 4);
+      const last4WeeksSales = salesRecords.filter(s => 
+        s.product_name === productName && 
+        new Date(s.date) >= last4WeeksStart &&
+        new Date(s.date) < currentWeekStart
+      );
+      const last4WeeksLosses = lossRecords.filter(l => 
+        l.product_name === productName && 
+        new Date(l.date) >= last4WeeksStart &&
+        new Date(l.date) < currentWeekStart
+      );
+
+      const avgSales = last4WeeksSales.reduce((sum, s) => sum + (s.quantity || 0), 0) / 4;
+      const avgLosses = last4WeeksLosses.reduce((sum, l) => sum + (l.quantity || 0), 0) / 4;
+
+      // APLICAR CENÁRIOS
+      let suggestedProduction = 0;
+
+      // CENÁRIO 1: Perda subiu E venda NÃO subiu
+      if (currentWeekLosses > avgLosses && currentWeekSales <= avgSales) {
+        suggestedProduction = avgSales + avgLosses;
+        console.log(`  ${productName} - Cenário 1: Perda↑ Venda≤`);
+      }
+      // CENÁRIO 2: Venda subiu E perda subiu
+      else if (currentWeekSales > avgSales && currentWeekLosses > avgLosses) {
+        suggestedProduction = avgSales + avgLosses;
+        console.log(`  ${productName} - Cenário 2: Venda↑ Perda↑`);
+      }
+      // CENÁRIO 3: Venda subiu E perda caiu (MELHOR CENÁRIO!)
+      else if (currentWeekSales > avgSales && currentWeekLosses <= avgLosses) {
+        suggestedProduction = avgSales + (avgSales * 0.10) + avgLosses;
+        console.log(`  ${productName} - Cenário 3: Venda↑ Perda↓ (+10%)`);
+      }
+      // CENÁRIO 4: Outros casos
+      else {
+        suggestedProduction = avgSales + avgLosses;
+        console.log(`  ${productName} - Cenário 4: Casos outros`);
+      }
+
+      // AJUSTE POR TIPO DE SEMANA
+      const weekEvents = calendarEvents.filter(event => {
+        const eventDate = parseISO(event.date);
+        const eventSectors = event.sectors || [event.sector || 'Todos'];
+        return eventDate >= currentWeekStart && eventDate <= weekEnd &&
+               (eventSectors.includes("Todos") || eventSectors.includes(item.product.sector));
+      });
+      
+      if (weekEvents.length > 0) {
+        suggestedProduction = suggestedProduction * 1.30;
+        console.log(`  ${productName} - Ajuste por evento: +30%`);
+      }
+
+      suggestedProduction = Math.round(suggestedProduction);
+
+      // DISTRIBUIR NOS DIAS DE PRODUÇÃO
+      const productionDays = item.product.production_days || [];
+      const daysCount = productionDays.length;
+      const dailyProduction = daysCount > 0 ? Math.ceil(suggestedProduction / daysCount) : 0;
+
+      // Aplicar nos dias de produção
+      weekDays.forEach((day, idx) => {
+        const dayOfWeek = day.getDay();
+        const dayNames = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+        const dayName = dayNames[dayOfWeek];
+        
+        if (productionDays.includes(dayName)) {
+          newPlannedQuantities[`${item.product.id}-${idx}`] = dailyProduction;
+        }
+      });
+
+      console.log(`  ${productName}: Produção=${suggestedProduction} UN/semana, ${dailyProduction} UN/dia`);
+    });
+
+    setPlannedQuantities(newPlannedQuantities);
     setLastUpdate(new Date());
-    toast.success("⟳ Recalculando sugestões...", { duration: 1500 });
-    setTimeout(() => {
-      toast.success("✓ Valores recalculados");
-    }, 1500);
+    
+    // Salvar automaticamente
+    filteredPlanning.forEach(item => {
+      setTimeout(() => savePlanning(item.product.id), 500);
+    });
+
+    toast.success("✓ Sugestões recalculadas com base na lógica de cenários");
   };
 
   const handleProductClick = (item) => {
