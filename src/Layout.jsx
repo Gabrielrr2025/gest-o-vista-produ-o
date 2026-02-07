@@ -60,7 +60,7 @@ export default function Layout({ children, currentPageName }) {
 
 
   return (
-    <div className="min-h-screen bg-[hsl(var(--bg-primary))] transition-colors duration-200">
+    <div className="min-h-screen bg-[#F9FAFB] transition-colors duration-200">
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-[hsl(var(--bg-tertiary))] border-b border-[hsl(var(--border-light))] z-50 flex items-center justify-between px-4 shadow-sm">
         <div className="flex items-center gap-3">

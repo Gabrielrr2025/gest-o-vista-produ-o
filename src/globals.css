@@ -54,17 +54,17 @@
   /* Light Mode - Professional Brown Theme */
   --bg-primary: 0 0% 98%;
   --bg-secondary: 30 33% 94%;
-  --bg-tertiary: 30 33% 94%;
+  --bg-tertiary: 0 0% 100%;
   
-  --text-primary: 20 30% 24%;
-  --text-secondary: 20 20% 40%;
-  --text-tertiary: 20 10% 55%;
+  --text-primary: 217 33% 11%;
+  --text-secondary: 215 14% 42%;
+  --text-tertiary: 214 13% 55%;
   
-  --border-light: 30 15% 88%;
-  --border-medium: 30 15% 80%;
+  --border-light: 214 32% 91%;
+  --border-medium: 214 32% 91%;
   
-  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.12);
   
   --accent-primary: 38 92% 50%;
@@ -104,6 +104,14 @@
   }
   body {
     @apply bg-background text-foreground;
+    background-color: #F9FAFB;
+  }
+  h1, h2, h3 {
+    font-weight: 600;
+    line-height: 1.5;
+  }
+  p {
+    line-height: 1.6;
   }
 }
 
