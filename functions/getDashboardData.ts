@@ -22,9 +22,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Database connection not configured' }, { status: 500 });
     }
 
-    const { Pool } = await import('npm:pg@8.11.3');
-    const pool = new Pool({ connectionString });
-    const client = await pool.connect();
+    const sql = postgres(connectionString);
 
     try {
       console.log(`📊 Buscando dados do Dashboard: semana=${weekNumber}, ano=${year}, setor=${sector}`);
