@@ -81,10 +81,13 @@ export default function Admin() {
           </h1>
           <p className="text-sm text-slate-500 mt-1">Gerenciamento de usuários e permissões</p>
         </div>
-        <Button onClick={() => {
-          setSelectedUser(null);
-          setShowDialog(true);
-        }}>
+        <Button 
+          onClick={() => {
+            setSelectedUser(null);
+            setShowDialog(true);
+          }}
+          className="bg-[hsl(var(--accent-primary))] hover:bg-[hsl(var(--accent-primary-hover))] text-white"
+        >
           <UserPlus className="w-4 h-4 mr-2" />
           Adicionar Usuário
         </Button>
