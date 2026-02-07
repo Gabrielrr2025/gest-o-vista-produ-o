@@ -228,13 +228,9 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
             </Select>
           </div>
           {showAddButton && (
-            <Button 
-              onClick={() => handleOpenDialog()} 
-              className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-all duration-200"
-              style={{ padding: '10px 20px', fontSize: '14px', fontWeight: 500, borderRadius: '8px' }}
-            >
+            <Button onClick={() => handleOpenDialog()} className="bg-[hsl(var(--accent-primary))] hover:bg-[hsl(var(--accent-primary-hover))] text-white">
               <Plus className="w-4 h-4 mr-2" />
-              Novo Produto
+              Adicionar Produto
             </Button>
           )}
         </div>
@@ -314,14 +310,14 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
+        <DialogContent className="sm:max-w-[500px] w-[95%] max-h-[80vh] flex flex-col p-0">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b flex-shrink-0">
             <DialogTitle>
               {editingProduct ? "Editar Produto" : "Novo Produto"}
             </DialogTitle>
           </DialogHeader>
           
-          <div className="space-y-4">
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
             <div>
               <Label>Código do Produto (opcional)</Label>
               <Input
@@ -420,11 +416,19 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+          <DialogFooter className="px-6 py-4 border-t bg-gray-50 gap-3 flex-shrink-0">
+            <Button 
+              variant="outline" 
+              onClick={() => setDialogOpen(false)}
+              style={{ padding: '8px 20px', fontSize: '14px', fontWeight: 500 }}
+            >
               Cancelar
             </Button>
-            <Button onClick={handleSave}>
+            <Button 
+              onClick={handleSave}
+              className="bg-green-600 hover:bg-green-700 text-white"
+              style={{ padding: '8px 20px', fontSize: '14px', fontWeight: 500, borderRadius: '8px' }}
+            >
               {editingProduct ? "Salvar" : "Criar"}
             </Button>
           </DialogFooter>
