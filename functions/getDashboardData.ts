@@ -24,13 +24,11 @@ Deno.serve(async (req) => {
 
     const sql = neon(connectionString);
 
-    try {
-      console.log(`📊 Buscando dados do Dashboard: semana=${weekNumber}, ano=${year}, setor=${sector}`);
+    console.log(`📊 Buscando dados do Dashboard: semana=${weekNumber}, ano=${year}, setor=${sector}`);
 
-      // Query 1: Top 5 mais vendidos da semana
-      let topSalesResult;
-      if (sector !== 'all') {
-        topSalesResult = await sql`
+    // Query 1: Top 5 mais vendidos da semana
+    const topSalesResult = sector !== 'all'
+      ? await sql`
           SELECT 
             produto,
             SUM(quantidade) as total_vendas
@@ -42,9 +40,8 @@ Deno.serve(async (req) => {
           GROUP BY produto 
           ORDER BY total_vendas DESC 
           LIMIT 5
-        `;
-      } else {
-        topSalesResult = await sql`
+        `
+      : await sql`
           SELECT 
             produto,
             SUM(quantidade) as total_vendas
@@ -56,12 +53,10 @@ Deno.serve(async (req) => {
           ORDER BY total_vendas DESC 
           LIMIT 5
         `;
-      }
 
-      // Query 2: Análise de perdas da semana
-      let lossAnalysisResult;
-      if (sector !== 'all') {
-        lossAnalysisResult = await sql`
+    // Query 2: Análise de perdas da semana
+    const lossAnalysisResult = sector !== 'all'
+      ? await sql`
           SELECT 
             produto,
             SUM(CASE WHEN tipo = 'perda' THEN quantidade ELSE 0 END) as perda,
@@ -73,9 +68,8 @@ Deno.serve(async (req) => {
           GROUP BY produto
           HAVING SUM(CASE WHEN tipo = 'perda' THEN quantidade ELSE 0 END) > 0
           ORDER BY perda DESC
-        `;
-      } else {
-        lossAnalysisResult = await sql`
+        `
+      : await sql`
           SELECT 
             produto,
             SUM(CASE WHEN tipo = 'perda' THEN quantidade ELSE 0 END) as perda,
@@ -87,12 +81,10 @@ Deno.serve(async (req) => {
           HAVING SUM(CASE WHEN tipo = 'perda' THEN quantidade ELSE 0 END) > 0
           ORDER BY perda DESC
         `;
-      }
 
-      // Query 3: Dados das 6 semanas anteriores para gráfico de tendência
-      let trendResult;
-      if (sector !== 'all') {
-        trendResult = await sql`
+    // Query 3: Dados das 6 semanas anteriores para gráfico de tendência
+    const trendResult = sector !== 'all'
+      ? await sql`
           SELECT 
             numero_semana,
             SUM(CASE WHEN tipo = 'venda' THEN quantidade ELSE 0 END) as vendas,
@@ -104,9 +96,8 @@ Deno.serve(async (req) => {
             AND setor = ${sector}
           GROUP BY numero_semana
           ORDER BY numero_semana
-        `;
-      } else {
-        trendResult = await sql`
+        `
+      : await sql`
           SELECT 
             numero_semana,
             SUM(CASE WHEN tipo = 'venda' THEN quantidade ELSE 0 END) as vendas,
@@ -118,21 +109,14 @@ Deno.serve(async (req) => {
           GROUP BY numero_semana
           ORDER BY numero_semana
         `;
-      }
 
-      await sql.end();
-
-      return Response.json({
-        topSales: topSalesResult,
-        lossAnalysis: lossAnalysisResult,
-        trendData: trendResult,
-        week: weekNumber,
-        year: year
-      });
-    } catch (error) {
-      await sql.end();
-      throw error;
-    }
+    return Response.json({
+      topSales: topSalesResult,
+      lossAnalysis: lossAnalysisResult,
+      trendData: trendResult,
+      week: weekNumber,
+      year: year
+    });
   } catch (error) {
     console.error('❌ Erro ao buscar dados do dashboard:', error.message);
     return Response.json({ 
