@@ -27,16 +27,22 @@ Deno.serve(async (req) => {
 
     console.log(`📊 Buscando dados: ${startDate} a ${endDate}, setor=${sector}`);
 
-    // Query 1: Top 5 mais vendidos (CORRIGIDA - agora inclui setor)
+    // ✅ Query 1: Top 5 mais vendidos (CORRIGIDA - agora retorna setor)
     const topSalesQuery = sector !== 'all'
-      ? `SELECT p.nome as produto, p.setor as setor, SUM(v.quantidade) as total_vendas
+      ? `SELECT 
+           p.nome as produto, 
+           p.setor as setor, 
+           SUM(v.quantidade) as total_vendas
          FROM vendas v
          JOIN produtos p ON v.produto_id = p.id
          WHERE v.data BETWEEN $1 AND $2 AND p.setor = $3
          GROUP BY p.nome, p.setor
          ORDER BY total_vendas DESC
          LIMIT 5`
-      : `SELECT p.nome as produto, p.setor as setor, SUM(v.quantidade) as total_vendas
+      : `SELECT 
+           p.nome as produto, 
+           p.setor as setor, 
+           SUM(v.quantidade) as total_vendas
          FROM vendas v
          JOIN produtos p ON v.produto_id = p.id
          WHERE v.data BETWEEN $1 AND $2
@@ -47,7 +53,7 @@ Deno.serve(async (req) => {
     const topSalesParams = sector !== 'all' ? [startDate, endDate, sector] : [startDate, endDate];
     const topSalesResult = await sql(topSalesQuery, topSalesParams);
 
-    // Query 2: Análise de perdas (mantida)
+    // ✅ Query 2: Análise de perdas (já estava correta, mantida)
     const lossAnalysisQuery = sector !== 'all'
       ? `SELECT 
            p.nome as produto, 
