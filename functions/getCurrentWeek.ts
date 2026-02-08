@@ -1,40 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import { subDays, addDays, startOfDay } from 'npm:date-fns@3.6.0';
-
-// Semana começa na terça-feira e termina na segunda-feira
-const getWeekBounds = (date) => {
-  const dateObj = new Date(date);
-  const dayOfWeek = dateObj.getDay();
-  
-  let daysToTuesday;
-  if (dayOfWeek === 0) {
-    daysToTuesday = 5;
-  } else if (dayOfWeek === 1) {
-    daysToTuesday = 6;
-  } else {
-    daysToTuesday = dayOfWeek - 2;
-  }
-  
-  const weekStart = subDays(startOfDay(dateObj), daysToTuesday);
-  const weekEnd = addDays(weekStart, 6);
-  
-  return { start: weekStart, end: weekEnd };
-};
-
-const getWeekNumber = (date) => {
-  const dateObj = new Date(date);
-  const yearStart = new Date(dateObj.getFullYear(), 0, 1);
-  
-  const firstTuesday = yearStart.getDay() <= 2 
-    ? addDays(yearStart, 2 - yearStart.getDay()) 
-    : addDays(yearStart, 9 - yearStart.getDay());
-  
-  const weekBounds = getWeekBounds(dateObj);
-  const diffTime = weekBounds.start.getTime() - firstTuesday.getTime();
-  const diffWeeks = Math.floor(diffTime / (7 * 24 * 60 * 60 * 1000));
-  
-  return diffWeeks + 1;
-};
+import postgres from 'npm:postgres@3.4.4';
 
 Deno.serve(async (req) => {
   try {
@@ -52,22 +17,42 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Missing date parameter' }, { status: 400 });
     }
 
-    console.log(`📅 Calculando semana para data: ${date}`);
-    
-    const weekNumber = getWeekNumber(date);
-    const year = new Date(date).getFullYear();
-    const weekBounds = getWeekBounds(date);
-    
-    const result = {
-      numero_semana: weekNumber,
-      ano: year,
-      data_inicio: weekBounds.start.toISOString().split('T')[0],
-      data_fim: weekBounds.end.toISOString().split('T')[0]
-    };
+    const connectionString = Deno.env.get('POSTGRES_CONNECTION_URL');
+    if (!connectionString) {
+      return Response.json({ error: 'Database connection not configured' }, { status: 500 });
+    }
 
-    console.log(`✅ Semana calculada:`, result);
+    const sql = postgres(connectionString);
     
-    return Response.json(result);
+    try {
+      console.log(`📅 Buscando semana para data: ${date}`);
+      
+      const result = await sql`
+        SELECT numero_semana, ano, data_inicio, data_fim
+        FROM semanas
+        WHERE ${date}::date BETWEEN data_inicio AND data_fim
+        LIMIT 1
+      `;
+      
+      await sql.end();
+
+      if (result.length === 0) {
+        console.log('⚠️ Nenhuma semana encontrada, usando padrão');
+        return Response.json({ 
+          numero_semana: 6,
+          ano: 2026,
+          data_inicio: '2026-02-03',
+          data_fim: '2026-02-09'
+        });
+      }
+
+      console.log(`✅ Semana encontrada:`, result[0]);
+      
+      return Response.json(result[0]);
+    } catch (error) {
+      await sql.end();
+      throw error;
+    }
   } catch (error) {
     console.error('❌ Erro ao buscar semana atual:', error.message);
     return Response.json({ 
