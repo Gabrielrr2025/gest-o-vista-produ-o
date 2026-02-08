@@ -72,13 +72,14 @@ export default function Dashboard() {
     
     const salesData = dashboardQuery.data.topSales?.map(item => ({
       product_name: item.produto,
-      quantity: item.total_vendas,
+      quantity: parseFloat(item.total_vendas),
       value: item.total_valor
     })) || [];
 
     const lossesData = dashboardQuery.data.lossAnalysis?.map(item => ({
       product_name: item.produto,
-      quantity: item.perda,
+      quantity: parseFloat(item.perda),
+      sales_quantity: parseFloat(item.venda),
       sector: item.setor
     })) || [];
 
@@ -133,10 +134,10 @@ export default function Dashboard() {
       return prod?.unit !== 'kilo';
     });
 
-    const totalSalesKG = salesKG.reduce((sum, r) => sum + (r.total_vendas || 0), 0);
-    const totalSalesUN = salesUN.reduce((sum, r) => sum + (r.total_vendas || 0), 0);
-    const totalLossesKG = lossesKG.reduce((sum, r) => sum + (r.perda || 0), 0);
-    const totalLossesUN = lossesUN.reduce((sum, r) => sum + (r.perda || 0), 0);
+    const totalSalesKG = salesKG.reduce((sum, r) => sum + (parseFloat(r.total_vendas) || 0), 0);
+    const totalSalesUN = salesUN.reduce((sum, r) => sum + (parseFloat(r.total_vendas) || 0), 0);
+    const totalLossesKG = lossesKG.reduce((sum, r) => sum + (parseFloat(r.perda) || 0), 0);
+    const totalLossesUN = lossesUN.reduce((sum, r) => sum + (parseFloat(r.perda) || 0), 0);
 
     const lossRateKG = totalSalesKG > 0 ? (totalLossesKG / totalSalesKG) * 100 : 0;
     const lossRateUN = totalSalesUN > 0 ? (totalLossesUN / totalSalesUN) * 100 : 0;
@@ -206,9 +207,7 @@ export default function Dashboard() {
           selectedSector={selectedSector}
         />
         <LossAnalysis 
-          salesData={filteredData.sales}
           lossData={filteredData.losses}
-          historicalLossData={historicalDataForLimits}
           productMap={productMap}
         />
       </div>
