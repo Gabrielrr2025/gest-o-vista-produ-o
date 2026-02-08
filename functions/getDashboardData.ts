@@ -27,30 +27,31 @@ Deno.serve(async (req) => {
 
     console.log(`📊 Buscando dados: ${startDate} a ${endDate}, setor=${sector}`);
 
-    // Query 1: Top 5 mais vendidos
+    // Query 1: Top 5 mais vendidos (CORRIGIDA - agora inclui setor)
     const topSalesQuery = sector !== 'all'
-      ? `SELECT p.nome as produto, SUM(v.quantidade) as total_vendas
+      ? `SELECT p.nome as produto, p.setor as setor, SUM(v.quantidade) as total_vendas
          FROM vendas v
          JOIN produtos p ON v.produto_id = p.id
          WHERE v.data BETWEEN $1 AND $2 AND p.setor = $3
-         GROUP BY p.nome
+         GROUP BY p.nome, p.setor
          ORDER BY total_vendas DESC
          LIMIT 5`
-      : `SELECT p.nome as produto, SUM(v.quantidade) as total_vendas
+      : `SELECT p.nome as produto, p.setor as setor, SUM(v.quantidade) as total_vendas
          FROM vendas v
          JOIN produtos p ON v.produto_id = p.id
          WHERE v.data BETWEEN $1 AND $2
-         GROUP BY p.nome
+         GROUP BY p.nome, p.setor
          ORDER BY total_vendas DESC
          LIMIT 5`;
 
     const topSalesParams = sector !== 'all' ? [startDate, endDate, sector] : [startDate, endDate];
     const topSalesResult = await sql(topSalesQuery, topSalesParams);
 
-    // Query 2: Análise de perdas (CORRIGIDA)
+    // Query 2: Análise de perdas (mantida)
     const lossAnalysisQuery = sector !== 'all'
       ? `SELECT 
            p.nome as produto, 
+           p.setor as setor,
            COALESCE(SUM(pe.quantidade), 0) as perda,
            COALESCE((SELECT SUM(v.quantidade) 
                      FROM vendas v 
@@ -59,11 +60,12 @@ Deno.serve(async (req) => {
          FROM perdas pe
          JOIN produtos p ON pe.produto_id = p.id
          WHERE pe.data BETWEEN $1 AND $2 AND p.setor = $3
-         GROUP BY p.id, p.nome, pe.produto_id
+         GROUP BY p.id, p.nome, p.setor, pe.produto_id
          HAVING SUM(pe.quantidade) > 0
          ORDER BY perda DESC`
       : `SELECT 
            p.nome as produto,
+           p.setor as setor,
            COALESCE(SUM(pe.quantidade), 0) as perda,
            COALESCE((SELECT SUM(v.quantidade) 
                      FROM vendas v 
@@ -72,7 +74,7 @@ Deno.serve(async (req) => {
          FROM perdas pe
          JOIN produtos p ON pe.produto_id = p.id
          WHERE pe.data BETWEEN $1 AND $2
-         GROUP BY p.id, p.nome, pe.produto_id
+         GROUP BY p.id, p.nome, p.setor, pe.produto_id
          HAVING SUM(pe.quantidade) > 0
          ORDER BY perda DESC`;
 
@@ -84,6 +86,7 @@ Deno.serve(async (req) => {
       lossAnalysis: lossAnalysisResult.length
     });
 
+    console.log('🔍 Amostra topSales:', JSON.stringify(topSalesResult.slice(0, 3)));
     console.log('🔍 Amostra lossAnalysis:', JSON.stringify(lossAnalysisResult.slice(0, 3)));
 
     return Response.json({
