@@ -84,6 +84,8 @@ Deno.serve(async (req) => {
       lossAnalysis: lossAnalysisResult.length
     });
 
+    console.log('🔍 Amostra lossAnalysis:', JSON.stringify(lossAnalysisResult.slice(0, 3)));
+
     return Response.json({
       topSales: topSalesResult,
       lossAnalysis: lossAnalysisResult
