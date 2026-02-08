@@ -1,88 +1,9 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertTriangle, AlertCircle } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 
-export default function LossAnalysis({ salesData, lossData, historicalLossData, productMap }) {
-  const lossAnalysis = useMemo(() => {
-    // Agrupar vendas por produto
-    const productSales = {};
-    salesData.forEach(sale => {
-      const key = sale.product_name;
-      if (!productSales[key]) {
-        productSales[key] = { sales: 0 };
-      }
-      productSales[key].sales += sale.quantity || 0;
-    });
-
-    // Agrupar perdas por produto
-    const productLosses = {};
-    lossData.forEach(loss => {
-      const key = loss.product_name;
-      if (!productLosses[key]) {
-        const product = productMap.get(loss.product_name);
-        productLosses[key] = {
-          name: loss.product_name,
-          loss: 0,
-          unit: product?.unit === 'kilo' ? 'KG' : 'UN'
-        };
-      }
-      productLosses[key].loss += loss.quantity || 0;
-    });
-
-    // Calcular médias históricas (últimas 4 semanas)
-    const historicalAverages = {};
-    if (historicalLossData && historicalLossData.length > 0) {
-      const historicalSales = {};
-      const historicalLosses = {};
-
-      historicalLossData.forEach(item => {
-        if (item.type === 'sale') {
-          if (!historicalSales[item.product_name]) historicalSales[item.product_name] = 0;
-          historicalSales[item.product_name] += item.quantity || 0;
-        } else if (item.type === 'loss') {
-          if (!historicalLosses[item.product_name]) historicalLosses[item.product_name] = 0;
-          historicalLosses[item.product_name] += item.quantity || 0;
-        }
-      });
-
-      Object.keys(historicalLosses).forEach(productName => {
-        const totalSales = historicalSales[productName] || 0;
-        const totalLoss = historicalLosses[productName] || 0;
-        if (totalSales > 0) {
-          historicalAverages[productName] = (totalLoss / totalSales) * 100;
-        }
-      });
-    }
-
-    // Combinar dados e calcular taxa
-    const results = Object.keys(productLosses).map(productName => {
-      const loss = productLosses[productName];
-      const sales = productSales[productName]?.sales || 0;
-      const lossRate = sales > 0 ? (loss.loss / sales) * 100 : 0;
-      const historicalAvg = historicalAverages[productName] || 0;
-      const limit = historicalAvg + 5;
-      const isOverLimit = lossRate > limit;
-
-      return {
-        name: loss.name,
-        loss: loss.loss,
-        sales: sales,
-        lossRate: lossRate,
-        limit: limit,
-        isOverLimit: isOverLimit,
-        unit: loss.unit
-      };
-    });
-
-    // Ordenar: primeiro com alerta (por perda absoluta), depois sem alerta
-    return results.sort((a, b) => {
-      if (a.isOverLimit && !b.isOverLimit) return -1;
-      if (!a.isOverLimit && b.isOverLimit) return 1;
-      return b.loss - a.loss;
-    });
-  }, [salesData, lossData, historicalLossData, productMap]);
-
+export default function LossAnalysis({ lossData, productMap }) {
   return (
     <Card>
       <CardHeader>
@@ -102,32 +23,41 @@ export default function LossAnalysis({ salesData, lossData, historicalLossData, 
             </TableRow>
           </TableHeader>
           <TableBody>
-            {lossAnalysis.map((item, idx) => (
-              <TableRow 
-                key={idx}
-                className={item.isOverLimit ? 'bg-red-50' : ''}
-              >
-                <TableCell className="font-medium">{item.name}</TableCell>
-                <TableCell className="text-right">
-                  <span className={item.isOverLimit ? 'font-bold text-red-600' : 'text-slate-900'}>
-                    {item.unit === 'KG' 
-                      ? item.loss.toFixed(1) 
-                      : item.loss.toLocaleString('pt-BR')} {item.unit}
-                  </span>
-                </TableCell>
-                <TableCell className="text-right">
-                  {item.unit === 'KG' 
-                    ? item.sales.toFixed(1) 
-                    : item.sales.toLocaleString('pt-BR')} {item.unit}
-                </TableCell>
-                <TableCell className="text-right">
-                  <span className={item.isOverLimit ? 'font-bold text-red-600' : 'text-slate-900'}>
-                    {item.lossRate.toFixed(1)}%
-                  </span>
-                </TableCell>
-              </TableRow>
-            ))}
-            {lossAnalysis.length === 0 && (
+            {lossData.map((item, idx) => {
+              const product = productMap.get(item.product_name);
+              const unit = product?.unit === 'kilo' ? 'KG' : 'UN';
+              const lossRate = item.sales_quantity > 0 
+                ? (item.quantity / item.sales_quantity) * 100 
+                : 0;
+              const isHighLoss = lossRate > 10;
+
+              return (
+                <TableRow 
+                  key={idx}
+                  className={isHighLoss ? 'bg-red-50' : ''}
+                >
+                  <TableCell className="font-medium">{item.product_name}</TableCell>
+                  <TableCell className="text-right">
+                    <span className={isHighLoss ? 'font-bold text-red-600' : 'text-slate-900'}>
+                      {unit === 'KG' 
+                        ? item.quantity.toFixed(2) 
+                        : Math.round(item.quantity).toLocaleString('pt-BR')} {unit}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {unit === 'KG' 
+                      ? item.sales_quantity.toFixed(2) 
+                      : Math.round(item.sales_quantity).toLocaleString('pt-BR')} {unit}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <span className={isHighLoss ? 'font-bold text-red-600' : 'text-slate-900'}>
+                      {lossRate.toFixed(1)}%
+                    </span>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+            {lossData.length === 0 && (
               <TableRow>
                 <TableCell colSpan={4} className="text-center text-slate-500 py-8">
                   Nenhuma perda registrada nesta semana
