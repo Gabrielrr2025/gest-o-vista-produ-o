@@ -22,18 +22,18 @@ export default function Dashboard() {
   const [selectedSector, setSelectedSector] = useState("all");
 
   // Calcular range de datas da semana
-const dateRange = useMemo(() => {
-  const bounds = getWeekBounds(currentDate);
-  const startDate = bounds.start instanceof Date ? format(bounds.start, 'yyyy-MM-dd') : bounds.start;
-  const endDate = bounds.end instanceof Date ? format(bounds.end, 'yyyy-MM-dd') : bounds.end;
-  
-  console.log('📅 Date range calculado:', { startDate, endDate });
-  
-  return { 
-    from: startDate, 
-    to: endDate 
-  };
-}, [currentDate]);
+  const dateRange = useMemo(() => {
+    const bounds = getWeekBounds(currentDate);
+    const startDate = bounds.start instanceof Date ? format(bounds.start, 'yyyy-MM-dd') : bounds.start;
+    const endDate = bounds.end instanceof Date ? format(bounds.end, 'yyyy-MM-dd') : bounds.end;
+    
+    console.log('📅 Date range calculado:', { startDate, endDate });
+    
+    return { 
+      from: startDate, 
+      to: endDate 
+    };
+  }, [currentDate]);
 
   // Buscar dados do dashboard via função backend
   const dashboardQuery = useQuery({
@@ -51,6 +51,11 @@ const dateRange = useMemo(() => {
       });
       console.log('📥 Resposta do getDashboardData:', response.data);
       return response.data;
+    },
+    onError: (error) => {
+      console.error('❌ ERRO COMPLETO:', error);
+      console.error('❌ Resposta:', error.response?.data);
+      console.error('❌ Message:', error.message);
     }
   });
 
@@ -186,6 +191,10 @@ const dateRange = useMemo(() => {
 
            {dashboardQuery.isLoading && (
              <div className="text-xs text-slate-500">Carregando...</div>
+           )}
+           
+           {dashboardQuery.isError && (
+             <div className="text-xs text-red-500">Erro ao carregar dados</div>
            )}
          </div>
        </div>
