@@ -22,13 +22,18 @@ export default function Dashboard() {
   const [selectedSector, setSelectedSector] = useState("all");
 
   // Calcular range de datas da semana
-  const dateRange = useMemo(() => {
-    const bounds = getWeekBounds(currentDate);
-    return { 
-      from: format(bounds.start, 'yyyy-MM-dd'), 
-      to: format(bounds.end, 'yyyy-MM-dd') 
-    };
-  }, [currentDate]);
+const dateRange = useMemo(() => {
+  const bounds = getWeekBounds(currentDate);
+  const startDate = bounds.start instanceof Date ? format(bounds.start, 'yyyy-MM-dd') : bounds.start;
+  const endDate = bounds.end instanceof Date ? format(bounds.end, 'yyyy-MM-dd') : bounds.end;
+  
+  console.log('📅 Date range calculado:', { startDate, endDate });
+  
+  return { 
+    from: startDate, 
+    to: endDate 
+  };
+}, [currentDate]);
 
   // Buscar dados do dashboard via função backend
   const dashboardQuery = useQuery({
