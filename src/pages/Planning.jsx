@@ -733,7 +733,18 @@ export default function Planning() {
         </div>
       </div>
 
-      {/* LAYOUT PRINCIPAL: 70% Tabela + 30% Painel Lateral */}
+      
+
+      {/* SYNC AUTOMÁTICO: Neon (vw_movimentacoes) -> SalesRecord/LossRecord */}
+      <AutoSQLSync
+        startDate={format(currentWeekStart, "yyyy-MM-dd")}
+        endDate={format(weekEnd, "yyyy-MM-dd")}
+        onSyncComplete={() => {
+          salesQuery.refetch();
+          lossQuery.refetch();
+        }}
+      />
+{/* LAYOUT PRINCIPAL: 70% Tabela + 30% Painel Lateral */}
       <div className="flex gap-4" id="planning-print-area">
         {/* TABELA PRINCIPAL - 70% */}
         <div className={`transition-all duration-300 ${selectedProduct ? 'w-[70%]' : 'w-full'}`}>
