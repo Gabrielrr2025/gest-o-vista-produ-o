@@ -20,45 +20,34 @@ import ProductTrendChart from "../components/dashboard/ProductTrendChart";
 export default function Dashboard() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedSector, setSelectedSector] = useState("all");
-  const [dashboardData, setDashboardData] = useState(null);
 
-  // Buscar semana e ano a partir da data selecionada
-  const weekInfoQuery = useQuery({
-    queryKey: ['currentWeek', format(currentDate, 'yyyy-MM-dd')],
-    queryFn: async () => {
-      const response = await base44.functions.invoke('getCurrentWeek', {
-        date: format(currentDate, 'yyyy-MM-dd')
-      });
-      return response.data;
-    }
-  });
-
-  const weekInfo = weekInfoQuery.data || { numero_semana: 6, ano: 2026 };
-
+  // Calcular range de datas da semana
   const dateRange = useMemo(() => {
     const bounds = getWeekBounds(currentDate);
-    return { from: bounds.start, to: bounds.end };
+    return { 
+      from: format(bounds.start, 'yyyy-MM-dd'), 
+      to: format(bounds.end, 'yyyy-MM-dd') 
+    };
   }, [currentDate]);
 
   // Buscar dados do dashboard via função backend
-   const dashboardQuery = useQuery({
-     queryKey: ['dashboardData', weekInfo.numero_semana, weekInfo.ano, selectedSector],
-     queryFn: async () => {
-       console.log('📤 Enviando para getDashboardData:', {
-         weekNumber: weekInfo.numero_semana,
-         year: weekInfo.ano,
-         sector: selectedSector
-       });
-       const response = await base44.functions.invoke('getDashboardData', {
-         weekNumber: weekInfo.numero_semana,
-         year: weekInfo.ano,
-         sector: selectedSector
-       });
-       console.log('📥 Resposta do getDashboardData:', response.data);
-       return response.data;
-     },
-     enabled: !!weekInfo.numero_semana
-   });
+  const dashboardQuery = useQuery({
+    queryKey: ['dashboardData', dateRange.from, dateRange.to, selectedSector],
+    queryFn: async () => {
+      console.log('📤 Enviando para getDashboardData:', {
+        startDate: dateRange.from,
+        endDate: dateRange.to,
+        sector: selectedSector
+      });
+      const response = await base44.functions.invoke('getDashboardData', {
+        startDate: dateRange.from,
+        endDate: dateRange.to,
+        sector: selectedSector
+      });
+      console.log('📥 Resposta do getDashboardData:', response.data);
+      return response.data;
+    }
+  });
 
   const productionQuery = useQuery({
     queryKey: ['productionRecords'],
@@ -71,7 +60,6 @@ export default function Dashboard() {
   const filteredData = useMemo(() => {
     if (!dashboardQuery.data) return { sales: [], losses: [], production: [] };
     
-    // Construir dados de vendas e perdas a partir da resposta
     const salesData = dashboardQuery.data.topSales?.map(item => ({
       product_name: item.produto,
       quantity: item.total_vendas,
@@ -102,7 +90,6 @@ export default function Dashboard() {
   const products = productsQuery.data || [];
   const productMap = useMemo(() => new Map(products.map(p => [p.name, p])), [products]);
 
-  // Preparar dados históricos para cálculos de limite
   const historicalDataForLimits = useMemo(() => {
     if (!dashboardQuery.data?.previousWeeksAvg) return [];
     return dashboardQuery.data.previousWeeksAvg.map(item => ({
@@ -118,7 +105,6 @@ export default function Dashboard() {
 
     const salesData = dashboardQuery.data.topSales || [];
     const lossesData = dashboardQuery.data.lossAnalysis || [];
-    const trendData = dashboardQuery.data.trendData || [];
 
     const salesKG = salesData.filter(r => {
       const prod = productMap.get(r.produto);
@@ -145,11 +131,6 @@ export default function Dashboard() {
     const lossRateKG = totalSalesKG > 0 ? (totalLossesKG / totalSalesKG) * 100 : 0;
     const lossRateUN = totalSalesUN > 0 ? (totalLossesUN / totalSalesUN) * 100 : 0;
 
-    // Sparkline das 6 semanas anteriores
-    const sparkline = trendData.map(item => ({
-      value: item.vendas_qtd || 0
-    }));
-
     const productionWithAssertiveness = filteredData.production.filter(p => p.assertiveness !== undefined);
     const avgAssertiveness = productionWithAssertiveness.length > 0
       ? productionWithAssertiveness.reduce((sum, p) => sum + (p.assertiveness || 0), 0) / productionWithAssertiveness.length
@@ -159,16 +140,12 @@ export default function Dashboard() {
       kg: { 
         sales: totalSalesKG, 
         losses: totalLossesKG, 
-        lossRate: lossRateKG,
-        salesSparkline: sparkline,
-        lossesSparkline: sparkline
+        lossRate: lossRateKG
       },
       un: { 
         sales: totalSalesUN, 
         losses: totalLossesUN, 
-        lossRate: lossRateUN,
-        salesSparkline: sparkline,
-        lossesSparkline: sparkline
+        lossRate: lossRateUN
       },
       avgAssertiveness
     };
@@ -215,21 +192,21 @@ export default function Dashboard() {
           selectedSector={selectedSector}
         />
         <LossAnalysis 
-            salesData={filteredData.sales}
-            lossData={filteredData.losses}
-            historicalLossData={historicalDataForLimits}
-            productMap={productMap}
-          />
-        </div>
-
-        <WeekAlerts 
           salesData={filteredData.sales}
           lossData={filteredData.losses}
           historicalLossData={historicalDataForLimits}
-          productionData={filteredData.production}
           productMap={productMap}
-          dateRange={dateRange}
         />
+      </div>
+
+      <WeekAlerts 
+        salesData={filteredData.sales}
+        lossData={filteredData.losses}
+        historicalLossData={historicalDataForLimits}
+        productionData={filteredData.production}
+        productMap={productMap}
+        dateRange={dateRange}
+      />
 
       <ProductTrendChart 
         salesData={filteredData.sales}
