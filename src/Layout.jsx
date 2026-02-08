@@ -4,7 +4,6 @@ import { createPageUrl } from "./utils";
 import { Button } from "@/components/ui/button";
 import { base44 } from "@/api/base44Client";
 import { 
-  LayoutDashboard, 
   Package, 
   CalendarDays, 
   ClipboardList, 
@@ -20,7 +19,6 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const navigation = [
-  { name: "Dashboard", page: "Dashboard", icon: LayoutDashboard },
   { name: "Produtos", page: "Products", icon: Package },
   { name: "Planejamento", page: "Planning", icon: ClipboardList },
   { name: "Calendário", page: "Calendar", icon: CalendarDays },
@@ -42,7 +40,6 @@ export default function Layout({ children, currentPageName }) {
         
         // Criar permissões padrão baseado no role
         const permissions = user?.role === 'admin' ? {
-          dashboard: true,
           products: true,
           planning: true,
           calendar: true,
@@ -50,7 +47,6 @@ export default function Layout({ children, currentPageName }) {
           settings: true,
           admin: true
         } : {
-          dashboard: true,
           products: true,
           planning: true,
           calendar: true,
@@ -140,7 +136,6 @@ export default function Layout({ children, currentPageName }) {
                 if (currentUser && currentUser.role !== 'admin') {
                   const permissions = currentUser.permissions || {};
                   const pagePermissionMap = {
-                    'Dashboard': 'dashboard',
                     'Products': 'products',
                     'Planning': 'planning',
                     'Calendar': 'calendar',
