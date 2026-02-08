@@ -14,10 +14,8 @@ export default function AutoSQLSync({ startDate, endDate, onSyncComplete }) {
   const [cacheKey, setCacheKey] = useState(null);
 
   const shouldSync = () => {
-    // Criar chave de cache baseada nas datas
     const key = `${startDate}-${endDate}`;
-    
-    // Verificar se já sincronizou recentemente
+
     if (cacheKey === key && lastSync) {
       const timeSinceSync = Date.now() - lastSync;
       return timeSinceSync > CACHE_DURATION;
@@ -26,9 +24,7 @@ export default function AutoSQLSync({ startDate, endDate, onSyncComplete }) {
   };
 
   const performSync = async (force = false) => {
-    if (!force && !shouldSync()) {
-      return;
-    }
+    if (!force && !shouldSync()) return;
 
     setSyncing(true);
     try {
@@ -37,29 +33,27 @@ export default function AutoSQLSync({ startDate, endDate, onSyncComplete }) {
         endDate: endDate || format(new Date(), 'yyyy-MM-dd')
       });
 
-      if (!response.data.success) {
-        throw new Error(response.data.errorMessage || 'Erro ao buscar dados');
+      // ✅ Aqui é o mais importante: mostrar o erro real do backend
+      if (!response?.data?.success) {
+        throw new Error(response?.data?.error || response?.data?.errorMessage || 'Erro ao buscar dados');
       }
 
       const { salesData, lossData } = response.data;
 
-      // Buscar produtos para mapeamento com múltiplos critérios
       const products = await base44.entities.Product.list();
-      
-      // Criar múltiplos índices para encontrar produto:
-      // 1. Por código (se existir)
-      // 2. Por nome exato (case-insensitive)
-      // 3. Por nome normalizado (remove acentos e espaços extras)
-      const productByCode = new Map(products.filter(p => p.code).map(p => [p.code.toLowerCase().trim(), p]));
-      const productByName = new Map(products.map(p => [p.name.toLowerCase().trim(), p]));
-      
+
+      const productByCode = new Map(
+        products.filter(p => p.code).map(p => [p.code.toLowerCase().trim(), p])
+      );
+      const productByName = new Map(
+        products.map(p => [p.name.toLowerCase().trim(), p])
+      );
+
       const findProduct = (productCode, productName) => {
-        // Tentar por código primeiro (mais preciso)
         if (productCode) {
           const byCode = productByCode.get(productCode.toLowerCase().trim());
           if (byCode) return byCode;
         }
-        // Tentar por nome exato
         if (productName) {
           const byName = productByName.get(productName.toLowerCase().trim());
           if (byName) return byName;
@@ -67,12 +61,11 @@ export default function AutoSQLSync({ startDate, endDate, onSyncComplete }) {
         return null;
       };
 
-      // Importar vendas em lote
+      // Vendas
       const salesToCreate = [];
       for (const sale of salesData) {
         const product = findProduct(sale.product_code, sale.product_name);
-        
-        // Verificar se já existe (apenas se não tiver product_id ou se mudou)
+
         const existing = await base44.entities.SalesRecord.filter({
           product_name: sale.product_name,
           date: sale.date
@@ -90,7 +83,6 @@ export default function AutoSQLSync({ startDate, endDate, onSyncComplete }) {
             year: sale.year
           });
         } else if (existing[0].product_id !== product?.id && product) {
-          // Atualizar product_id se mudou
           await base44.entities.SalesRecord.update(existing[0].id, {
             product_id: product.id
           });
@@ -101,11 +93,11 @@ export default function AutoSQLSync({ startDate, endDate, onSyncComplete }) {
         await base44.entities.SalesRecord.bulkCreate(salesToCreate);
       }
 
-      // Importar perdas em lote
+      // Perdas
       const lossesToCreate = [];
       for (const loss of lossData) {
         const product = findProduct(loss.product_code, loss.product_name);
-        
+
         const existing = await base44.entities.LossRecord.filter({
           product_name: loss.product_name,
           date: loss.date
@@ -123,7 +115,6 @@ export default function AutoSQLSync({ startDate, endDate, onSyncComplete }) {
             year: loss.year
           });
         } else if (existing[0].product_id !== product?.id && product) {
-          // Atualizar product_id se mudou
           await base44.entities.LossRecord.update(existing[0].id, {
             product_id: product.id
           });
@@ -137,17 +128,13 @@ export default function AutoSQLSync({ startDate, endDate, onSyncComplete }) {
       const key = `${startDate}-${endDate}`;
       setCacheKey(key);
       setLastSync(Date.now());
-      
-      if (force) {
-        toast.success('Dados atualizados');
-      }
-      
+
+      if (force) toast.success('Dados atualizados');
+
       onSyncComplete?.();
     } catch (error) {
       console.error('Erro na sincronização:', error);
-      if (force) {
-        toast.error('Erro ao atualizar dados');
-      }
+      if (force) toast.error(error?.message || 'Erro ao atualizar dados');
     } finally {
       setSyncing(false);
     }
@@ -155,6 +142,7 @@ export default function AutoSQLSync({ startDate, endDate, onSyncComplete }) {
 
   useEffect(() => {
     performSync();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startDate, endDate]);
 
   return (
