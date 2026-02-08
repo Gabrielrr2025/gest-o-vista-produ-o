@@ -17,8 +17,18 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Missing startDate or endDate' }, { status: 400 });
     }
 
-    const connectionString = Deno.env.get('POSTGRES_CONNECTION_URL');
-    if (!connectionString) {
+    // MONTANDO CONNECTION STRING A PARTIR DAS VARIÁVEIS SEPARADAS
+    const host = Deno.env.get('POSTGRES_HOST');
+    const port = Deno.env.get('POSTGRES_PORT');
+    const dbUser = Deno.env.get('POSTGRES_USER');
+    const password = Deno.env.get('POSTGRES_PASSWORD');
+    const database = Deno.env.get('POSTGRES_DATABASE');
+
+    const connectionString = `postgresql://${dbUser}:${password}@${host}:${port}/${database}`;
+
+    console.log('🔍 Connection construída:', `postgresql://${dbUser}:****@${host}:${port}/${database}`);
+
+    if (!host || !port || !dbUser || !password || !database) {
       return Response.json({ error: 'Database connection not configured' }, { status: 500 });
     }
 
@@ -89,6 +99,11 @@ Deno.serve(async (req) => {
 
       await sql.end();
 
+      console.log('✅ Dados retornados:', {
+        topSales: topSalesResult.length,
+        lossAnalysis: lossAnalysisResult.length
+      });
+
       return Response.json({
         topSales: topSalesResult,
         lossAnalysis: lossAnalysisResult
@@ -99,8 +114,10 @@ Deno.serve(async (req) => {
     }
   } catch (error) {
     console.error('❌ Erro ao buscar dados do dashboard:', error.message);
+    console.error('❌ Stack:', error.stack);
     return Response.json({ 
-      error: error.message
+      error: error.message,
+      stack: error.stack
     }, { status: 500 });
   }
 });
