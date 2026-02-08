@@ -66,14 +66,14 @@ export default function Dashboard() {
 
   const productionRecords = productionQuery.data || [];
 
-  // Processar dados do dashboard
+  // ✅ Processar dados do dashboard (CORRIGIDO)
   const filteredData = useMemo(() => {
     if (!dashboardQuery.data) return { sales: [], losses: [], production: [] };
     
     const salesData = dashboardQuery.data.topSales?.map(item => ({
       product_name: item.produto,
       quantity: parseFloat(item.total_vendas),
-      value: item.total_valor
+      sector: item.setor  // ✅ CORRIGIDO: agora mapeia o setor corretamente
     })) || [];
 
     const lossesData = dashboardQuery.data.lossAnalysis?.map(item => ({
