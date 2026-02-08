@@ -17,7 +17,11 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Missing date parameter' }, { status: 400 });
     }
 
-    const connectionString = Deno.env.get('POSTGRES_CONNECTION_URL');
+    const connectionString = Deno.env.get('POSTGRES_CONNECTION_URL') || Deno.env.get('DATABASE_URL');
+
+    console.log('🔍 Connection string existe?', !!connectionString);
+    console.log('🔍 Primeiros 30 chars:', connectionString?.substring(0, 30));
+
     if (!connectionString) {
       return Response.json({ error: 'Database connection not configured' }, { status: 500 });
     }
@@ -55,8 +59,10 @@ Deno.serve(async (req) => {
     }
   } catch (error) {
     console.error('❌ Erro ao buscar semana atual:', error.message);
+    console.error('❌ Stack:', error.stack);
     return Response.json({ 
-      error: error.message
+      error: error.message,
+      stack: error.stack
     }, { status: 500 });
   }
 });
