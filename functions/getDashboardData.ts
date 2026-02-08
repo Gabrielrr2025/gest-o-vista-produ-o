@@ -1,5 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import postgres from 'npm:postgres@3.4.4';
+import { neon } from 'npm:@neondatabase/serverless@0.9.0';
 
 Deno.serve(async (req) => {
   try {
@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Database connection not configured' }, { status: 500 });
     }
 
-    const sql = postgres(connectionString);
+    const sql = neon(connectionString);
 
     try {
       console.log(`📊 Buscando dados do Dashboard: semana=${weekNumber}, ano=${year}, setor=${sector}`);
