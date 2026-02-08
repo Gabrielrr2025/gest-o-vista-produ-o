@@ -49,7 +49,6 @@
  */
 import Admin from './pages/Admin';
 import Calendar from './pages/Calendar';
-import Dashboard from './pages/Dashboard';
 import Planning from './pages/Planning';
 import Production from './pages/Production';
 import Products from './pages/Products';
@@ -61,7 +60,6 @@ import __Layout from './Layout.jsx';
 export const PAGES = {
     "Admin": Admin,
     "Calendar": Calendar,
-    "Dashboard": Dashboard,
     "Planning": Planning,
     "Production": Production,
     "Products": Products,
@@ -70,7 +68,7 @@ export const PAGES = {
 }
 
 export const pagesConfig = {
-    mainPage: "Dashboard",
+    mainPage: "Planning",
     Pages: PAGES,
     Layout: __Layout,
 };
