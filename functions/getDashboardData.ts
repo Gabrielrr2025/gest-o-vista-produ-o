@@ -1,5 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import { neon } from 'npm:@neondatabase/serverless@0.9.0';
+import postgres from 'npm:postgres@3.4.4';
 
 Deno.serve(async (req) => {
   try {
@@ -11,10 +11,10 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { weekNumber, year, sector = 'all' } = body;
+    const { startDate, endDate, sector = 'all' } = body;
 
-    if (weekNumber === undefined || !year) {
-      return Response.json({ error: 'Missing weekNumber or year' }, { status: 400 });
+    if (!startDate || !endDate) {
+      return Response.json({ error: 'Missing startDate or endDate' }, { status: 400 });
     }
 
     const connectionString = Deno.env.get('POSTGRES_CONNECTION_URL');
@@ -22,106 +22,85 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Database connection not configured' }, { status: 500 });
     }
 
-    const sql = neon(connectionString);
+    const sql = postgres(connectionString);
 
-    console.log(`📊 Buscando dados do Dashboard: semana=${weekNumber}, ano=${year}, setor=${sector}`);
+    try {
+      console.log(`📊 Buscando dados do Dashboard: ${startDate} a ${endDate}, setor=${sector}`);
 
-    // Query 1: Top 5 mais vendidos da semana
-    const topSalesResult = sector !== 'all'
-      ? await sql`
-          SELECT 
-            produto,
-            SUM(quantidade) as total_vendas
-          FROM vw_movimentacoes
-          WHERE tipo = 'venda'
-            AND numero_semana = ${weekNumber}
-            AND ano = ${year}
-            AND setor = ${sector}
-          GROUP BY produto 
-          ORDER BY total_vendas DESC 
-          LIMIT 5
-        `
-      : await sql`
-          SELECT 
-            produto,
-            SUM(quantidade) as total_vendas
-          FROM vw_movimentacoes
-          WHERE tipo = 'venda'
-            AND numero_semana = ${weekNumber}
-            AND ano = ${year}
-          GROUP BY produto 
-          ORDER BY total_vendas DESC 
-          LIMIT 5
-        `;
+      // Query 1: Top 5 mais vendidos
+      const topSalesResult = sector !== 'all'
+        ? await sql`
+            SELECT 
+              p.nome as produto,
+              SUM(v.quantidade) as total_vendas
+            FROM vendas v
+            JOIN produtos p ON v.produto_id = p.id
+            WHERE v.data BETWEEN ${startDate} AND ${endDate}
+              AND p.setor = ${sector}
+            GROUP BY p.nome
+            ORDER BY total_vendas DESC
+            LIMIT 5
+          `
+        : await sql`
+            SELECT 
+              p.nome as produto,
+              SUM(v.quantidade) as total_vendas
+            FROM vendas v
+            JOIN produtos p ON v.produto_id = p.id
+            WHERE v.data BETWEEN ${startDate} AND ${endDate}
+            GROUP BY p.nome
+            ORDER BY total_vendas DESC
+            LIMIT 5
+          `;
 
-    // Query 2: Análise de perdas da semana
-    const lossAnalysisResult = sector !== 'all'
-      ? await sql`
-          SELECT 
-            produto,
-            SUM(CASE WHEN tipo = 'perda' THEN quantidade ELSE 0 END) as perda,
-            SUM(CASE WHEN tipo = 'venda' THEN quantidade ELSE 0 END) as venda
-          FROM vw_movimentacoes
-          WHERE numero_semana = ${weekNumber}
-            AND ano = ${year}
-            AND setor = ${sector}
-          GROUP BY produto
-          HAVING SUM(CASE WHEN tipo = 'perda' THEN quantidade ELSE 0 END) > 0
-          ORDER BY perda DESC
-        `
-      : await sql`
-          SELECT 
-            produto,
-            SUM(CASE WHEN tipo = 'perda' THEN quantidade ELSE 0 END) as perda,
-            SUM(CASE WHEN tipo = 'venda' THEN quantidade ELSE 0 END) as venda
-          FROM vw_movimentacoes
-          WHERE numero_semana = ${weekNumber}
-            AND ano = ${year}
-          GROUP BY produto
-          HAVING SUM(CASE WHEN tipo = 'perda' THEN quantidade ELSE 0 END) > 0
-          ORDER BY perda DESC
-        `;
+      // Query 2: Análise de perdas
+      const lossAnalysisResult = sector !== 'all'
+        ? await sql`
+            SELECT 
+              p.nome as produto,
+              SUM(pe.quantidade) as perda,
+              (SELECT SUM(v.quantidade) 
+               FROM vendas v 
+               WHERE v.produto_id = p.id 
+                 AND v.data BETWEEN ${startDate} AND ${endDate}) as venda
+            FROM perdas pe
+            JOIN produtos p ON pe.produto_id = p.id
+            WHERE pe.data BETWEEN ${startDate} AND ${endDate}
+              AND p.setor = ${sector}
+            GROUP BY p.id, p.nome
+            HAVING SUM(pe.quantidade) > 0
+            ORDER BY perda DESC
+          `
+        : await sql`
+            SELECT 
+              p.nome as produto,
+              SUM(pe.quantidade) as perda,
+              (SELECT SUM(v.quantidade) 
+               FROM vendas v 
+               WHERE v.produto_id = p.id 
+                 AND v.data BETWEEN ${startDate} AND ${endDate}) as venda
+            FROM perdas pe
+            JOIN produtos p ON pe.produto_id = p.id
+            WHERE pe.data BETWEEN ${startDate} AND ${endDate}
+            GROUP BY p.id, p.nome
+            HAVING SUM(pe.quantidade) > 0
+            ORDER BY perda DESC
+          `;
 
-    // Query 3: Dados das 6 semanas anteriores para gráfico de tendência
-    const trendResult = sector !== 'all'
-      ? await sql`
-          SELECT 
-            numero_semana,
-            SUM(CASE WHEN tipo = 'venda' THEN quantidade ELSE 0 END) as vendas,
-            SUM(CASE WHEN tipo = 'perda' THEN quantidade ELSE 0 END) as perdas
-          FROM vw_movimentacoes
-          WHERE numero_semana <= ${weekNumber}
-            AND numero_semana > ${weekNumber - 6}
-            AND ano = ${year}
-            AND setor = ${sector}
-          GROUP BY numero_semana
-          ORDER BY numero_semana
-        `
-      : await sql`
-          SELECT 
-            numero_semana,
-            SUM(CASE WHEN tipo = 'venda' THEN quantidade ELSE 0 END) as vendas,
-            SUM(CASE WHEN tipo = 'perda' THEN quantidade ELSE 0 END) as perdas
-          FROM vw_movimentacoes
-          WHERE numero_semana <= ${weekNumber}
-            AND numero_semana > ${weekNumber - 6}
-            AND ano = ${year}
-          GROUP BY numero_semana
-          ORDER BY numero_semana
-        `;
+      await sql.end();
 
-    return Response.json({
-      topSales: topSalesResult,
-      lossAnalysis: lossAnalysisResult,
-      trendData: trendResult,
-      week: weekNumber,
-      year: year
-    });
+      return Response.json({
+        topSales: topSalesResult,
+        lossAnalysis: lossAnalysisResult
+      });
+    } catch (error) {
+      await sql.end();
+      throw error;
+    }
   } catch (error) {
     console.error('❌ Erro ao buscar dados do dashboard:', error.message);
     return Response.json({ 
-      error: error.message,
-      details: 'Erro ao buscar dados de vw_movimentacoes'
+      error: error.message
     }, { status: 500 });
   }
 });
