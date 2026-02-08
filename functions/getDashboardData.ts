@@ -17,7 +17,6 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Missing startDate or endDate' }, { status: 400 });
     }
 
-    // PEGAR CONNECTION STRING DIRETA
     const connectionString = Deno.env.get('POSTGRES_CONNECTION_URL');
     
     if (!connectionString) {
@@ -48,30 +47,32 @@ Deno.serve(async (req) => {
     const topSalesParams = sector !== 'all' ? [startDate, endDate, sector] : [startDate, endDate];
     const topSalesResult = await sql(topSalesQuery, topSalesParams);
 
-    // Query 2: Análise de perdas
+    // Query 2: Análise de perdas (CORRIGIDA)
     const lossAnalysisQuery = sector !== 'all'
-      ? `SELECT p.nome as produto, 
-                SUM(pe.quantidade) as perda,
-                (SELECT SUM(v.quantidade) 
-                 FROM vendas v 
-                 WHERE v.produto_id = p.id 
-                   AND v.data BETWEEN $1 AND $2) as venda
+      ? `SELECT 
+           p.nome as produto, 
+           COALESCE(SUM(pe.quantidade), 0) as perda,
+           COALESCE((SELECT SUM(v.quantidade) 
+                     FROM vendas v 
+                     WHERE v.produto_id = pe.produto_id 
+                       AND v.data BETWEEN $1 AND $2), 0) as venda
          FROM perdas pe
          JOIN produtos p ON pe.produto_id = p.id
          WHERE pe.data BETWEEN $1 AND $2 AND p.setor = $3
-         GROUP BY p.id, p.nome
+         GROUP BY p.id, p.nome, pe.produto_id
          HAVING SUM(pe.quantidade) > 0
          ORDER BY perda DESC`
-      : `SELECT p.nome as produto,
-                SUM(pe.quantidade) as perda,
-                (SELECT SUM(v.quantidade) 
-                 FROM vendas v 
-                 WHERE v.produto_id = p.id 
-                   AND v.data BETWEEN $1 AND $2) as venda
+      : `SELECT 
+           p.nome as produto,
+           COALESCE(SUM(pe.quantidade), 0) as perda,
+           COALESCE((SELECT SUM(v.quantidade) 
+                     FROM vendas v 
+                     WHERE v.produto_id = pe.produto_id 
+                       AND v.data BETWEEN $1 AND $2), 0) as venda
          FROM perdas pe
          JOIN produtos p ON pe.produto_id = p.id
          WHERE pe.data BETWEEN $1 AND $2
-         GROUP BY p.id, p.nome
+         GROUP BY p.id, p.nome, pe.produto_id
          HAVING SUM(pe.quantidade) > 0
          ORDER BY perda DESC`;
 
