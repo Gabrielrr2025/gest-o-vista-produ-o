@@ -1,17 +1,14 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
-import { format, subDays } from "date-fns";
+import { format } from "date-fns";
 import ProductsManager from "../components/products/ProductsManager";
-import SQLDataProvider from "../components/import/SQLDataProvider";
-import UnmappedProductsSuggestion from "../components/products/UnmappedProductsSuggestion";
 import * as XLSX from 'xlsx';
 
 export default function Products() {
   const queryClient = useQueryClient();
-  const [sqlData, setSqlData] = useState({ sales: [], losses: [] });
 
   // Buscar produtos do Neon via function
   const { data: productsData, isLoading } = useQuery({
@@ -23,22 +20,6 @@ export default function Products() {
   });
 
   const products = productsData?.products || [];
-
-  // Enriquecer produtos com dados da VIEW SQL
-  const enrichedProducts = products.map(product => {
-    const productSales = sqlData.sales.filter(s => s.product_id === product.id);
-    const productLosses = sqlData.losses.filter(l => l.product_id === product.id);
-    
-    const totalSales = productSales.reduce((sum, s) => sum + (s.quantity || 0), 0);
-    const totalLosses = productLosses.reduce((sum, l) => sum + (l.quantity || 0), 0);
-    
-    return {
-      ...product,
-      sql_sales: totalSales,
-      sql_losses: totalLosses,
-      sql_has_data: totalSales > 0 || totalLosses > 0
-    };
-  });
 
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -90,12 +71,6 @@ export default function Products() {
           <p className="text-sm text-slate-500 mt-1">Gerencie o catálogo de produtos por setor</p>
         </div>
         <div className="flex items-center gap-2">
-          <SQLDataProvider 
-            startDate={format(subDays(new Date(), 90), 'yyyy-MM-dd')}
-            endDate={format(new Date(), 'yyyy-MM-dd')}
-            onDataLoaded={setSqlData}
-            showLastUpdate={false}
-          />
           <Button variant="outline" onClick={() => window.print()}>
             <Download className="w-4 h-4 mr-2" />
             Imprimir
@@ -107,14 +82,8 @@ export default function Products() {
         </div>
       </div>
 
-      <UnmappedProductsSuggestion 
-        sqlData={sqlData}
-        products={products}
-        onProductCreated={handleRefresh}
-      />
-
       <ProductsManager 
-        products={enrichedProducts} 
+        products={products} 
         onRefresh={handleRefresh}
         showAddButton={true}
         isLoading={isLoading}
