@@ -24,6 +24,9 @@ import {
 import { format, addWeeks, subWeeks, startOfWeek, endOfWeek, eachDayOfInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 // Função auxiliar para calcular início da semana (TERÇA)
 const getWeekBounds = (date) => {
@@ -155,12 +158,136 @@ export default function Planning() {
 
   // Exportar para Excel
   const handleExportExcel = () => {
-    toast.info("Exportação para Excel em desenvolvimento");
+    try {
+      // Preparar dados para exportação
+      const excelData = filteredPlanning.map(product => {
+        const row = {
+          'Produto': product.produto_nome,
+          'Setor': product.setor,
+          'Unidade': product.unidade,
+          'Média (4 sem)': Math.round(product.avg_sales)
+        };
+
+        // Adicionar colunas para cada dia
+        weekDays.forEach((day, idx) => {
+          const dayLabel = format(day, 'EEE dd/MM', { locale: ptBR });
+          const qty = plannedQuantities[`${product.produto_id}-${idx}`] || 0;
+          row[dayLabel] = qty;
+        });
+
+        // Total
+        row['Total'] = getProductTotal(product.produto_id);
+
+        return row;
+      });
+
+      // Criar workbook e worksheet
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(excelData);
+
+      // Ajustar largura das colunas
+      const colWidths = [
+        { wch: 30 }, // Produto
+        { wch: 15 }, // Setor
+        { wch: 10 }, // Unidade
+        { wch: 12 }, // Média
+        ...weekDays.map(() => ({ wch: 12 })), // Dias
+        { wch: 10 }  // Total
+      ];
+      ws['!cols'] = colWidths;
+
+      // Adicionar worksheet ao workbook
+      XLSX.utils.book_append_sheet(wb, ws, 'Planejamento');
+
+      // Nome do arquivo
+      const fileName = `Planejamento_${format(weekBounds.start, 'dd-MM-yyyy')}_a_${format(weekBounds.end, 'dd-MM-yyyy')}.xlsx`;
+
+      // Baixar arquivo
+      XLSX.writeFile(wb, fileName);
+
+      toast.success("Arquivo Excel exportado com sucesso!");
+    } catch (error) {
+      console.error("Erro ao exportar Excel:", error);
+      toast.error("Erro ao exportar arquivo Excel");
+    }
   };
 
   // Exportar para PDF
   const handleExportPDF = () => {
-    toast.info("Exportação para PDF em desenvolvimento");
+    try {
+      const doc = new jsPDF('landscape');
+
+      // Título
+      doc.setFontSize(18);
+      doc.text('Planejamento de Produção', 14, 20);
+
+      // Período
+      doc.setFontSize(12);
+      doc.text(
+        `Semana: ${format(weekBounds.start, 'dd/MM/yyyy', { locale: ptBR })} a ${format(weekBounds.end, 'dd/MM/yyyy', { locale: ptBR })}`,
+        14,
+        28
+      );
+
+      if (selectedSector !== 'all') {
+        doc.text(`Setor: ${selectedSector}`, 14, 35);
+      }
+
+      // Preparar dados da tabela
+      const tableHeaders = [
+        'Produto',
+        'Setor',
+        'Média',
+        ...weekDays.map(day => format(day, 'EEE dd/MM', { locale: ptBR })),
+        'Total'
+      ];
+
+      const tableData = filteredPlanning.map(product => {
+        return [
+          product.produto_nome,
+          product.setor,
+          `${Math.round(product.avg_sales)} ${product.unidade}`,
+          ...weekDays.map((_, idx) => {
+            const qty = plannedQuantities[`${product.produto_id}-${idx}`] || 0;
+            return qty > 0 ? qty.toString() : '-';
+          }),
+          `${getProductTotal(product.produto_id)} ${product.unidade}`
+        ];
+      });
+
+      // Criar tabela
+      doc.autoTable({
+        head: [tableHeaders],
+        body: tableData,
+        startY: selectedSector !== 'all' ? 40 : 35,
+        styles: { 
+          fontSize: 8,
+          cellPadding: 2
+        },
+        headStyles: {
+          fillColor: [245, 158, 11], // Cor laranja do tema
+          textColor: 255,
+          fontStyle: 'bold'
+        },
+        columnStyles: {
+          0: { cellWidth: 40 }, // Produto
+          1: { cellWidth: 25 }, // Setor
+          2: { cellWidth: 15 }  // Média
+          // Dias e Total: auto
+        }
+      });
+
+      // Nome do arquivo
+      const fileName = `Planejamento_${format(weekBounds.start, 'dd-MM-yyyy')}_a_${format(weekBounds.end, 'dd-MM-yyyy')}.pdf`;
+
+      // Baixar arquivo
+      doc.save(fileName);
+
+      toast.success("Arquivo PDF exportado com sucesso!");
+    } catch (error) {
+      console.error("Erro ao exportar PDF:", error);
+      toast.error("Erro ao exportar arquivo PDF");
+    }
   };
 
   // Calcular total planejado para um produto
