@@ -26,7 +26,7 @@ import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 // Função auxiliar para calcular início da semana (TERÇA)
 const getWeekBounds = (date) => {
@@ -255,8 +255,8 @@ export default function Planning() {
         ];
       });
 
-      // Criar tabela
-      doc.autoTable({
+      // Criar tabela usando autoTable
+      autoTable(doc, {
         head: [tableHeaders],
         body: tableData,
         startY: selectedSector !== 'all' ? 40 : 35,
