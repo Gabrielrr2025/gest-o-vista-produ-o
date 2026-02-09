@@ -1,11 +1,19 @@
-import React, { useState, useMemo } from 'react';
-import { useQuery } from "@tanstack/react-query";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -19,13 +27,16 @@ import {
   Lightbulb,
   ArrowUp,
   ArrowDown,
-  Calendar as CalendarIcon
+  Calendar as CalendarIcon,
+  Lock,
+  LockOpen
 } from "lucide-react";
 import { format, addWeeks, subWeeks, startOfWeek, endOfWeek, eachDayOfInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 // Função auxiliar para calcular início da semana (TERÇA)
 const getWeekBounds = (date) => {
@@ -35,6 +46,8 @@ const getWeekBounds = (date) => {
 };
 
 export default function Planning() {
+  const queryClient = useQueryClient();
+  
   // Estado: semana começa na PRÓXIMA terça (semana futura para planejamento)
   const [currentDate, setCurrentDate] = useState(() => {
     const today = new Date();
@@ -46,6 +59,12 @@ export default function Planning() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [plannedQuantities, setPlannedQuantities] = useState({});
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [showUnlockDialog, setShowUnlockDialog] = useState(false);
+  const [unlockCode, setUnlockCode] = useState("");
+
+  // Refs para debounce
+  const saveTimeoutRef = useRef({});
 
   // Calcular datas da semana
   const weekBounds = useMemo(() => getWeekBounds(currentDate), [currentDate]);
@@ -57,10 +76,24 @@ export default function Planning() {
   const startDate = format(weekBounds.start, 'yyyy-MM-dd');
   const endDate = format(weekBounds.end, 'yyyy-MM-dd');
 
-  // Verificar se a semana é passada
+  // Verificar se a semana é passada ou atual
   const today = new Date();
   const todayWeekStart = startOfWeek(today, { weekStartsOn: 2 });
-  const isWeekInPast = currentDate < todayWeekStart;
+  const isWeekInPast = currentDate <= todayWeekStart;
+  const isWeekLocked = isWeekInPast && !isUnlocked;
+
+  // Buscar código de edição
+  const { data: configData } = useQuery({
+    queryKey: ['config', 'codigo_edicao_planejamento'],
+    queryFn: async () => {
+      const response = await base44.functions.invoke('getConfig', {
+        chave: 'codigo_edicao_planejamento'
+      });
+      return response.data;
+    }
+  });
+
+  const editCode = configData?.valor || '1234';
 
   // Buscar dados do planejamento via function
   const planningQuery = useQuery({
@@ -73,6 +106,49 @@ export default function Planning() {
       });
       console.log('📥 Dados recebidos:', response.data);
       return response.data;
+    }
+  });
+
+  // Buscar planejamento salvo
+  const savedPlanningQuery = useQuery({
+    queryKey: ['savedPlanning', startDate, endDate],
+    queryFn: async () => {
+      const response = await base44.functions.invoke('getPlanning', {
+        startDate,
+        endDate
+      });
+      return response.data;
+    }
+  });
+
+  // Carregar planejamento salvo no estado
+  useEffect(() => {
+    if (savedPlanningQuery.data?.planejamentos) {
+      const saved = {};
+      savedPlanningQuery.data.planejamentos.forEach(item => {
+        const dayIndex = weekDays.findIndex(d => 
+          format(d, 'yyyy-MM-dd') === item.data
+        );
+        if (dayIndex !== -1) {
+          saved[`${item.produto_id}-${dayIndex}`] = parseFloat(item.quantidade_planejada);
+        }
+      });
+      setPlannedQuantities(saved);
+    }
+  }, [savedPlanningQuery.data, weekDays]);
+
+  // Mutation para salvar planejamento
+  const saveMutation = useMutation({
+    mutationFn: async ({ produto_id, data, quantidade_planejada }) => {
+      const response = await base44.functions.invoke('savePlanning', {
+        produto_id,
+        data,
+        quantidade_planejada
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['savedPlanning']);
     }
   });
 
@@ -100,15 +176,42 @@ export default function Planning() {
   const handlePreviousWeek = () => {
     setCurrentDate(prev => subWeeks(prev, 1));
     setSelectedProduct(null);
+    setIsUnlocked(false);
   };
 
   const handleNextWeek = () => {
     setCurrentDate(prev => addWeeks(prev, 1));
     setSelectedProduct(null);
+    setIsUnlocked(false);
   };
+
+  // Auto-save com debounce
+  const saveQuantity = useCallback((productId, dayIndex, quantity) => {
+    const dateStr = format(weekDays[dayIndex], 'yyyy-MM-dd');
+    const key = `${productId}-${dayIndex}`;
+
+    // Cancelar timeout anterior
+    if (saveTimeoutRef.current[key]) {
+      clearTimeout(saveTimeoutRef.current[key]);
+    }
+
+    // Salvar após 1 segundo de inatividade
+    saveTimeoutRef.current[key] = setTimeout(() => {
+      saveMutation.mutate({
+        produto_id: productId,
+        data: dateStr,
+        quantidade_planejada: quantity
+      });
+    }, 1000);
+  }, [weekDays, saveMutation]);
 
   // Alterar quantidade planejada
   const handleQuantityChange = (productId, dayIndex, value) => {
+    if (isWeekLocked) {
+      setShowUnlockDialog(true);
+      return;
+    }
+
     const numValue = value === '' ? 0 : parseInt(value);
     if (isNaN(numValue) || numValue < 0) return;
 
@@ -116,23 +219,46 @@ export default function Planning() {
       ...prev,
       [`${productId}-${dayIndex}`]: numValue
     }));
+
+    // Auto-save
+    saveQuantity(productId, dayIndex, numValue);
+  };
+
+  // Desbloquear com código
+  const handleUnlock = () => {
+    if (unlockCode === editCode) {
+      setIsUnlocked(true);
+      setShowUnlockDialog(false);
+      setUnlockCode("");
+      toast.success("✅ Planejamento desbloqueado para edição");
+    } else {
+      toast.error("❌ Código incorreto");
+    }
   };
 
   // Recalcular tudo (aplicar sugestões para todos)
   const handleRecalculate = () => {
-    if (isWeekInPast) {
-      toast.error("Não é possível recalcular semanas passadas");
+    if (isWeekLocked) {
+      setShowUnlockDialog(true);
       return;
     }
 
     const newQuantities = {};
     
     filteredPlanning.forEach(product => {
-      // Distribuir a sugestão pelos 7 dias da semana
       const dailyQty = Math.ceil(product.suggested_production / 7);
       
-      weekDays.forEach((_, idx) => {
-        newQuantities[`${product.produto_id}-${idx}`] = dailyQty;
+      weekDays.forEach((day, idx) => {
+        const key = `${product.produto_id}-${idx}`;
+        newQuantities[key] = dailyQty;
+        
+        // Salvar cada um
+        const dateStr = format(day, 'yyyy-MM-dd');
+        saveMutation.mutate({
+          produto_id: product.produto_id,
+          data: dateStr,
+          quantidade_planejada: dailyQty
+        });
       });
     });
 
@@ -142,13 +268,27 @@ export default function Planning() {
 
   // Aplicar sugestão para produto específico
   const handleApplySuggestion = () => {
-    if (!selectedProduct || isWeekInPast) return;
+    if (!selectedProduct) return;
+    
+    if (isWeekLocked) {
+      setShowUnlockDialog(true);
+      return;
+    }
 
     const dailyQty = Math.ceil(selectedProduct.suggested_production / 7);
     const newQuantities = { ...plannedQuantities };
     
-    weekDays.forEach((_, idx) => {
-      newQuantities[`${selectedProduct.produto_id}-${idx}`] = dailyQty;
+    weekDays.forEach((day, idx) => {
+      const key = `${selectedProduct.produto_id}-${idx}`;
+      newQuantities[key] = dailyQty;
+      
+      // Salvar
+      const dateStr = format(day, 'yyyy-MM-dd');
+      saveMutation.mutate({
+        produto_id: selectedProduct.produto_id,
+        data: dateStr,
+        quantidade_planejada: dailyQty
+      });
     });
 
     setPlannedQuantities(newQuantities);
@@ -158,7 +298,6 @@ export default function Planning() {
   // Exportar para Excel
   const handleExportExcel = () => {
     try {
-      // Preparar dados para exportação
       const excelData = filteredPlanning.map(product => {
         const row = {
           'Produto': product.produto_nome,
@@ -167,41 +306,34 @@ export default function Planning() {
           'Média (4 sem)': Math.round(product.avg_sales)
         };
 
-        // Adicionar colunas para cada dia
         weekDays.forEach((day, idx) => {
           const dayLabel = format(day, 'EEE dd/MM', { locale: ptBR });
           const qty = plannedQuantities[`${product.produto_id}-${idx}`] || 0;
           row[dayLabel] = qty;
         });
 
-        // Total
         row['Total'] = getProductTotal(product.produto_id);
 
         return row;
       });
 
-      // Criar workbook e worksheet
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(excelData);
 
-      // Ajustar largura das colunas
       const colWidths = [
-        { wch: 30 }, // Produto
-        { wch: 15 }, // Setor
-        { wch: 10 }, // Unidade
-        { wch: 12 }, // Média
-        ...weekDays.map(() => ({ wch: 12 })), // Dias
-        { wch: 10 }  // Total
+        { wch: 30 },
+        { wch: 15 },
+        { wch: 10 },
+        { wch: 12 },
+        ...weekDays.map(() => ({ wch: 12 })),
+        { wch: 10 }
       ];
       ws['!cols'] = colWidths;
 
-      // Adicionar worksheet ao workbook
       XLSX.utils.book_append_sheet(wb, ws, 'Planejamento');
 
-      // Nome do arquivo
       const fileName = `Planejamento_${format(weekBounds.start, 'dd-MM-yyyy')}_a_${format(weekBounds.end, 'dd-MM-yyyy')}.xlsx`;
 
-      // Baixar arquivo
       XLSX.writeFile(wb, fileName);
 
       toast.success("Arquivo Excel exportado com sucesso!");
@@ -216,11 +348,9 @@ export default function Planning() {
     try {
       const doc = new jsPDF('landscape');
 
-      // Título
       doc.setFontSize(18);
       doc.text('Planejamento de Produção', 14, 20);
 
-      // Período
       doc.setFontSize(12);
       doc.text(
         `Semana: ${format(weekBounds.start, 'dd/MM/yyyy', { locale: ptBR })} a ${format(weekBounds.end, 'dd/MM/yyyy', { locale: ptBR })}`,
@@ -232,75 +362,49 @@ export default function Planning() {
         doc.text(`Setor: ${selectedSector}`, 14, 35);
       }
 
-      // Desenhar tabela manualmente
-      let yPos = selectedSector !== 'all' ? 40 : 35;
-      const startX = 14;
-      const rowHeight = 6;
-      const colWidths = [50, 25, 20, ...weekDays.map(() => 15), 20];
-      
-      // Cabeçalhos
-      doc.setFillColor(245, 158, 11);
-      doc.rect(startX, yPos, colWidths.reduce((a, b) => a + b, 0), rowHeight, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'bold');
-      
-      let xPos = startX;
-      const headers = [
+      const tableHeaders = [
         'Produto',
         'Setor',
         'Média',
         ...weekDays.map(day => format(day, 'EEE dd/MM', { locale: ptBR })),
         'Total'
       ];
-      
-      headers.forEach((header, i) => {
-        doc.text(header, xPos + 2, yPos + 4);
-        xPos += colWidths[i];
-      });
-      
-      yPos += rowHeight;
-      
-      // Dados
-      doc.setTextColor(0, 0, 0);
-      doc.setFont('helvetica', 'normal');
-      
-      filteredPlanning.forEach((product, idx) => {
-        if (yPos > 180) {
-          doc.addPage('landscape');
-          yPos = 20;
-        }
-        
-        // Alternar cor de fundo
-        if (idx % 2 === 0) {
-          doc.setFillColor(248, 250, 252);
-          doc.rect(startX, yPos, colWidths.reduce((a, b) => a + b, 0), rowHeight, 'F');
-        }
-        
-        xPos = startX;
-        const rowData = [
-          product.produto_nome.length > 30 ? product.produto_nome.substring(0, 27) + '...' : product.produto_nome,
+
+      const tableData = filteredPlanning.map(product => {
+        return [
+          product.produto_nome,
           product.setor,
           `${Math.round(product.avg_sales)} ${product.unidade}`,
-          ...weekDays.map((_, i) => {
-            const qty = plannedQuantities[`${product.produto_id}-${i}`] || 0;
+          ...weekDays.map((_, idx) => {
+            const qty = plannedQuantities[`${product.produto_id}-${idx}`] || 0;
             return qty > 0 ? qty.toString() : '-';
           }),
           `${getProductTotal(product.produto_id)} ${product.unidade}`
         ];
-        
-        rowData.forEach((cell, i) => {
-          doc.text(cell, xPos + 2, yPos + 4);
-          xPos += colWidths[i];
-        });
-        
-        yPos += rowHeight;
       });
 
-      // Nome do arquivo
+      autoTable(doc, {
+        head: [tableHeaders],
+        body: tableData,
+        startY: selectedSector !== 'all' ? 40 : 35,
+        styles: { 
+          fontSize: 8,
+          cellPadding: 2
+        },
+        headStyles: {
+          fillColor: [245, 158, 11],
+          textColor: 255,
+          fontStyle: 'bold'
+        },
+        columnStyles: {
+          0: { cellWidth: 40 },
+          1: { cellWidth: 25 },
+          2: { cellWidth: 15 }
+        }
+      });
+
       const fileName = `Planejamento_${format(weekBounds.start, 'dd-MM-yyyy')}_a_${format(weekBounds.end, 'dd-MM-yyyy')}.pdf`;
 
-      // Baixar arquivo
       doc.save(fileName);
 
       toast.success("Arquivo PDF exportado com sucesso!");
@@ -358,8 +462,18 @@ export default function Planning() {
           </Button>
 
           {isWeekInPast && (
-            <div className="ml-2 px-3 py-1 bg-amber-100 text-amber-800 text-xs font-medium rounded-full">
-              ⚠️ Apenas visualização
+            <div className="ml-2 px-3 py-1 bg-amber-100 text-amber-800 text-xs font-medium rounded-full flex items-center gap-1">
+              {isUnlocked ? (
+                <>
+                  <LockOpen className="w-3 h-3" />
+                  Desbloqueado
+                </>
+              ) : (
+                <>
+                  <Lock className="w-3 h-3" />
+                  Bloqueado
+                </>
+              )}
             </div>
           )}
         </div>
@@ -370,7 +484,7 @@ export default function Planning() {
             variant="outline"
             size="sm"
             onClick={handleRecalculate}
-            disabled={isWeekInPast || planningQuery.isLoading}
+            disabled={planningQuery.isLoading}
           >
             <RefreshCw className="w-4 h-4 mr-2" />
             Recalcular
@@ -488,7 +602,6 @@ export default function Planning() {
                                     min="0"
                                     value={qty || ''}
                                     onChange={(e) => handleQuantityChange(product.produto_id, idx, e.target.value)}
-                                    disabled={isWeekInPast}
                                     className="w-20 text-center h-9"
                                   />
                                 </TableCell>
@@ -678,7 +791,6 @@ export default function Planning() {
                       size="sm" 
                       className="w-full mt-2 bg-blue-600 hover:bg-blue-700"
                       onClick={handleApplySuggestion}
-                      disabled={isWeekInPast}
                     >
                       Aplicar Sugestão
                     </Button>
@@ -689,6 +801,39 @@ export default function Planning() {
           </div>
         )}
       </div>
+
+      {/* Dialog de Desbloqueio */}
+      <Dialog open={showUnlockDialog} onOpenChange={setShowUnlockDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>🔒 Planejamento Bloqueado</DialogTitle>
+            <DialogDescription>
+              Esta semana está bloqueada. Digite o código de edição para desbloquear.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Input
+              type="password"
+              placeholder="Digite o código"
+              value={unlockCode}
+              onChange={(e) => setUnlockCode(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleUnlock()}
+              className="text-center text-lg tracking-widest"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setShowUnlockDialog(false);
+              setUnlockCode("");
+            }}>
+              Cancelar
+            </Button>
+            <Button onClick={handleUnlock}>
+              Desbloquear
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
