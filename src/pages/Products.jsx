@@ -2,20 +2,27 @@ import React, { useState } from 'react';
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
-import { Download, Plus } from "lucide-react";
+import { Download } from "lucide-react";
 import { format, subDays } from "date-fns";
 import ProductsManager from "../components/products/ProductsManager";
 import SQLDataProvider from "../components/import/SQLDataProvider";
 import UnmappedProductsSuggestion from "../components/products/UnmappedProductsSuggestion";
+import * as XLSX from 'xlsx';
 
 export default function Products() {
   const queryClient = useQueryClient();
   const [sqlData, setSqlData] = useState({ sales: [], losses: [] });
 
-  const { data: products = [] } = useQuery({
+  // Buscar produtos do Neon via function
+  const { data: productsData, isLoading } = useQuery({
     queryKey: ['products'],
-    queryFn: () => base44.entities.Product.list()
+    queryFn: async () => {
+      const response = await base44.functions.invoke('getProducts', {});
+      return response.data;
+    }
   });
+
+  const products = productsData?.products || [];
 
   // Enriquecer produtos com dados da VIEW SQL
   const enrichedProducts = products.map(product => {
@@ -38,23 +45,41 @@ export default function Products() {
   };
 
   const handleExportExcel = () => {
-    const headers = ["Código", "Nome", "Setor", "Rendimento", "Unidade", "Dias de Produção", "Ativo"];
-    const rows = products.map(p => [
-      p.code || "",
-      p.name,
-      p.sector,
-      p.recipe_yield || 1,
-      p.unit || "unidade",
-      (p.production_days || []).join(", "),
-      p.active !== false ? "Sim" : "Não"
-    ]);
+    try {
+      const excelData = products.map(p => ({
+        'Código': p.code || '',
+        'Nome': p.name,
+        'Setor': p.sector,
+        'Rendimento': p.recipe_yield || 1,
+        'Unidade': p.unit || 'UN',
+        'Dias de Produção': (p.production_days || []).join(', '),
+        'Ativo': p.active ? 'Sim' : 'Não'
+      }));
 
-    const csvContent = [headers, ...rows].map(row => row.join(";")).join("\n");
-    const blob = new Blob(["\ufeff" + csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `produtos_${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(excelData);
+
+      // Ajustar largura das colunas
+      const colWidths = [
+        { wch: 15 }, // Código
+        { wch: 30 }, // Nome
+        { wch: 15 }, // Setor
+        { wch: 12 }, // Rendimento
+        { wch: 10 }, // Unidade
+        { wch: 40 }, // Dias
+        { wch: 8 }   // Ativo
+      ];
+      ws['!cols'] = colWidths;
+
+      XLSX.utils.book_append_sheet(wb, ws, 'Produtos');
+
+      const fileName = `produtos_${format(new Date(), 'dd-MM-yyyy')}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+
+      console.log('✅ Excel exportado');
+    } catch (error) {
+      console.error('Erro ao exportar:', error);
+    }
   };
 
   return (
@@ -92,6 +117,7 @@ export default function Products() {
         products={enrichedProducts} 
         onRefresh={handleRefresh}
         showAddButton={true}
+        isLoading={isLoading}
       />
     </div>
   );
