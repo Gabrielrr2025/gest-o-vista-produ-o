@@ -26,7 +26,6 @@ import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 
 // Função auxiliar para calcular início da semana (TERÇA)
 const getWeekBounds = (date) => {
@@ -233,48 +232,69 @@ export default function Planning() {
         doc.text(`Setor: ${selectedSector}`, 14, 35);
       }
 
-      // Preparar dados da tabela
-      const tableHeaders = [
+      // Desenhar tabela manualmente
+      let yPos = selectedSector !== 'all' ? 40 : 35;
+      const startX = 14;
+      const rowHeight = 6;
+      const colWidths = [50, 25, 20, ...weekDays.map(() => 15), 20];
+      
+      // Cabeçalhos
+      doc.setFillColor(245, 158, 11);
+      doc.rect(startX, yPos, colWidths.reduce((a, b) => a + b, 0), rowHeight, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      
+      let xPos = startX;
+      const headers = [
         'Produto',
         'Setor',
         'Média',
         ...weekDays.map(day => format(day, 'EEE dd/MM', { locale: ptBR })),
         'Total'
       ];
-
-      const tableData = filteredPlanning.map(product => {
-        return [
-          product.produto_nome,
+      
+      headers.forEach((header, i) => {
+        doc.text(header, xPos + 2, yPos + 4);
+        xPos += colWidths[i];
+      });
+      
+      yPos += rowHeight;
+      
+      // Dados
+      doc.setTextColor(0, 0, 0);
+      doc.setFont('helvetica', 'normal');
+      
+      filteredPlanning.forEach((product, idx) => {
+        if (yPos > 180) {
+          doc.addPage('landscape');
+          yPos = 20;
+        }
+        
+        // Alternar cor de fundo
+        if (idx % 2 === 0) {
+          doc.setFillColor(248, 250, 252);
+          doc.rect(startX, yPos, colWidths.reduce((a, b) => a + b, 0), rowHeight, 'F');
+        }
+        
+        xPos = startX;
+        const rowData = [
+          product.produto_nome.length > 30 ? product.produto_nome.substring(0, 27) + '...' : product.produto_nome,
           product.setor,
           `${Math.round(product.avg_sales)} ${product.unidade}`,
-          ...weekDays.map((_, idx) => {
-            const qty = plannedQuantities[`${product.produto_id}-${idx}`] || 0;
+          ...weekDays.map((_, i) => {
+            const qty = plannedQuantities[`${product.produto_id}-${i}`] || 0;
             return qty > 0 ? qty.toString() : '-';
           }),
           `${getProductTotal(product.produto_id)} ${product.unidade}`
         ];
-      });
-
-      // Criar tabela usando autoTable
-      autoTable(doc, {
-        head: [tableHeaders],
-        body: tableData,
-        startY: selectedSector !== 'all' ? 40 : 35,
-        styles: { 
-          fontSize: 8,
-          cellPadding: 2
-        },
-        headStyles: {
-          fillColor: [245, 158, 11], // Cor laranja do tema
-          textColor: 255,
-          fontStyle: 'bold'
-        },
-        columnStyles: {
-          0: { cellWidth: 40 }, // Produto
-          1: { cellWidth: 25 }, // Setor
-          2: { cellWidth: 15 }  // Média
-          // Dias e Total: auto
-        }
+        
+        rowData.forEach((cell, i) => {
+          doc.text(cell, xPos + 2, yPos + 4);
+          xPos += colWidths[i];
+        });
+        
+        yPos += rowHeight;
       });
 
       // Nome do arquivo
