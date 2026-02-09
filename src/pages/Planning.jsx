@@ -36,7 +36,6 @@ import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 
 // Função auxiliar para calcular início da semana (TERÇA)
 const getWeekBounds = (date) => {
@@ -362,45 +361,68 @@ export default function Planning() {
         doc.text(`Setor: ${selectedSector}`, 14, 35);
       }
 
-      const tableHeaders = [
+      let yPos = selectedSector !== 'all' ? 40 : 35;
+      const startX = 14;
+      const rowHeight = 7;
+      const colWidths = [45, 20, 20, ...weekDays.map(() => 14), 18];
+      
+      // Cabeçalhos
+      doc.setFillColor(245, 158, 11);
+      doc.rect(startX, yPos, colWidths.reduce((a, b) => a + b, 0), rowHeight, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      
+      let xPos = startX;
+      const headers = [
         'Produto',
         'Setor',
         'Média',
         ...weekDays.map(day => format(day, 'EEE dd/MM', { locale: ptBR })),
         'Total'
       ];
-
-      const tableData = filteredPlanning.map(product => {
-        return [
-          product.produto_nome,
-          product.setor,
-          `${Math.round(product.avg_sales)} ${product.unidade}`,
-          ...weekDays.map((_, idx) => {
-            const qty = plannedQuantities[`${product.produto_id}-${idx}`] || 0;
+      
+      headers.forEach((header, i) => {
+        doc.text(header, xPos + 2, yPos + 4.5);
+        xPos += colWidths[i];
+      });
+      
+      yPos += rowHeight;
+      
+      // Dados
+      doc.setTextColor(0, 0, 0);
+      doc.setFont('helvetica', 'normal');
+      
+      filteredPlanning.forEach((product, idx) => {
+        if (yPos > 180) {
+          doc.addPage('landscape');
+          yPos = 20;
+        }
+        
+        // Alternar cor de fundo
+        if (idx % 2 === 0) {
+          doc.setFillColor(248, 250, 252);
+          doc.rect(startX, yPos, colWidths.reduce((a, b) => a + b, 0), rowHeight, 'F');
+        }
+        
+        xPos = startX;
+        const rowData = [
+          product.produto_nome.length > 25 ? product.produto_nome.substring(0, 22) + '...' : product.produto_nome,
+          product.setor.substring(0, 10),
+          Math.round(product.avg_sales).toString(),
+          ...weekDays.map((_, i) => {
+            const qty = plannedQuantities[`${product.produto_id}-${i}`] || 0;
             return qty > 0 ? qty.toString() : '-';
           }),
-          `${getProductTotal(product.produto_id)} ${product.unidade}`
+          getProductTotal(product.produto_id).toString()
         ];
-      });
-
-      autoTable(doc, {
-        head: [tableHeaders],
-        body: tableData,
-        startY: selectedSector !== 'all' ? 40 : 35,
-        styles: { 
-          fontSize: 8,
-          cellPadding: 2
-        },
-        headStyles: {
-          fillColor: [245, 158, 11],
-          textColor: 255,
-          fontStyle: 'bold'
-        },
-        columnStyles: {
-          0: { cellWidth: 40 },
-          1: { cellWidth: 25 },
-          2: { cellWidth: 15 }
-        }
+        
+        rowData.forEach((cell, i) => {
+          doc.text(cell, xPos + 2, yPos + 4.5);
+          xPos += colWidths[i];
+        });
+        
+        yPos += rowHeight;
       });
 
       const fileName = `Planejamento_${format(weekBounds.start, 'dd-MM-yyyy')}_a_${format(weekBounds.end, 'dd-MM-yyyy')}.pdf`;
