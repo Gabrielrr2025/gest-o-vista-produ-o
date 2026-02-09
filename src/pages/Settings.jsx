@@ -1,1030 +1,305 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Settings as SettingsIcon, Save, Sparkles, Building2, Bell, Calendar, Eye, Shield, Upload, X, Image as ImageIcon } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { 
+  Settings as SettingsIcon,
+  Lock,
+  Save,
+  Eye,
+  EyeOff,
+  Shield,
+  Info
+} from "lucide-react";
 import { toast } from "sonner";
-import DataReset from "../components/settings/DataReset";
+import {
+  Alert,
+  AlertDescription,
+} from "@/components/ui/alert";
 
 export default function Settings() {
   const queryClient = useQueryClient();
-  const [currentUser, setCurrentUser] = useState(null);
-  const [hasAccess, setHasAccess] = useState(false);
-  const [activeSection, setActiveSection] = useState('company');
-
-  // Verificar permissão de acesso (apenas MASTER)
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const user = await base44.auth.me();
-        
-        // Apenas MASTER (admin) tem acesso
-        if (user.role === 'admin') {
-          setCurrentUser(user);
-          setHasAccess(true);
-        } else {
-          toast.error("Apenas administradores podem acessar Configurações");
-          setTimeout(() => {
-            window.location.href = '/';
-          }, 2000);
-        }
-      } catch (error) {
-        window.location.href = '/';
-      }
-    };
-    checkAuth();
-  }, []);
-
-  const handleResetComplete = () => {
-    queryClient.invalidateQueries();
-  };
   
-  const [config, setConfig] = useState({
-    increase_threshold: 10,
-    decrease_threshold: -10,
-    min_history_weeks: 3,
-    calendar_impact_enabled: true
-  });
+  // Estados locais
+  const [editCode, setEditCode] = useState("");
+  const [showCode, setShowCode] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
-  const [companyData, setCompanyData] = useState({
-    logo_url: '',
-    company_name: '',
-    cnpj: '',
-    address: '',
-    city: 'Itaperuna',
-    state: 'RJ',
-    phone: '',
-    email: ''
-  });
-
-  const [alertSettings, setAlertSettings] = useState({
-    loss_calc_type: 'average_plus', // 'fixed' ou 'average_plus'
-    loss_fixed_percent: 10,
-    loss_average_plus: 5,
-    low_sales_percent: 50,
-    no_sales_days: 4,
-    high_sales_enabled: false,
-    high_sales_percent: 130
-  });
-
-  const [planningSettings, setPlanningSettings] = useState({
-    calculation_weeks: 4,
-    safety_margin: 10,
-    holiday_impact: 30,
-    event_impact: 30,
-    auto_fill_enabled: true
-  });
-
-  const [displaySettings, setDisplaySettings] = useState({
-    date_format: 'DD/MM/YYYY',
-    decimal_separator: 'comma',
-    currency: 'BRL',
-    theme: 'light',
-    items_per_page: 25,
-    week_start: 'tuesday'
-  });
-
-  const [uploadingLogo, setUploadingLogo] = useState(false);
-
-  const { data: systemConfig = [] } = useQuery({
-    queryKey: ['systemConfig'],
-    queryFn: () => base44.entities.SystemConfig.list()
-  });
-
-  useEffect(() => {
-    const savedConfig = systemConfig.find(c => c.config_key === "suggestion_engine");
-    if (savedConfig) {
-      try {
-        setConfig(JSON.parse(savedConfig.config_value));
-      } catch (e) {
-        console.error("Error parsing config", e);
-      }
+  // Buscar usuário atual
+  const { data: currentUser } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: async () => {
+      const user = await base44.auth.me();
+      return user;
     }
+  });
 
-    const savedCompanyData = systemConfig.find(c => c.config_key === "company_data");
-    if (savedCompanyData) {
-      try {
-        setCompanyData(JSON.parse(savedCompanyData.config_value));
-      } catch (e) {
-        console.error("Error parsing company data", e);
-      }
+  const isAdmin = currentUser?.role === 'admin';
+
+  // Buscar configuração atual
+  const { data: configData, isLoading } = useQuery({
+    queryKey: ['config', 'codigo_edicao_planejamento'],
+    queryFn: async () => {
+      const response = await base44.functions.invoke('getConfig', {
+        chave: 'codigo_edicao_planejamento'
+      });
+      return response.data;
+    },
+    onSuccess: (data) => {
+      setEditCode(data?.valor || '1234');
     }
+  });
 
-    const savedAlertSettings = systemConfig.find(c => c.config_key === "alert_settings");
-    if (savedAlertSettings) {
-      try {
-        setAlertSettings(JSON.parse(savedAlertSettings.config_value));
-      } catch (e) {
-        console.error("Error parsing alert settings", e);
-      }
-    }
-
-    const savedPlanningSettings = systemConfig.find(c => c.config_key === "planning_settings");
-    if (savedPlanningSettings) {
-      try {
-        setPlanningSettings(JSON.parse(savedPlanningSettings.config_value));
-      } catch (e) {
-        console.error("Error parsing planning settings", e);
-      }
-    }
-
-    const savedDisplaySettings = systemConfig.find(c => c.config_key === "display_settings");
-    if (savedDisplaySettings) {
-      try {
-        setDisplaySettings(JSON.parse(savedDisplaySettings.config_value));
-      } catch (e) {
-        console.error("Error parsing display settings", e);
-      }
-    }
-  }, [systemConfig]);
-
-  const saveConfigMutation = useMutation({
-    mutationFn: async (newConfig) => {
-      const existing = systemConfig.find(c => c.config_key === "suggestion_engine");
-      const data = {
-        config_key: "suggestion_engine",
-        config_value: JSON.stringify(newConfig),
-        description: "Configurações do motor de sugestão de produção"
-      };
-
-      if (existing) {
-        return base44.entities.SystemConfig.update(existing.id, data);
-      } else {
-        return base44.entities.SystemConfig.create(data);
-      }
+  // Mutation para salvar configuração
+  const saveMutation = useMutation({
+    mutationFn: async (newCode) => {
+      const response = await base44.functions.invoke('saveConfig', {
+        chave: 'codigo_edicao_planejamento',
+        valor: newCode
+      });
+      return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['systemConfig'] });
-      toast.success("Configurações salvas");
+      queryClient.invalidateQueries(['config']);
+      setIsEditing(false);
+      toast.success("✅ Código de edição atualizado com sucesso!");
+    },
+    onError: (error) => {
+      toast.error("❌ Erro ao salvar código: " + error.message);
     }
   });
 
   const handleSave = () => {
-    saveConfigMutation.mutate(config);
-    toast.success("✓ Configurações salvas");
-  };
-
-  const saveCompanyDataMutation = useMutation({
-    mutationFn: async (data) => {
-      const existing = systemConfig.find(c => c.config_key === "company_data");
-      const payload = {
-        config_key: "company_data",
-        config_value: JSON.stringify(data),
-        description: "Dados da empresa para relatórios"
-      };
-
-      if (existing) {
-        return base44.entities.SystemConfig.update(existing.id, payload);
-      } else {
-        return base44.entities.SystemConfig.create(payload);
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['systemConfig'] });
-      toast.success("✓ Dados da empresa salvos");
-    }
-  });
-
-  const handleSaveCompanyData = () => {
-    saveCompanyDataMutation.mutate(companyData);
-  };
-
-  const saveAlertSettingsMutation = useMutation({
-    mutationFn: async (data) => {
-      const existing = systemConfig.find(c => c.config_key === "alert_settings");
-      const payload = {
-        config_key: "alert_settings",
-        config_value: JSON.stringify(data),
-        description: "Configurações de limites e alertas do sistema"
-      };
-
-      if (existing) {
-        return base44.entities.SystemConfig.update(existing.id, payload);
-      } else {
-        return base44.entities.SystemConfig.create(payload);
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['systemConfig'] });
-      toast.success("✓ Limites e alertas salvos");
-    }
-  });
-
-  const handleSaveAlertSettings = () => {
-    saveAlertSettingsMutation.mutate(alertSettings);
-  };
-
-  const savePlanningSettingsMutation = useMutation({
-    mutationFn: async (data) => {
-      const existing = systemConfig.find(c => c.config_key === "planning_settings");
-      const payload = {
-        config_key: "planning_settings",
-        config_value: JSON.stringify(data),
-        description: "Configurações de planejamento de produção"
-      };
-
-      if (existing) {
-        return base44.entities.SystemConfig.update(existing.id, payload);
-      } else {
-        return base44.entities.SystemConfig.create(payload);
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['systemConfig'] });
-      toast.success("✓ Configurações de planejamento salvas");
-    }
-  });
-
-  const handleSavePlanningSettings = () => {
-    savePlanningSettingsMutation.mutate(planningSettings);
-  };
-
-  const saveDisplaySettingsMutation = useMutation({
-    mutationFn: async (data) => {
-      const existing = systemConfig.find(c => c.config_key === "display_settings");
-      const payload = {
-        config_key: "display_settings",
-        config_value: JSON.stringify(data),
-        description: "Preferências de exibição do sistema"
-      };
-
-      if (existing) {
-        return base44.entities.SystemConfig.update(existing.id, payload);
-      } else {
-        return base44.entities.SystemConfig.create(payload);
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['systemConfig'] });
-      toast.success("✓ Preferências de exibição salvas");
-    }
-  });
-
-  const handleSaveDisplaySettings = () => {
-    saveDisplaySettingsMutation.mutate(displaySettings);
-  };
-
-  const handleLogoUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error("Arquivo muito grande. Máximo 2MB");
+    if (!editCode || editCode.trim().length < 4) {
+      toast.error("O código deve ter no mínimo 4 caracteres");
       return;
     }
 
-    if (!['image/png', 'image/jpeg', 'image/jpg'].includes(file.type)) {
-      toast.error("Formato inválido. Use PNG ou JPG");
-      return;
-    }
-
-    try {
-      setUploadingLogo(true);
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      setCompanyData({ ...companyData, logo_url: file_url });
-      toast.success("Logo enviada com sucesso");
-    } catch (error) {
-      toast.error("Erro ao enviar logo");
-    } finally {
-      setUploadingLogo(false);
-    }
+    saveMutation.mutate(editCode.trim());
   };
 
-  const handleRemoveLogo = () => {
-    setCompanyData({ ...companyData, logo_url: '' });
+  const handleCancel = () => {
+    setEditCode(configData?.valor || '1234');
+    setIsEditing(false);
   };
 
-  const formatCNPJ = (value) => {
-    return value
-      .replace(/\D/g, '')
-      .replace(/(\d{2})(\d)/, '$1.$2')
-      .replace(/(\d{3})(\d)/, '$1.$2')
-      .replace(/(\d{3})(\d)/, '$1/$2')
-      .replace(/(\d{4})(\d)/, '$1-$2')
-      .slice(0, 18);
-  };
-
-  const formatPhone = (value) => {
-    const cleaned = value.replace(/\D/g, '');
-    if (cleaned.length <= 10) {
-      return cleaned
-        .replace(/(\d{2})(\d)/, '($1) $2')
-        .replace(/(\d{4})(\d)/, '$1-$2')
-        .slice(0, 14);
-    } else {
-      return cleaned
-        .replace(/(\d{2})(\d)/, '($1) $2')
-        .replace(/(\d{5})(\d)/, '$1-$2')
-        .slice(0, 15);
-    }
-  };
-
-  const brazilianStates = [
-    'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG',
-    'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
-  ];
-
-  const sections = [
-    { id: 'company', name: 'Dados da Empresa', icon: Building2 },
-    { id: 'alerts', name: 'Limites e Alertas', icon: Bell },
-    { id: 'planning', name: 'Planejamento', icon: Calendar },
-    { id: 'display', name: 'Preferências de Exibição', icon: Eye },
-    { id: 'security', name: 'Backup e Segurança', icon: Shield }
-  ];
-
-  if (!hasAccess) {
+  if (!isAdmin) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Card className="w-96">
-          <CardContent className="pt-6 text-center">
-            <div className="text-slate-500">Verificando permissões...</div>
-          </CardContent>
-        </Card>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Configurações</h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Personalize o sistema
+          </p>
+        </div>
+
+        <Alert>
+          <Shield className="h-4 w-4" />
+          <AlertDescription>
+            Você não tem permissão para acessar as configurações do sistema.
+            Entre em contato com o administrador.
+          </AlertDescription>
+        </Alert>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* CABEÇALHO */}
+      {/* Cabeçalho */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-          <SettingsIcon className="w-6 h-6 text-slate-600" />
-          Configurações
-        </h1>
-        <p className="text-sm text-slate-500 mt-1">Parâmetros do sistema e preferências</p>
+        <h1 className="text-2xl font-bold text-slate-900">Configurações</h1>
+        <p className="text-sm text-slate-500 mt-1">
+          Gerencie as configurações do sistema
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* MENU LATERAL */}
-        <div className="lg:col-span-1">
-          <Card>
-            <CardContent className="p-4">
-              <nav className="space-y-1">
-                {sections.map((section) => (
-                  <button
-                    key={section.id}
-                    onClick={() => setActiveSection(section.id)}
-                    className={`
-                      w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium
-                      transition-all duration-200
-                      ${activeSection === section.id
-                        ? 'bg-[#F59E0B] text-white shadow-md'
-                        : 'text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-secondary))] hover:text-[hsl(var(--text-primary))]'
-                      }
-                    `}
+      {/* Informações do Usuário */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Shield className="w-5 h-5 text-orange-600" />
+            Informações da Conta
+          </CardTitle>
+          <CardDescription>
+            Suas informações de acesso
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label className="text-sm text-slate-600">Nome</Label>
+              <p className="font-medium text-slate-900 mt-1">
+                {currentUser?.full_name || 'Não informado'}
+              </p>
+            </div>
+            <div>
+              <Label className="text-sm text-slate-600">Email</Label>
+              <p className="font-medium text-slate-900 mt-1">
+                {currentUser?.email || 'Não informado'}
+              </p>
+            </div>
+            <div>
+              <Label className="text-sm text-slate-600">Perfil</Label>
+              <p className="font-medium text-slate-900 mt-1">
+                <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs">
+                  {currentUser?.role === 'admin' ? 'Administrador' : 'Usuário'}
+                </span>
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Separator />
+
+      {/* Configuração do Código de Edição */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Lock className="w-5 h-5 text-blue-600" />
+            Código de Edição do Planejamento
+          </CardTitle>
+          <CardDescription>
+            Código necessário para editar planejamentos de semanas passadas
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Explicação */}
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertDescription>
+              Este código é solicitado quando um usuário tenta editar o planejamento 
+              de uma semana que já passou. Isso garante que apenas pessoas autorizadas 
+              possam fazer alterações em dados históricos.
+            </AlertDescription>
+          </Alert>
+
+          {/* Campo de Código */}
+          <div className="space-y-3">
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <Label htmlFor="edit-code">Código Atual</Label>
+                <div className="relative mt-1">
+                  <Input
+                    id="edit-code"
+                    type={showCode ? "text" : "password"}
+                    value={editCode}
+                    onChange={(e) => setEditCode(e.target.value)}
+                    disabled={!isEditing || isLoading || saveMutation.isLoading}
+                    className="pr-10"
+                    placeholder="Digite o código (mín. 4 caracteres)"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-0 h-full px-3"
+                    onClick={() => setShowCode(!showCode)}
                   >
-                    <section.icon className="w-5 h-5" />
-                    {section.name}
-                  </button>
-                ))}
-              </nav>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* ÁREA PRINCIPAL */}
-        <div className="lg:col-span-3 space-y-6">
-
-          {/* SEÇÃO: DADOS DA EMPRESA */}
-          {activeSection === 'company' && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Dados da Empresa</CardTitle>
-                <CardDescription>Informações que aparecem nos relatórios e documentos exportados</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* LOGO DA EMPRESA */}
-                <div>
-                  <Label className="text-sm font-semibold mb-2 block">Logo da Empresa</Label>
-                  <div className="space-y-3">
-                    {companyData.logo_url ? (
-                      <div className="flex items-start gap-4">
-                        <div className="w-[300px] h-[100px] border-2 border-dashed border-slate-200 rounded-lg flex items-center justify-center bg-slate-50 overflow-hidden">
-                          <img 
-                            src={companyData.logo_url} 
-                            alt="Logo da empresa" 
-                            className="max-w-full max-h-full object-contain"
-                          />
-                        </div>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={handleRemoveLogo}
-                        >
-                          <X className="w-4 h-4 mr-1" />
-                          Remover Logo
-                        </Button>
-                      </div>
+                    {showCode ? (
+                      <EyeOff className="w-4 h-4 text-slate-400" />
                     ) : (
-                      <div className="w-[300px] h-[100px] border-2 border-dashed border-slate-300 rounded-lg flex flex-col items-center justify-center bg-slate-50 cursor-pointer hover:border-slate-400 transition-colors relative">
-                        <input
-                          type="file"
-                          accept="image/png,image/jpeg,image/jpg"
-                          onChange={handleLogoUpload}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                          disabled={uploadingLogo}
-                        />
-                        {uploadingLogo ? (
-                          <div className="text-sm text-slate-500">Enviando...</div>
-                        ) : (
-                          <>
-                            <ImageIcon className="w-8 h-8 text-slate-400 mb-2" />
-                            <div className="text-sm text-slate-500">Clique para fazer upload</div>
-                          </>
-                        )}
-                      </div>
+                      <Eye className="w-4 h-4 text-slate-400" />
                     )}
-                    <p className="text-xs text-slate-500">
-                      Formatos aceitos: PNG, JPG (até 2MB) • Dimensões recomendadas: 300x100px
-                    </p>
-                  </div>
-                </div>
-
-                {/* NOME DA EMPRESA */}
-                <div>
-                  <Label className="text-sm font-semibold mb-2 block">
-                    Nome da Empresa <span className="text-red-500">*</span>
-                  </Label>
-                  <Input 
-                    placeholder="Ex: Panificadora São José"
-                    value={companyData.company_name}
-                    onChange={(e) => setCompanyData({...companyData, company_name: e.target.value})}
-                  />
-                </div>
-
-                {/* CNPJ */}
-                <div>
-                  <Label className="text-sm font-semibold mb-2 block">CNPJ</Label>
-                  <Input 
-                    placeholder="00.000.000/0000-00"
-                    value={companyData.cnpj}
-                    onChange={(e) => setCompanyData({...companyData, cnpj: formatCNPJ(e.target.value)})}
-                    maxLength={18}
-                  />
-                </div>
-
-                {/* ENDEREÇO */}
-                <div>
-                  <Label className="text-sm font-semibold mb-2 block">Endereço</Label>
-                  <Input 
-                    placeholder="Ex: Rua Principal, 123 - Centro"
-                    value={companyData.address}
-                    onChange={(e) => setCompanyData({...companyData, address: e.target.value})}
-                  />
-                </div>
-
-                {/* CIDADE/ESTADO */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-sm font-semibold mb-2 block">Cidade</Label>
-                    <Input 
-                      placeholder="Cidade"
-                      value={companyData.city}
-                      onChange={(e) => setCompanyData({...companyData, city: e.target.value})}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-sm font-semibold mb-2 block">Estado</Label>
-                    <Select 
-                      value={companyData.state} 
-                      onValueChange={(value) => setCompanyData({...companyData, state: value})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="UF" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {brazilianStates.map(state => (
-                          <SelectItem key={state} value={state}>
-                            {state}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {/* TELEFONE */}
-                <div>
-                  <Label className="text-sm font-semibold mb-2 block">Telefone</Label>
-                  <Input 
-                    placeholder="(00) 00000-0000"
-                    value={companyData.phone}
-                    onChange={(e) => setCompanyData({...companyData, phone: formatPhone(e.target.value)})}
-                    maxLength={15}
-                  />
-                </div>
-
-                {/* EMAIL */}
-                <div>
-                  <Label className="text-sm font-semibold mb-2 block">Email</Label>
-                  <Input 
-                    type="email"
-                    placeholder="contato@empresa.com"
-                    value={companyData.email}
-                    onChange={(e) => setCompanyData({...companyData, email: e.target.value})}
-                  />
-                </div>
-
-                <div className="pt-4 border-t">
-                  <Button 
-                    onClick={handleSaveCompanyData}
-                    disabled={saveCompanyDataMutation.isPending || !companyData.company_name}
-                  >
-                    <Save className="w-4 h-4 mr-2" />
-                    Salvar Dados da Empresa
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
+                <p className="text-xs text-slate-500 mt-1">
+                  Código atual: {configData?.valor ? '••••' : 'Não configurado'}
+                </p>
+              </div>
+            </div>
+
+            {/* Botões de Ação */}
+            {!isEditing ? (
+              <Button
+                onClick={() => setIsEditing(true)}
+                variant="outline"
+                className="w-full sm:w-auto"
+              >
+                <SettingsIcon className="w-4 h-4 mr-2" />
+                Alterar Código
+              </Button>
+            ) : (
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleSave}
+                  disabled={saveMutation.isLoading}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  {saveMutation.isLoading ? 'Salvando...' : 'Salvar'}
+                </Button>
+                <Button
+                  onClick={handleCancel}
+                  variant="outline"
+                  disabled={saveMutation.isLoading}
+                >
+                  Cancelar
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Histórico de atualizações */}
+          {configData?.updated_at && (
+            <div className="pt-3 border-t">
+              <p className="text-xs text-slate-500">
+                Última atualização: {new Date(configData.updated_at).toLocaleString('pt-BR', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </p>
+            </div>
           )}
+        </CardContent>
+      </Card>
 
-          {/* SEÇÃO: LIMITES E ALERTAS */}
-          {activeSection === 'alerts' && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Limites e Alertas</CardTitle>
-                <CardDescription>Defina quando o sistema deve gerar alertas no Dashboard</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* LIMITE DE PERDA */}
-                <div className="space-y-3">
-                  <Label className="text-sm font-semibold">Limite de Perda</Label>
-                  <div>
-                    <Label className="text-sm text-slate-600 mb-2 block">Tipo de cálculo</Label>
-                    <Select 
-                      value={alertSettings.loss_calc_type}
-                      onValueChange={(value) => setAlertSettings({...alertSettings, loss_calc_type: value})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="fixed">Percentual fixo</SelectItem>
-                        <SelectItem value="average_plus">Média + percentual (recomendado)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+      {/* Outras Configurações (placeholder para futuro) */}
+      <Card className="opacity-50">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <SettingsIcon className="w-5 h-5 text-slate-400" />
+            Outras Configurações
+          </CardTitle>
+          <CardDescription>
+            Em breve: notificações, preferências de relatórios, etc.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-slate-500 italic">
+            Funcionalidades em desenvolvimento...
+          </p>
+        </CardContent>
+      </Card>
 
-                  {alertSettings.loss_calc_type === 'fixed' ? (
-                    <div>
-                      <Label className="text-sm text-slate-600">Percentual fixo</Label>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="number"
-                          value={alertSettings.loss_fixed_percent}
-                          onChange={(e) => setAlertSettings({...alertSettings, loss_fixed_percent: parseFloat(e.target.value)})}
-                          min="0"
-                          max="100"
-                          step="1"
-                          className="w-24"
-                        />
-                        <span className="text-sm text-slate-600">%</span>
-                      </div>
-                      <p className="text-xs text-slate-500 mt-1">Exemplo: 10%</p>
-                    </div>
-                  ) : (
-                    <div>
-                      <Label className="text-sm text-slate-600">Média + percentual adicional</Label>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-slate-600">Média +</span>
-                        <Input
-                          type="number"
-                          value={alertSettings.loss_average_plus}
-                          onChange={(e) => setAlertSettings({...alertSettings, loss_average_plus: parseFloat(e.target.value)})}
-                          min="0"
-                          max="100"
-                          step="1"
-                          className="w-24"
-                        />
-                        <span className="text-sm text-slate-600">%</span>
-                      </div>
-                      <p className="text-xs text-slate-500 mt-1">Padrão: 5%</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* ALERTA DE VENDA BAIXA */}
-                <div className="space-y-3">
-                  <Label className="text-sm font-semibold">Alerta de Venda Baixa</Label>
-                  <div>
-                    <Label className="text-sm text-slate-600 mb-2 block">
-                      Alertar quando venda for menor que:
-                    </Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        value={alertSettings.low_sales_percent}
-                        onChange={(e) => setAlertSettings({...alertSettings, low_sales_percent: parseFloat(e.target.value)})}
-                        min="0"
-                        max="100"
-                        step="5"
-                        className="w-24"
-                      />
-                      <span className="text-sm text-slate-600">% do planejado</span>
-                    </div>
-                    <p className="text-xs text-slate-500 mt-1">Padrão: 50%</p>
-                  </div>
-                </div>
-
-                {/* ALERTA DE PRODUTO SEM VENDA */}
-                <div className="space-y-3">
-                  <Label className="text-sm font-semibold">Alerta de Produto Sem Venda</Label>
-                  <div>
-                    <Label className="text-sm text-slate-600 mb-2 block">
-                      Alertar quando produto não vender por:
-                    </Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        value={alertSettings.no_sales_days}
-                        onChange={(e) => setAlertSettings({...alertSettings, no_sales_days: parseInt(e.target.value)})}
-                        min="1"
-                        max="30"
-                        step="1"
-                        className="w-24"
-                      />
-                      <span className="text-sm text-slate-600">dias</span>
-                    </div>
-                    <p className="text-xs text-slate-500 mt-1">Padrão: 4 dias</p>
-                  </div>
-                </div>
-
-                {/* ALERTA DE VENDA ALTA */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-semibold">Alerta de Venda Alta</Label>
-                    <div className="flex items-center gap-2">
-                      <Switch
-                        checked={alertSettings.high_sales_enabled}
-                        onCheckedChange={(checked) => setAlertSettings({...alertSettings, high_sales_enabled: checked})}
-                      />
-                      <span className="text-sm text-slate-600">
-                        {alertSettings.high_sales_enabled ? 'Habilitado' : 'Desabilitado'}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <Label className="text-sm text-slate-600 mb-2 block">
-                      Alertar quando venda for maior que:
-                    </Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        value={alertSettings.high_sales_percent}
-                        onChange={(e) => setAlertSettings({...alertSettings, high_sales_percent: parseFloat(e.target.value)})}
-                        min="100"
-                        max="300"
-                        step="5"
-                        className="w-24"
-                        disabled={!alertSettings.high_sales_enabled}
-                      />
-                      <span className={`text-sm ${alertSettings.high_sales_enabled ? 'text-slate-600' : 'text-slate-400'}`}>
-                        % do planejado
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-500 mt-1">Padrão: 130%</p>
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t">
-                  <Button 
-                    onClick={handleSaveAlertSettings}
-                    disabled={saveAlertSettingsMutation.isPending}
-                  >
-                    <Save className="w-4 h-4 mr-2" />
-                    Salvar Limites e Alertas
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* SEÇÃO: PLANEJAMENTO */}
-          {activeSection === 'planning' && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Planejamento</CardTitle>
-                <CardDescription>Defina parâmetros para cálculo de sugestão automática</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* BASE DE CÁLCULO */}
-                <div className="space-y-3">
-                  <Label className="text-sm font-semibold">Base de Cálculo</Label>
-                  <div>
-                    <Label className="text-sm text-slate-600 mb-2 block">
-                      Calcular média com base em:
-                    </Label>
-                    <Select 
-                      value={planningSettings.calculation_weeks.toString()}
-                      onValueChange={(value) => setPlanningSettings({...planningSettings, calculation_weeks: parseInt(value)})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="2">Últimas 2 semanas</SelectItem>
-                        <SelectItem value="4">Últimas 4 semanas (recomendado)</SelectItem>
-                        <SelectItem value="6">Últimas 6 semanas</SelectItem>
-                        <SelectItem value="8">Últimas 8 semanas</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-slate-500 mt-1">Padrão: 4 semanas</p>
-                  </div>
-                </div>
-
-                {/* MARGEM DE SEGURANÇA */}
-                <div className="space-y-3">
-                  <Label className="text-sm font-semibold">Margem de Segurança Padrão</Label>
-                  <div>
-                    <Label className="text-sm text-slate-600 mb-2 block">
-                      Acrescentar margem de segurança:
-                    </Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        value={planningSettings.safety_margin}
-                        onChange={(e) => setPlanningSettings({...planningSettings, safety_margin: parseFloat(e.target.value)})}
-                        min="0"
-                        max="100"
-                        step="5"
-                        className="w-24"
-                      />
-                      <span className="text-sm text-slate-600">%</span>
-                    </div>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Aplicado quando vendas sobem e perdas caem (Padrão: 10%)
-                    </p>
-                  </div>
-                </div>
-
-                {/* IMPACTO DE FERIADO */}
-                <div className="space-y-3">
-                  <Label className="text-sm font-semibold">Impacto de Feriado</Label>
-                  <div>
-                    <Label className="text-sm text-slate-600 mb-2 block">
-                      Aumentar produção em semanas com feriado:
-                    </Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        value={planningSettings.holiday_impact}
-                        onChange={(e) => setPlanningSettings({...planningSettings, holiday_impact: parseFloat(e.target.value)})}
-                        min="0"
-                        max="200"
-                        step="5"
-                        className="w-24"
-                      />
-                      <span className="text-sm text-slate-600">%</span>
-                    </div>
-                    <p className="text-xs text-slate-500 mt-1">Padrão: 30%</p>
-                  </div>
-                </div>
-
-                {/* IMPACTO DE EVENTO ESPECIAL */}
-                <div className="space-y-3">
-                  <Label className="text-sm font-semibold">Impacto de Evento Especial</Label>
-                  <div>
-                    <Label className="text-sm text-slate-600 mb-2 block">
-                      Aumentar produção em semanas com evento:
-                    </Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        value={planningSettings.event_impact}
-                        onChange={(e) => setPlanningSettings({...planningSettings, event_impact: parseFloat(e.target.value)})}
-                        min="0"
-                        max="200"
-                        step="5"
-                        className="w-24"
-                      />
-                      <span className="text-sm text-slate-600">%</span>
-                    </div>
-                    <p className="text-xs text-slate-500 mt-1">Padrão: 30%</p>
-                  </div>
-                </div>
-
-                {/* AUTO-PREENCHER */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-semibold">Auto-preencher Planejamento</Label>
-                    <div className="flex items-center gap-2">
-                      <Switch
-                        checked={planningSettings.auto_fill_enabled}
-                        onCheckedChange={(checked) => setPlanningSettings({...planningSettings, auto_fill_enabled: checked})}
-                      />
-                      <span className="text-sm text-slate-600">
-                        {planningSettings.auto_fill_enabled ? 'Habilitado' : 'Desabilitado'}
-                      </span>
-                    </div>
-                  </div>
-                  <p className="text-xs text-slate-500">
-                    {planningSettings.auto_fill_enabled 
-                      ? 'Campos virão preenchidos automaticamente ao abrir' 
-                      : 'Será necessário clicar em "Recalcular" para sugestões'}
-                  </p>
-                </div>
-
-                <div className="pt-4 border-t">
-                  <Button 
-                    onClick={handleSavePlanningSettings}
-                    disabled={savePlanningSettingsMutation.isPending}
-                  >
-                    <Save className="w-4 h-4 mr-2" />
-                    Salvar Configurações de Planejamento
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* SEÇÃO: PREFERÊNCIAS DE EXIBIÇÃO */}
-          {activeSection === 'display' && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Preferências de Exibição</CardTitle>
-                <CardDescription>Personalize como o sistema exibe informações</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* FORMATO DE DATA */}
-                <div className="space-y-3">
-                  <Label className="text-sm font-semibold">Formato de Data</Label>
-                  <div>
-                    <Label className="text-sm text-slate-600 mb-2 block">
-                      Formato de exibição de datas
-                    </Label>
-                    <Select 
-                      value={displaySettings.date_format}
-                      onValueChange={(value) => setDisplaySettings({...displaySettings, date_format: value})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="DD/MM/YYYY">DD/MM/AAAA (padrão brasileiro)</SelectItem>
-                        <SelectItem value="MM/DD/YYYY">MM/DD/AAAA</SelectItem>
-                        <SelectItem value="YYYY-MM-DD">AAAA-MM-DD</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {/* SEPARADOR DECIMAL */}
-                <div className="space-y-3">
-                  <Label className="text-sm font-semibold">Separador Decimal</Label>
-                  <div>
-                    <Label className="text-sm text-slate-600 mb-2 block">
-                      Separador de decimais
-                    </Label>
-                    <Select 
-                      value={displaySettings.decimal_separator}
-                      onValueChange={(value) => setDisplaySettings({...displaySettings, decimal_separator: value})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="comma">Vírgula (1.234,56) - padrão BR</SelectItem>
-                        <SelectItem value="dot">Ponto (1,234.56)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {/* IDIOMA/MOEDA */}
-                <div className="space-y-3">
-                  <Label className="text-sm font-semibold">Idioma/Moeda</Label>
-                  <div>
-                    <Label className="text-sm text-slate-600 mb-2 block">Moeda</Label>
-                    <Select 
-                      value={displaySettings.currency}
-                      onValueChange={(value) => setDisplaySettings({...displaySettings, currency: value})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="BRL">Real (R$)</SelectItem>
-                        <SelectItem value="USD">Dólar (US$)</SelectItem>
-                        <SelectItem value="EUR">Euro (€)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-slate-500 mt-1">Padrão: Real (R$)</p>
-                  </div>
-                </div>
-
-                {/* TEMA */}
-                <div className="space-y-3">
-                  <Label className="text-sm font-semibold">Tema da Interface</Label>
-                  <div>
-                    <Label className="text-sm text-slate-600 mb-2 block">Tema</Label>
-                    <Select 
-                      value={displaySettings.theme}
-                      onValueChange={(value) => setDisplaySettings({...displaySettings, theme: value})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="light">Claro (padrão)</SelectItem>
-                        <SelectItem value="dark">Escuro</SelectItem>
-                        <SelectItem value="auto">Automático (segue sistema)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {/* ITENS POR PÁGINA */}
-                <div className="space-y-3">
-                  <Label className="text-sm font-semibold">Itens por Página</Label>
-                  <div>
-                    <Label className="text-sm text-slate-600 mb-2 block">
-                      Mostrar em tabelas:
-                    </Label>
-                    <Select 
-                      value={displaySettings.items_per_page.toString()}
-                      onValueChange={(value) => setDisplaySettings({...displaySettings, items_per_page: parseInt(value)})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="10">10 itens</SelectItem>
-                        <SelectItem value="25">25 itens (padrão)</SelectItem>
-                        <SelectItem value="50">50 itens</SelectItem>
-                        <SelectItem value="100">100 itens</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {/* SEMANA INICIA EM */}
-                <div className="space-y-3">
-                  <Label className="text-sm font-semibold">Semana Inicia Em</Label>
-                  <div>
-                    <Label className="text-sm text-slate-600 mb-2 block">
-                      Primeiro dia da semana operacional
-                    </Label>
-                    <Select 
-                      value={displaySettings.week_start}
-                      onValueChange={(value) => setDisplaySettings({...displaySettings, week_start: value})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="tuesday">Terça-feira (padrão)</SelectItem>
-                        <SelectItem value="sunday">Domingo</SelectItem>
-                        <SelectItem value="monday">Segunda-feira</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-red-600 mt-1 font-medium">
-                      ⚠️ ATENÇÃO: Alterar isso afeta todo o sistema!
-                    </p>
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t">
-                  <Button 
-                    onClick={handleSaveDisplaySettings}
-                    disabled={saveDisplaySettingsMutation.isPending}
-                  >
-                    <Save className="w-4 h-4 mr-2" />
-                    Salvar Preferências de Exibição
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* SEÇÃO: BACKUP E SEGURANÇA */}
-          {activeSection === 'security' && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Backup e Segurança</CardTitle>
-                <CardDescription>Gerenciamento de dados e segurança</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <DataReset onComplete={handleResetComplete} />
-                
-                <div className="pt-4 border-t">
-                  <h4 className="font-medium mb-2">Informações do Sistema</h4>
-                  <div className="space-y-1 text-sm text-slate-600">
-                    <p>Versão: 1.0.0</p>
-                    <p>Última atualização: 07/02/2026</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      </div>
+      {/* Sobre o Sistema */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Sobre o Sistema</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm text-slate-600">
+          <div className="flex justify-between">
+            <span>Versão:</span>
+            <span className="font-medium">1.0.0</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Sistema:</span>
+            <span className="font-medium">Gestão à Vista - Produção</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Desenvolvido por:</span>
+            <span className="font-medium">Base44</span>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
