@@ -12,11 +12,13 @@ import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
 import DateRangePicker from "../components/reports/DateRangePicker";
-import SectorCards from "../components/reports/Sectorcards";
-import ProductRanking from "../components/reports/Productranking";
-import ProductEvolution from "../components/reports/Productevolution";
+import SectorCards from "../components/reports/SectorCards";
+import ProductRanking from "../components/reports/ProductRanking";
+import ProductEvolution from "../components/reports/ProductEvolution";
 import GeneralEvolutionChart from "../components/reports/GeneralEvolutionChart";
 import SectorDistributionChart from "../components/reports/SectorDistributionChart";
+import SectorEvolutionChart from "../components/reports/SectorEvolutionChart";
+import ProductsPieChart from "../components/reports/ProductsPieChart";
 
 export default function Reports() {
   const [hasAccess, setHasAccess] = useState(false);
@@ -333,7 +335,7 @@ export default function Reports() {
               {/* GRÁFICOS GERAIS (antes de selecionar setor) */}
               {!selectedSector && reportData.rawData && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Gráfico de Linha - Evolução */}
+                  {/* Gráfico de Linha - Evolução Geral */}
                   <GeneralEvolutionChart
                     rawData={reportData.rawData}
                     compareRawData={compareData?.rawData}
@@ -342,13 +344,39 @@ export default function Reports() {
                     type={activeTab}
                   />
 
-                  {/* Gráfico de Pizza - Distribuição */}
+                  {/* Gráfico de Pizza - Distribuição por Setor */}
                   <SectorDistributionChart
                     sectors={activeTab === 'sales' ? 
                       reportData.salesBySector : 
                       reportData.lossesBySector
                     }
                     type={activeTab}
+                  />
+                </div>
+              )}
+
+              {/* GRÁFICOS DO SETOR (quando setor está selecionado) */}
+              {selectedSector && reportData.rawData && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Gráfico de Linha - Evolução do Setor */}
+                  <SectorEvolutionChart
+                    rawData={activeTab === 'sales' ? 
+                      reportData.salesBySectorProduct : 
+                      reportData.lossesBySectorProduct
+                    }
+                    sector={selectedSector}
+                    type={activeTab}
+                  />
+
+                  {/* Gráfico de Pizza - Top 5 Produtos + Outros */}
+                  <ProductsPieChart
+                    products={activeTab === 'sales' ? 
+                      reportData.salesBySectorProduct : 
+                      reportData.lossesBySectorProduct
+                    }
+                    sector={selectedSector}
+                    type={activeTab}
+                    topN={5}
                   />
                 </div>
               )}
