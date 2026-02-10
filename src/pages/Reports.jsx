@@ -20,6 +20,8 @@ import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
 import DateRangePicker from "../components/reports/DateRangePicker";
+import LineChart from "../components/reports/LineChart";
+import PieChartReport from "../components/reports/PieChartReport";
 
 const REPORT_TYPES = [
   { value: 'sales', label: 'Vendas' },
@@ -329,6 +331,36 @@ export default function Reports() {
                 <div className="text-2xl font-bold">
                   {Object.keys(reportData.totalByProduct).length}
                 </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Gráficos */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+            {/* Gráfico de Linha */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Evolução Temporal</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <LineChart 
+                  data={reportData.raw}
+                  compareData={compareData?.raw}
+                  reportType={reportType}
+                />
+              </CardContent>
+            </Card>
+
+            {/* Gráfico de Pizza */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Distribuição por Setor</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <PieChartReport 
+                  data={reportData.totalBySecor}
+                  reportType={reportType}
+                />
               </CardContent>
             </Card>
           </div>
