@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
       ORDER BY total_valor DESC
     `;
 
-    // Buscar vendas do mesmo período para calcular taxa de perda
+    // Vendas por setor (para calcular taxa de perda)
     const salesBySector = await sql`
       SELECT 
         p.setor,
@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
       GROUP BY p.setor
     `;
 
-    // Enriquecer perdas com taxa de perda (%)
+    // Enriquecer perdas com taxa
     const lossesBySectorWithRate = lossesBySector.map(loss => {
       const sales = salesBySector.find(s => s.setor === loss.setor);
       const salesValue = sales ? parseFloat(sales.total_valor) : 0;
@@ -69,13 +69,15 @@ Deno.serve(async (req) => {
       const lossRate = salesValue > 0 ? (lossValue / salesValue) * 100 : 0;
 
       return {
-        ...loss,
+        setor: loss.setor,
+        total_valor: lossValue,
+        total_quantidade: parseFloat(loss.total_quantidade),
         total_vendas: salesValue,
         taxa_perda: lossRate
       };
     });
 
-    // Perdas por produto (TOP N - maior perda em R$)
+    // Perdas por produto (TOP N)
     const lossesByProduct = await sql`
       SELECT 
         p.id as produto_id,
@@ -92,26 +94,30 @@ Deno.serve(async (req) => {
       LIMIT ${topN}
     `;
 
-    // Enriquecer produtos com taxa de perda individual
-    const salesByProductIds = await sql`
+    // Vendas dos mesmos produtos (para taxa de perda)
+    const salesByProduct = await sql`
       SELECT 
-        p.id as produto_id,
+        v.produto_id,
         SUM(v.valor_reais) as total_valor
       FROM vendas v
-      JOIN produtos p ON v.produto_id = p.id
       WHERE v.data BETWEEN ${startDate} AND ${endDate}
-        AND p.id IN (${lossesByProduct.map(p => p.produto_id).join(',')})
-      GROUP BY p.id
+      GROUP BY v.produto_id
     `;
 
+    // Enriquecer produtos com taxa
     const lossesByProductWithRate = lossesByProduct.map(loss => {
-      const sales = salesByProductIds.find(s => s.produto_id === loss.produto_id);
+      const sales = salesByProduct.find(s => s.produto_id === loss.produto_id);
       const salesValue = sales ? parseFloat(sales.total_valor) : 0;
       const lossValue = parseFloat(loss.total_valor);
       const lossRate = salesValue > 0 ? (lossValue / salesValue) * 100 : 0;
 
       return {
-        ...loss,
+        produto_id: loss.produto_id,
+        produto_nome: loss.produto_nome,
+        setor: loss.setor,
+        unidade: loss.unidade,
+        total_valor: lossValue,
+        total_quantidade: parseFloat(loss.total_quantidade),
         total_vendas: salesValue,
         taxa_perda: lossRate
       };
@@ -133,7 +139,15 @@ Deno.serve(async (req) => {
       ORDER BY p.setor, total_valor DESC
     `;
 
-    // Total geral
+    // Dados brutos (para gráficos)
+    const rawLossesData = await sql`
+      SELECT 
+        pe.data,
+        pe.valor_reais
+      FROM perdas pe
+      WHERE pe.data BETWEEN ${startDate} AND ${endDate}
+    `;
+
     const totalGeral = lossesBySector.reduce((sum, s) => sum + parseFloat(s.total_valor), 0);
 
     console.log(`✅ ${lossesBySector.length} setores, ${lossesByProduct.length} produtos`);
@@ -150,8 +164,7 @@ Deno.serve(async (req) => {
       const compareLossesBySector = await sql`
         SELECT 
           p.setor,
-          SUM(pe.valor_reais) as total_valor,
-          SUM(pe.quantidade) as total_quantidade
+          SUM(pe.valor_reais) as total_valor
         FROM perdas pe
         JOIN produtos p ON pe.produto_id = p.id
         WHERE pe.data BETWEEN ${compareStartDate} AND ${compareEndDate}
@@ -175,16 +188,28 @@ Deno.serve(async (req) => {
         const lossRate = salesValue > 0 ? (lossValue / salesValue) * 100 : 0;
 
         return {
-          ...loss,
+          setor: loss.setor,
+          total_valor: lossValue,
           total_vendas: salesValue,
           taxa_perda: lossRate
         };
       });
 
+      const compareLossesByProduct = await sql`
+        SELECT 
+          p.id as produto_id,
+          SUM(pe.valor_reais) as total_valor
+        FROM perdas pe
+        JOIN produtos p ON pe.produto_id = p.id
+        WHERE pe.data BETWEEN ${compareStartDate} AND ${compareEndDate}
+        GROUP BY p.id
+      `;
+
       const compareTotalGeral = compareLossesBySector.reduce((sum, s) => sum + parseFloat(s.total_valor), 0);
 
       compareData = {
         lossesBySector: compareLossesBySectorWithRate,
+        lossesByProduct: compareLossesByProduct,
         totalGeral: compareTotalGeral
       };
     }
@@ -206,6 +231,7 @@ Deno.serve(async (req) => {
         lossesBySector: lossesBySectorWithRate,
         lossesByProduct: lossesByProductWithRate,
         lossesBySectorProduct,
+        rawData: rawLossesData,
         totalGeral
       },
       compareData
