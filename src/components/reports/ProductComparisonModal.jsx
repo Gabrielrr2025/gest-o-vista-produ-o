@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import * as XLSX from 'xlsx';
 import DateRangePicker from "./DateRangePicker";
 import ProductComparisonChart from "./ProductComparisonChart";
-import ProductComparisonTable from "./ProductComparisonTable";
+import Productcomparisontable from "./Productcomparisontable";
 
 export default function ProductComparisonModal({ 
   isOpen, 
@@ -210,7 +210,7 @@ export default function ProductComparisonModal({
               />
 
               {/* Tabela */}
-              <ProductComparisonTable 
+              <Productcomparisontable 
                 productsData={comparisonQuery.data.products}
               />
             </>
