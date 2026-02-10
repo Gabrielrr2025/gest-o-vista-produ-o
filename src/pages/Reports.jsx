@@ -12,9 +12,9 @@ import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
 import DateRangePicker from "../components/reports/DateRangePicker";
-import Sectorcards from "../components/reports/Sectorcards";
-import Productranking from "../components/reports/Productranking";
-import Productevolution from "../components/reports/Productevolution";
+import SectorCards from "../components/reports/SectorCards";
+import ProductRanking from "../components/reports/ProductRanking";
+import ProductEvolution from "../components/reports/ProductEvolution";
 import GeneralEvolutionChart from "../components/reports/GeneralEvolutionChart";
 import SectorDistributionChart from "../components/reports/SectorDistributionChart";
 import SectorEvolutionChart from "../components/reports/SectorEvolutionChart";
@@ -316,7 +316,7 @@ export default function Reports() {
                   </CardContent>
                 </Card>
 
-                <Sectorcards
+                <SectorCards
                   sectors={activeTab === 'sales' ? 
                     reportData.salesBySector : 
                     reportData.lossesBySector
@@ -360,10 +360,7 @@ export default function Reports() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Gráfico de Linha - Evolução do Setor */}
                   <SectorEvolutionChart
-                    rawData={activeTab === 'sales' ? 
-                      reportData.salesBySectorProduct : 
-                      reportData.lossesBySectorProduct
-                    }
+                    rawData={reportData.rawData}
                     sector={selectedSector}
                     type={activeTab}
                   />
@@ -383,7 +380,7 @@ export default function Reports() {
 
               {/* NÍVEL 2: Ranking de Produtos */}
               {filteredProducts.length > 0 && (
-                <Productranking
+                <ProductRanking
                   products={filteredProducts}
                   selectedSector={selectedSector}
                   selectedProduct={selectedProduct}
@@ -394,7 +391,7 @@ export default function Reports() {
 
               {/* NÍVEL 3: Evolução do Produto */}
               {selectedProduct && evolutionQuery.data && (
-                <Productevolution
+                <ProductEvolution
                   produto={evolutionQuery.data.produto}
                   evolutionData={evolutionQuery.data.data.evolution}
                   compareEvolutionData={evolutionQuery.data.compareData?.evolution}
