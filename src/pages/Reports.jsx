@@ -1,41 +1,26 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { 
-  FileSpreadsheet, 
-  TrendingUp, 
-  TrendingDown,
-  ArrowUp,
-  ArrowDown,
-  Minus
-} from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FileSpreadsheet, TrendingUp, TrendingDown } from "lucide-react";
 import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
-import MultiPeriodComparison from "../components/reports/MultiPeriodComparison";
-import LineChart from "../components/reports/LineChart";
-import PieChartReport from "../components/reports/PieChartReport";
-
-const REPORT_TYPES = [
-  { value: 'sales', label: 'Vendas' },
-  { value: 'losses', label: 'Perdas' }
-];
-
-const SECTORS = ['Padaria', 'Confeitaria', 'Salgados', 'Frios', 'Restaurante', 'Minimercado'];
+import DateRangePicker from "../components/reports/DateRangePicker";
+import SectorCards from "../components/reports/SectorCards";
+import ProductRanking from "../components/reports/ProductRanking";
+import ProductEvolution from "../components/reports/ProductEvolution";
 
 export default function Reports() {
   const [hasAccess, setHasAccess] = useState(false);
-  const [reportType, setReportType] = useState('sales');
-  const [selectedSector, setSelectedSector] = useState('all');
   
-  // Período base - PADRÃO: Mês passado completo
-  const [basePeriod, setBasePeriod] = useState(() => {
+  // Período principal - PADRÃO: Mês passado
+  const [dateRange, setDateRange] = useState(() => {
     const lastMonth = subMonths(new Date(), 1);
     return {
       from: startOfMonth(lastMonth),
@@ -43,8 +28,18 @@ export default function Reports() {
     };
   });
 
-  // Períodos de comparação
-  const [comparePeriods, setComparePeriods] = useState([]);
+  // Comparação
+  const [compareEnabled, setCompareEnabled] = useState(false);
+  const [compareDateRange, setCompareDateRange] = useState(null);
+
+  // Controles
+  const [activeTab, setActiveTab] = useState('sales'); // 'sales' ou 'losses'
+  const [topN, setTopN] = useState(10);
+
+  // Estados de seleção (drill-down)
+  const [selectedSector, setSelectedSector] = useState(null);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [selectedProductName, setSelectedProductName] = useState(null);
 
   // Verificar acesso
   useEffect(() => {
@@ -64,85 +59,114 @@ export default function Reports() {
     checkAuth();
   }, []);
 
-  // Construir array de períodos para a API
-  const periods = useMemo(() => {
-    const periodsArray = [];
+  // Preparar parâmetros para API
+  const apiParams = useMemo(() => {
+    if (!dateRange?.from || !dateRange?.to) return null;
 
-    // Período base
-    if (basePeriod?.from && basePeriod?.to) {
-      periodsArray.push({
-        startDate: format(basePeriod.from, 'yyyy-MM-dd'),
-        endDate: format(basePeriod.to, 'yyyy-MM-dd'),
-        label: 'Período Base'
-      });
-    }
+    return {
+      startDate: format(dateRange.from, 'yyyy-MM-dd'),
+      endDate: format(dateRange.to, 'yyyy-MM-dd'),
+      compareStartDate: compareEnabled && compareDateRange?.from ? 
+        format(compareDateRange.from, 'yyyy-MM-dd') : null,
+      compareEndDate: compareEnabled && compareDateRange?.to ? 
+        format(compareDateRange.to, 'yyyy-MM-dd') : null,
+      topN
+    };
+  }, [dateRange, compareEnabled, compareDateRange, topN]);
 
-    // Períodos de comparação
-    comparePeriods.forEach((period, index) => {
-      if (period.range?.from && period.range?.to) {
-        periodsArray.push({
-          startDate: format(period.range.from, 'yyyy-MM-dd'),
-          endDate: format(period.range.to, 'yyyy-MM-dd'),
-          label: `Período ${index + 2}`
-        });
-      }
-    });
-
-    return periodsArray;
-  }, [basePeriod, comparePeriods]);
-
-  // Buscar dados
-  const reportQuery = useQuery({
-    queryKey: ['reportData', periods, reportType, selectedSector],
+  // Buscar dados de VENDAS
+  const salesQuery = useQuery({
+    queryKey: ['salesReport', apiParams],
     queryFn: async () => {
-      const response = await base44.functions.invoke('getReportData', {
-        periods,
-        reportType,
-        sector: selectedSector
+      const response = await base44.functions.invoke('getSalesReport', apiParams);
+      return response.data;
+    },
+    enabled: hasAccess && !!apiParams && activeTab === 'sales'
+  });
+
+  // Buscar dados de PERDAS
+  const lossesQuery = useQuery({
+    queryKey: ['lossesReport', apiParams],
+    queryFn: async () => {
+      const response = await base44.functions.invoke('getLossesReport', apiParams);
+      return response.data;
+    },
+    enabled: hasAccess && !!apiParams && activeTab === 'losses'
+  });
+
+  // Buscar evolução do produto selecionado
+  const evolutionQuery = useQuery({
+    queryKey: ['productEvolution', selectedProduct, apiParams, activeTab],
+    queryFn: async () => {
+      const response = await base44.functions.invoke('getProductEvolution', {
+        produtoId: selectedProduct,
+        ...apiParams,
+        type: activeTab
       });
       return response.data;
     },
-    enabled: hasAccess && periods.length > 0
+    enabled: !!selectedProduct && !!apiParams
   });
 
-  const periodsData = reportQuery.data?.periods || [];
-  const basePeriodData = periodsData[0]?.data || null;
+  // Dados ativos baseado na aba
+  const activeQuery = activeTab === 'sales' ? salesQuery : lossesQuery;
+  const reportData = activeQuery.data?.data;
+  const compareData = activeQuery.data?.compareData;
 
-  // Calcular variação percentual
-  const calculateChange = (current, previous) => {
-    if (!previous || previous === 0) return null;
-    return ((current - previous) / previous) * 100;
+  // Produtos filtrados por setor selecionado
+  const filteredProducts = useMemo(() => {
+    if (!reportData) return [];
+    
+    if (!selectedSector) {
+      return reportData.salesByProduct || reportData.lossesByProduct || [];
+    }
+
+    const allProducts = reportData.salesBySectorProduct || reportData.lossesBySectorProduct || [];
+    return allProducts
+      .filter(p => p.setor === selectedSector)
+      .slice(0, topN);
+  }, [reportData, selectedSector, topN, activeTab]);
+
+  // Handlers
+  const handleSectorClick = (sector) => {
+    setSelectedSector(sector === selectedSector ? null : sector);
+    setSelectedProduct(null);
+    setSelectedProductName(null);
+  };
+
+  const handleProductClick = (produtoId, produtoNome) => {
+    setSelectedProduct(produtoId === selectedProduct ? null : produtoId);
+    setSelectedProductName(produtoId === selectedProduct ? null : produtoNome);
+  };
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setSelectedSector(null);
+    setSelectedProduct(null);
+    setSelectedProductName(null);
   };
 
   // Exportar Excel
   const handleExportExcel = () => {
-    if (!basePeriodData) return;
+    if (!reportData) return;
 
     try {
-      const excelData = Object.entries(basePeriodData.totalByProduct).map(([id, data]) => {
-        const row = {
-          'Produto': data.nome,
-          'Setor': data.setor,
-          'Unidade': data.unidade
-        };
-
-        // Adicionar coluna para cada período
-        periodsData.forEach((period, idx) => {
-          const periodProduct = period.data.totalByProduct[id];
-          row[period.label] = periodProduct ? 
-            `R$ ${periodProduct.valor_reais.toFixed(2)}` : 
-            'R$ 0,00';
-        });
-
-        return row;
-      });
+      const products = reportData.salesByProduct || reportData.lossesByProduct || [];
+      const excelData = products.map((p, idx) => ({
+        'Ranking': idx + 1,
+        'Produto': p.produto_nome,
+        'Setor': p.setor,
+        'Valor (R$)': parseFloat(p.total_valor).toFixed(2),
+        'Quantidade': parseFloat(p.total_quantidade).toFixed(2),
+        'Unidade': p.unidade
+      }));
 
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(excelData);
 
-      XLSX.utils.book_append_sheet(wb, ws, 'Relatório');
+      XLSX.utils.book_append_sheet(wb, ws, activeTab === 'sales' ? 'Vendas' : 'Perdas');
 
-      const fileName = `Relatorio_${reportType}_${format(new Date(), 'dd-MM-yyyy')}.xlsx`;
+      const fileName = `Relatorio_${activeTab}_${format(new Date(), 'dd-MM-yyyy')}.xlsx`;
       XLSX.writeFile(wb, fileName);
 
       toast.success("Excel exportado!");
@@ -164,12 +188,12 @@ export default function Reports() {
       {/* Cabeçalho */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Relatórios</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Relatórios Interativos</h1>
           <p className="text-sm text-slate-500 mt-1">
-            Análise financeira com comparações entre períodos
+            Análise detalhada com drill-down por setor e produto
           </p>
         </div>
-        <Button onClick={handleExportExcel} disabled={!basePeriodData}>
+        <Button onClick={handleExportExcel} disabled={!reportData}>
           <FileSpreadsheet className="w-4 h-4 mr-2" />
           Exportar Excel
         </Button>
@@ -178,187 +202,131 @@ export default function Reports() {
       {/* Controles */}
       <Card>
         <CardContent className="pt-6 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Período Principal */}
             <div className="space-y-2">
-              <Label>Tipo de Relatório</Label>
-              <Select value={reportType} onValueChange={setReportType}>
+              <Label>Período de Análise</Label>
+              <DateRangePicker 
+                value={dateRange}
+                onChange={setDateRange}
+              />
+            </div>
+
+            {/* Top N */}
+            <div className="space-y-2">
+              <Label>Produtos a Exibir</Label>
+              <Select value={topN.toString()} onValueChange={(v) => setTopN(parseInt(v))}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {REPORT_TYPES.map(type => (
-                    <SelectItem key={type.value} value={type.value}>
-                      {type.label}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="10">Top 10</SelectItem>
+                  <SelectItem value="20">Top 20</SelectItem>
+                  <SelectItem value="30">Top 30</SelectItem>
+                  <SelectItem value="50">Top 50</SelectItem>
+                  <SelectItem value="100">Todos</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
+            {/* Comparação */}
             <div className="space-y-2">
-              <Label>Setor</Label>
-              <Select value={selectedSector} onValueChange={setSelectedSector}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os setores</SelectItem>
-                  {SECTORS.map(sector => (
-                    <SelectItem key={sector} value={sector}>
-                      {sector}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="compare"
+                  checked={compareEnabled}
+                  onCheckedChange={setCompareEnabled}
+                />
+                <Label htmlFor="compare">Comparar com outro período</Label>
+              </div>
+              {compareEnabled && (
+                <DateRangePicker 
+                  value={compareDateRange}
+                  onChange={setCompareDateRange}
+                />
+              )}
             </div>
           </div>
-
-          {/* Comparação de Múltiplos Períodos */}
-          <MultiPeriodComparison
-            basePeriod={basePeriod}
-            onBasePeriodChange={setBasePeriod}
-            onPeriodsChange={setComparePeriods}
-          />
         </CardContent>
       </Card>
 
-      {/* Conteúdo */}
-      {reportQuery.isLoading ? (
-        <div className="text-center py-12 text-slate-500">
-          Carregando dados...
-        </div>
-      ) : basePeriodData ? (
-        <>
-          {/* Cards KPI */}
-          <div className={`grid grid-cols-1 gap-4 ${periodsData.length > 2 ? 'md:grid-cols-4' : periodsData.length === 2 ? 'md:grid-cols-2' : 'md:grid-cols-3'}`}>
-            {periodsData.map((period, idx) => {
-              const isBase = idx === 0;
-              const change = !isBase && periodsData[0] ? 
-                calculateChange(
-                  period.data.totalGeral.valor_reais,
-                  periodsData[0].data.totalGeral.valor_reais
-                ) : null;
+      {/* Tabs: Vendas vs Perdas */}
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="sales" className="flex items-center gap-2">
+            <TrendingUp className="w-4 h-4" />
+            Vendas
+          </TabsTrigger>
+          <TabsTrigger value="losses" className="flex items-center gap-2">
+            <TrendingDown className="w-4 h-4" />
+            Perdas
+          </TabsTrigger>
+        </TabsList>
 
-              return (
-                <Card key={idx}>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-slate-600">
-                      {period.label}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-end justify-between">
-                      <div className="text-2xl font-bold">
-                        R$ {period.data.totalGeral.valor_reais.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </div>
-                      {change !== null && (
-                        <div className={`flex items-center text-sm font-medium ${change > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {change > 0 ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
-                          {Math.abs(change).toFixed(1)}%
-                        </div>
-                      )}
-                    </div>
-                    <p className="text-xs text-slate-500 mt-1">
-                      {format(new Date(period.period.start), 'dd/MM')} - {format(new Date(period.period.end), 'dd/MM/yyyy')}
-                    </p>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-
-          {/* Gráficos */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Gráfico de Linha */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Evolução Temporal</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <LineChart 
-                  periodsData={periodsData}
-                  reportType={reportType}
+        {/* Conteúdo */}
+        <TabsContent value={activeTab} className="space-y-6 mt-6">
+          {activeQuery.isLoading ? (
+            <div className="text-center py-12 text-slate-500">
+              Carregando dados...
+            </div>
+          ) : reportData ? (
+            <>
+              {/* NÍVEL 1: Cards de Setores */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4">
+                  {activeTab === 'sales' ? 'Vendas' : 'Perdas'} por Setor
+                  {selectedSector && (
+                    <span className="ml-2 text-sm font-normal text-slate-500">
+                      (Clique novamente no setor para ver todos os produtos)
+                    </span>
+                  )}
+                </h3>
+                <SectorCards
+                  sectors={activeTab === 'sales' ? 
+                    reportData.salesBySector : 
+                    reportData.lossesBySector
+                  }
+                  compareSectors={compareData ? (
+                    activeTab === 'sales' ? 
+                      compareData.salesBySector : 
+                      compareData.lossesBySector
+                  ) : null}
+                  selectedSector={selectedSector}
+                  onSectorClick={handleSectorClick}
+                  totalGeral={reportData.totalGeral}
                 />
-              </CardContent>
-            </Card>
+              </div>
 
-            {/* Gráfico de Pizza */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Distribuição por Setor</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <PieChartReport 
-                  data={basePeriodData.totalBySecor}
-                  reportType={reportType}
+              {/* NÍVEL 2: Ranking de Produtos */}
+              {filteredProducts.length > 0 && (
+                <ProductRanking
+                  products={filteredProducts}
+                  selectedSector={selectedSector}
+                  selectedProduct={selectedProduct}
+                  onProductClick={handleProductClick}
+                  type={activeTab}
                 />
-              </CardContent>
-            </Card>
-          </div>
+              )}
 
-          {/* Tabela Detalhada */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Detalhamento por Produto</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Produto</TableHead>
-                    <TableHead>Setor</TableHead>
-                    {periodsData.map((period, idx) => (
-                      <TableHead key={idx} className="text-right">
-                        {period.label}
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {Object.entries(basePeriodData.totalByProduct)
-                    .sort((a, b) => b[1].valor_reais - a[1].valor_reais)
-                    .map(([id, baseData]) => {
-                      return (
-                        <TableRow key={id}>
-                          <TableCell className="font-medium">{baseData.nome}</TableCell>
-                          <TableCell>{baseData.setor}</TableCell>
-                          {periodsData.map((period, idx) => {
-                            const periodProduct = period.data.totalByProduct[id];
-                            const value = periodProduct?.valor_reais || 0;
-                            
-                            // Calcular variação em relação ao período base
-                            const change = idx > 0 && baseData ? 
-                              calculateChange(value, baseData.valor_reais) : null;
-
-                            return (
-                              <TableCell key={idx} className="text-right">
-                                <div>
-                                  <span className="font-medium">
-                                    R$ {value.toFixed(2)}
-                                  </span>
-                                  {change !== null && (
-                                    <div className={`text-xs flex items-center justify-end gap-1 mt-1 ${change > 0 ? 'text-green-600' : change < 0 ? 'text-red-600' : 'text-slate-500'}`}>
-                                      {change > 0 ? <TrendingUp className="w-3 h-3" /> : change < 0 ? <TrendingDown className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
-                                      {Math.abs(change).toFixed(1)}%
-                                    </div>
-                                  )}
-                                </div>
-                              </TableCell>
-                            );
-                          })}
-                        </TableRow>
-                      );
-                    })}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </>
-      ) : (
-        <div className="text-center py-12 text-slate-500">
-          Selecione um período para visualizar os dados
-        </div>
-      )}
+              {/* NÍVEL 3: Evolução do Produto */}
+              {selectedProduct && evolutionQuery.data && (
+                <ProductEvolution
+                  produto={evolutionQuery.data.produto}
+                  evolutionData={evolutionQuery.data.data.evolution}
+                  compareEvolutionData={evolutionQuery.data.compareData?.evolution}
+                  stats={evolutionQuery.data.data.stats}
+                  compareStats={evolutionQuery.data.compareData?.stats}
+                  type={activeTab}
+                />
+              )}
+            </>
+          ) : (
+            <div className="text-center py-12 text-slate-500">
+              Selecione um período para visualizar os dados
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
