@@ -12,13 +12,14 @@ import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
 import DateRangePicker from "../components/reports/DateRangePicker";
-import Sectorcards from "../components/reports/Sectorcards";
-import Productranking from "../components/reports/Productranking";
-import Productevolution from "../components/reports/Productevolution";
+import SectorCards from "../components/reports/SectorCards";
+import ProductRanking from "../components/reports/ProductRanking";
+import ProductEvolution from "../components/reports/ProductEvolution";
 import GeneralEvolutionChart from "../components/reports/GeneralEvolutionChart";
 import SectorDistributionChart from "../components/reports/SectorDistributionChart";
 import SectorEvolutionChart from "../components/reports/SectorEvolutionChart";
 import ProductsPieChart from "../components/reports/ProductsPieChart";
+import ProductComparisonModal from "../components/reports/ProductComparisonModal";
 
 export default function Reports() {
   const [hasAccess, setHasAccess] = useState(false);
@@ -44,6 +45,10 @@ export default function Reports() {
   const [selectedSector, setSelectedSector] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedProductName, setSelectedProductName] = useState(null);
+
+  // Modal de comparação
+  const [comparisonModalOpen, setComparisonModalOpen] = useState(false);
+  const [comparisonInitialProduct, setComparisonInitialProduct] = useState(null);
 
   // Verificar acesso
   useEffect(() => {
@@ -139,8 +144,13 @@ export default function Reports() {
   };
 
   const handleProductClick = (produtoId, produtoNome) => {
-    setSelectedProduct(produtoId === selectedProduct ? null : produtoId);
-    setSelectedProductName(produtoId === selectedProduct ? null : produtoNome);
+    // Buscar dados completos do produto
+    const productData = filteredProducts.find(p => p.produto_id === produtoId);
+    
+    if (productData) {
+      setComparisonInitialProduct(productData);
+      setComparisonModalOpen(true);
+    }
   };
 
   const handleTabChange = (tab) => {
@@ -316,7 +326,7 @@ export default function Reports() {
                   </CardContent>
                 </Card>
 
-                <Sectorcards
+                <SectorCards
                   sectors={activeTab === 'sales' ? 
                     reportData.salesBySector : 
                     reportData.lossesBySector
@@ -380,23 +390,11 @@ export default function Reports() {
 
               {/* NÍVEL 2: Ranking de Produtos */}
               {filteredProducts.length > 0 && (
-                <Productranking
+                <ProductRanking
                   products={filteredProducts}
                   selectedSector={selectedSector}
                   selectedProduct={selectedProduct}
                   onProductClick={handleProductClick}
-                  type={activeTab}
-                />
-              )}
-
-              {/* NÍVEL 3: Evolução do Produto */}
-              {selectedProduct && evolutionQuery.data && (
-                <Productevolution
-                  produto={evolutionQuery.data.produto}
-                  evolutionData={evolutionQuery.data.data.evolution}
-                  compareEvolutionData={evolutionQuery.data.compareData?.evolution}
-                  stats={evolutionQuery.data.data.stats}
-                  compareStats={evolutionQuery.data.compareData?.stats}
                   type={activeTab}
                 />
               )}
@@ -408,6 +406,16 @@ export default function Reports() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Modal de Comparação de Produtos */}
+      <ProductComparisonModal
+        isOpen={comparisonModalOpen}
+        onClose={() => setComparisonModalOpen(false)}
+        initialProduct={comparisonInitialProduct}
+        initialDateRange={dateRange}
+        allProducts={reportData?.salesBySectorProduct || reportData?.lossesBySectorProduct || []}
+        type={activeTab}
+      />
     </div>
   );
 }
