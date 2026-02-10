@@ -15,19 +15,15 @@ import {
   ArrowDown,
   Minus
 } from "lucide-react";
-import { format, subWeeks, subMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
+import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
+import DateRangePicker from "../components/reports/DateRangePicker";
 
 const REPORT_TYPES = [
   { value: 'sales', label: 'Vendas' },
   { value: 'losses', label: 'Perdas' }
-];
-
-const PERIOD_PRESETS = [
-  { value: 'week', label: 'Última Semana' },
-  { value: 'month', label: 'Último Mês' }
 ];
 
 const COMPARE_OPTIONS = [
@@ -40,9 +36,17 @@ const SECTORS = ['Padaria', 'Confeitaria', 'Salgados', 'Frios', 'Restaurante', '
 export default function Reports() {
   const [hasAccess, setHasAccess] = useState(false);
   const [reportType, setReportType] = useState('sales');
-  const [periodPreset, setPeriodPreset] = useState('month');
   const [compareOption, setCompareOption] = useState('none');
   const [selectedSector, setSelectedSector] = useState('all');
+  
+  // Date range - PADRÃO: Mês passado completo
+  const [dateRange, setDateRange] = useState(() => {
+    const lastMonth = subMonths(new Date(), 1);
+    return {
+      from: startOfMonth(lastMonth),
+      to: endOfMonth(lastMonth)
+    };
+  });
 
   // Verificar acesso
   useEffect(() => {
@@ -62,18 +66,21 @@ export default function Reports() {
     checkAuth();
   }, []);
 
-  // Calcular datas
+  // Calcular datas baseado no dateRange
   const { startDate, endDate, compareStartDate, compareEndDate } = useMemo(() => {
-    const today = new Date();
-    let start, end, compareStart = null, compareEnd = null;
-
-    if (periodPreset === 'week') {
-      start = startOfWeek(subWeeks(today, 1), { weekStartsOn: 2 });
-      end = endOfWeek(subWeeks(today, 1), { weekStartsOn: 2 });
-    } else {
-      start = startOfMonth(subMonths(today, 1));
-      end = endOfMonth(subMonths(today, 1));
+    if (!dateRange?.from || !dateRange?.to) {
+      return {
+        startDate: null,
+        endDate: null,
+        compareStartDate: null,
+        compareEndDate: null
+      };
     }
+
+    const start = dateRange.from;
+    const end = dateRange.to;
+    let compareStart = null;
+    let compareEnd = null;
 
     if (compareOption === 'previous') {
       const diffDays = Math.floor((end - start) / (1000 * 60 * 60 * 24));
@@ -89,7 +96,7 @@ export default function Reports() {
       compareStartDate: compareStart ? format(compareStart, 'yyyy-MM-dd') : null,
       compareEndDate: compareEnd ? format(compareEnd, 'yyyy-MM-dd') : null
     };
-  }, [periodPreset, compareOption]);
+  }, [dateRange, compareOption]);
 
   // Buscar dados
   const reportQuery = useQuery({
@@ -105,7 +112,7 @@ export default function Reports() {
       });
       return response.data;
     },
-    enabled: hasAccess
+    enabled: hasAccess && !!startDate && !!endDate
   });
 
   const reportData = reportQuery.data?.data || null;
@@ -199,18 +206,10 @@ export default function Reports() {
 
             <div className="space-y-2">
               <Label>Período</Label>
-              <Select value={periodPreset} onValueChange={setPeriodPreset}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PERIOD_PRESETS.map(period => (
-                    <SelectItem key={period.value} value={period.value}>
-                      {period.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <DateRangePicker 
+                value={dateRange} 
+                onChange={setDateRange}
+              />
             </div>
 
             <div className="space-y-2">
@@ -247,12 +246,14 @@ export default function Reports() {
             </div>
           </div>
 
-          <div className="mt-4 text-sm text-slate-600">
-            Período: {format(new Date(startDate), 'dd/MM/yyyy')} a {format(new Date(endDate), 'dd/MM/yyyy')}
-            {compareStartDate && (
-              <> · Comparando com: {format(new Date(compareStartDate), 'dd/MM/yyyy')} a {format(new Date(compareEndDate), 'dd/MM/yyyy')}</>
-            )}
-          </div>
+          {startDate && endDate && (
+            <div className="mt-4 text-sm text-slate-600">
+              Período: {format(new Date(startDate), 'dd/MM/yyyy')} a {format(new Date(endDate), 'dd/MM/yyyy')}
+              {compareStartDate && (
+                <> · Comparando com: {format(new Date(compareStartDate), 'dd/MM/yyyy')} a {format(new Date(compareEndDate), 'dd/MM/yyyy')}</>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
