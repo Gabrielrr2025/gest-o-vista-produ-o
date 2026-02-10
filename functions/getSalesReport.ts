@@ -91,8 +91,10 @@ Deno.serve(async (req) => {
     const rawSalesData = await sql`
       SELECT 
         v.data,
+        p.setor,
         v.valor_reais
       FROM vendas v
+      JOIN produtos p ON v.produto_id = p.id
       WHERE v.data BETWEEN ${startDate} AND ${endDate}
     `;
 
@@ -136,8 +138,10 @@ Deno.serve(async (req) => {
       const compareRawSalesData = await sql`
         SELECT 
           v.data,
+          p.setor,
           v.valor_reais
         FROM vendas v
+        JOIN produtos p ON v.produto_id = p.id
         WHERE v.data BETWEEN ${compareStartDate} AND ${compareEndDate}
       `;
 
