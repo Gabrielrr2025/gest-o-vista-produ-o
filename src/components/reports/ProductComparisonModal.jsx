@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import * as XLSX from 'xlsx';
 import DateRangePicker from "./DateRangePicker";
 import ProductComparisonChart from "./ProductComparisonChart";
-import Productcomparisontable from "./Productcomparisontable";
+import ProductComparisonTable from "./ProductComparisonTable";
 
 export default function ProductComparisonModal({ 
   isOpen, 
@@ -124,18 +124,24 @@ export default function ProductComparisonModal({
         </DialogHeader>
 
         <div className="space-y-6">
+          {/* DEBUG INFO */}
+          <div className="text-xs text-slate-500 p-2 bg-slate-50 rounded">
+            Debug: {selectedProducts.length} produtos | Período: {dateRange?.from ? 'OK' : 'NULL'} | Query: {comparisonQuery.isLoading ? 'Loading...' : comparisonQuery.data ? 'Data OK' : 'No data'}
+          </div>
+
           {/* Seleção de Produtos */}
           <div className="space-y-3">
             <Label className="text-base font-semibold">Produtos Selecionados</Label>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="space-y-3">
+              {/* Produtos já selecionados */}
               {selectedProducts.map((product, index) => (
                 <div 
                   key={product.produto_id}
-                  className="flex items-center gap-2 p-3 border rounded-lg bg-slate-50"
+                  className="flex items-center gap-3 p-3 border rounded-lg bg-slate-50"
                 >
-                  <div className="flex-1">
-                    <div className="font-medium text-sm">{product.produto_nome}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-sm truncate">{product.produto_nome}</div>
                     <Badge variant="outline" className="text-xs mt-1">
                       {product.setor}
                     </Badge>
@@ -145,7 +151,7 @@ export default function ProductComparisonModal({
                       variant="ghost"
                       size="sm"
                       onClick={() => handleRemoveProduct(product.produto_id)}
-                      className="h-6 w-6 p-0"
+                      className="h-8 w-8 p-0 flex-shrink-0"
                     >
                       <X className="w-4 h-4" />
                     </Button>
@@ -153,22 +159,28 @@ export default function ProductComparisonModal({
                 </div>
               ))}
 
-              {/* Botão Adicionar Produto */}
+              {/* Adicionar novo produto */}
               {selectedProducts.length < 3 && (
-                <div className="border-2 border-dashed rounded-lg p-3 flex items-center justify-center">
+                <div className="border-2 border-dashed rounded-lg p-3">
                   <Select onValueChange={handleAddProduct}>
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="+ Adicionar produto" />
+                      <SelectValue placeholder="+ Adicionar produto para comparar" />
                     </SelectTrigger>
                     <SelectContent className="z-[150]">
-                      {availableProducts.map(product => (
-                        <SelectItem 
-                          key={product.produto_id} 
-                          value={product.produto_id.toString()}
-                        >
-                          {product.produto_nome} ({product.setor})
+                      {availableProducts.length > 0 ? (
+                        availableProducts.map(product => (
+                          <SelectItem 
+                            key={product.produto_id} 
+                            value={product.produto_id.toString()}
+                          >
+                            {product.produto_nome} ({product.setor})
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="none" disabled>
+                          Nenhum produto disponível
                         </SelectItem>
-                      ))}
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -210,7 +222,7 @@ export default function ProductComparisonModal({
               />
 
               {/* Tabela */}
-              <Productcomparisontable 
+              <ProductComparisonTable 
                 productsData={comparisonQuery.data.products}
               />
             </>
