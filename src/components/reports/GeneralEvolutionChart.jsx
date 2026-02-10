@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { format, eachDayOfInterval } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 const CustomTooltip = ({ active, payload, label }) => {
@@ -41,12 +41,69 @@ export default function GeneralEvolutionChart({
   compareDateRange = null,
   type = 'sales'
 }) {
-  console.log('🔍 DEBUG GeneralEvolutionChart:', {
+  console.log('🔍 DEBUG - Dados recebidos:', {
     rawDataLength: rawData?.length,
     rawDataSample: rawData?.[0],
+    rawDataFirst5: rawData?.slice(0, 5),
     dateRange,
-    type
+    dateRangeFrom: dateRange?.from,
+    dateRangeTo: dateRange?.to
   });
+
+  console.log('🔍 ESTRUTURA COMPLETA DO PRIMEIRO ITEM:', JSON.stringify(rawData?.[0], null, 2));
+
+  const chartData = useMemo(() => {
+    if (!rawData || rawData.length === 0) {
+      console.log('❌ Sem dados para processar');
+      return [];
+    }
+
+    // Agrupar por data
+    const dataByDate = {};
+    
+    rawData.forEach(item => {
+      try {
+        // Extrair só a parte da data (YYYY-MM-DD) do timestamp ISO
+        let dateKey;
+        if (item.data) {
+          // Se vier como '2026-01-02T00:00:00.000Z', pegar só '2026-01-02'
+          dateKey = item.data.split('T')[0];
+        }
+
+        if (!dateKey) {
+          console.warn('⚠️ Data inválida:', item);
+          return;
+        }
+
+        if (!dataByDate[dateKey]) {
+          dataByDate[dateKey] = 0;
+        }
+
+        dataByDate[dateKey] += parseFloat(item.valor_reais || 0);
+      } catch (error) {
+        console.error('❌ Erro ao processar item:', item, error);
+      }
+    });
+
+    console.log('📊 Dados agrupados:', dataByDate);
+
+    // Converter para array e ordenar
+    const chartArray = Object.entries(dataByDate)
+      .map(([date, value]) => ({
+        date: format(parseISO(date), 'dd/MM', { locale: ptBR }),
+        fullDate: date,
+        value: value
+      }))
+      .sort((a, b) => a.fullDate.localeCompare(b.fullDate));
+
+    console.log('📈 Array final para gráfico:', {
+      length: chartArray.length,
+      sample: chartArray.slice(0, 3),
+      totalValue: chartArray.reduce((sum, d) => sum + d.value, 0)
+    });
+
+    return chartArray;
+  }, [rawData]);
 
   if (!rawData || rawData.length === 0) {
     return (
@@ -60,65 +117,19 @@ export default function GeneralEvolutionChart({
     );
   }
 
-  // Gerar todos os dias do período
-  const allDays = eachDayOfInterval({
-    start: dateRange.from,
-    end: dateRange.to
-  });
-
-  console.log('📅 Período selecionado:', {
-    from: dateRange.from,
-    to: dateRange.to,
-    totalDays: allDays.length
-  });
-
-  // Agregar dados por dia
-  const chartData = allDays.map(day => {
-    const dateStr = format(day, 'yyyy-MM-dd');
-    const dateLabel = format(day, 'dd/MM', { locale: ptBR });
-    
-    // Somar valores do dia atual
-    const matchingData = rawData.filter(item => item.data === dateStr);
-    const dayValue = matchingData.reduce((sum, item) => sum + parseFloat(item.valor_reais || 0), 0);
-
-    console.log(`📆 ${dateStr} (${dateLabel}): ${matchingData.length} registros, total: R$ ${dayValue.toFixed(2)}`);
-
-    const dataPoint = {
-      date: dateLabel,
-      value: dayValue
-    };
-
-    // Se tiver comparação, buscar valor do mesmo dia no período de comparação
-    if (compareRawData && compareDateRange) {
-      const compareDayIndex = allDays.indexOf(day);
-      if (compareDayIndex !== -1) {
-        const compareDays = eachDayOfInterval({
-          start: compareDateRange.from,
-          end: compareDateRange.to
-        });
-        
-        if (compareDays[compareDayIndex]) {
-          const compareDateStr = format(compareDays[compareDayIndex], 'yyyy-MM-dd');
-          const compareValue = compareRawData
-            .filter(item => item.data === compareDateStr)
-            .reduce((sum, item) => sum + parseFloat(item.valor_reais || 0), 0);
-          
-          dataPoint.compareValue = compareValue;
-        }
-      }
-    }
-
-    return dataPoint;
-  });
-
-  console.log('📊 Dados processados para gráfico:', {
-    chartDataLength: chartData.length,
-    chartDataSample: chartData.slice(0, 3),
-    totalValue: chartData.reduce((sum, d) => sum + d.value, 0)
-  });
+  if (chartData.length === 0) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <p className="text-center text-slate-500">
+            Erro ao processar dados. Verifique o console.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const lineColor = type === 'sales' ? '#3b82f6' : '#ef4444';
-  const compareLineColor = type === 'sales' ? '#f59e0b' : '#f97316';
 
   return (
     <Card>
@@ -156,24 +167,10 @@ export default function GeneralEvolutionChart({
                 dataKey="value" 
                 stroke={lineColor}
                 strokeWidth={2}
-                name="Período Atual"
+                name="Faturamento"
                 dot={{ fill: lineColor, r: 3 }}
                 activeDot={{ r: 5 }}
               />
-              
-              {/* Linha de comparação */}
-              {compareRawData && (
-                <Line 
-                  type="monotone" 
-                  dataKey="compareValue" 
-                  stroke={compareLineColor}
-                  strokeWidth={2}
-                  strokeDasharray="5 5"
-                  name="Período Comparação"
-                  dot={{ fill: compareLineColor, r: 3 }}
-                  activeDot={{ r: 5 }}
-                />
-              )}
             </LineChart>
           </ResponsiveContainer>
         </div>
