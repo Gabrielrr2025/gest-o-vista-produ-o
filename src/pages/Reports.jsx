@@ -12,9 +12,9 @@ import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
 import DateRangePicker from "../components/reports/DateRangePicker";
-import SectorCards from "../components/reports/SectorCards";
-import ProductRanking from "../components/reports/ProductRanking";
-import ProductEvolution from "../components/reports/ProductEvolution";
+import SectorCards from "../components/reports/Sectorcards";
+import ProductRanking from "../components/reports/Productranking";
+import ProductEvolution from "../components/reports/Productevolution";
 import GeneralEvolutionChart from "../components/reports/GeneralEvolutionChart";
 import SectorDistributionChart from "../components/reports/SectorDistributionChart";
 
