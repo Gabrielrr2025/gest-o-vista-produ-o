@@ -1,8 +1,19 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, getHours, getDay, getWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+
+const GROUPING_OPTIONS = [
+  { value: 'hour', label: 'Agrupar por hora' },
+  { value: 'day', label: 'Agrupar por dia' },
+  { value: 'weekday', label: 'Agrupar por dia da semana' },
+  { value: 'week', label: 'Agrupar por semana' },
+  { value: 'month', label: 'Agrupar por mês' }
+];
+
+const WEEKDAY_NAMES = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
@@ -41,69 +52,97 @@ export default function GeneralEvolutionChart({
   compareDateRange = null,
   type = 'sales'
 }) {
-  console.log('🔍 DEBUG - Dados recebidos:', {
-    rawDataLength: rawData?.length,
-    rawDataSample: rawData?.[0],
-    rawDataFirst5: rawData?.slice(0, 5),
-    dateRange,
-    dateRangeFrom: dateRange?.from,
-    dateRangeTo: dateRange?.to
-  });
-
-  console.log('🔍 ESTRUTURA COMPLETA DO PRIMEIRO ITEM:', JSON.stringify(rawData?.[0], null, 2));
+  const [groupBy, setGroupBy] = useState('day');
 
   const chartData = useMemo(() => {
     if (!rawData || rawData.length === 0) {
-      console.log('❌ Sem dados para processar');
       return [];
     }
 
-    // Agrupar por data
-    const dataByDate = {};
+    const dataByGroup = {};
     
     rawData.forEach(item => {
       try {
-        // Extrair só a parte da data (YYYY-MM-DD) do timestamp ISO
-        let dateKey;
-        if (item.data) {
-          // Se vier como '2026-01-02T00:00:00.000Z', pegar só '2026-01-02'
-          dateKey = item.data.split('T')[0];
+        const dateStr = item.data.split('T')[0]; // '2026-01-02'
+        const fullDate = parseISO(item.data);
+        let groupKey;
+        let groupLabel;
+
+        switch (groupBy) {
+          case 'hour':
+            const hour = getHours(fullDate);
+            groupKey = `${hour}`;
+            groupLabel = `${hour.toString().padStart(2, '0')}h`;
+            break;
+
+          case 'day':
+            groupKey = dateStr;
+            groupLabel = format(fullDate, 'dd/MM', { locale: ptBR });
+            break;
+
+          case 'weekday':
+            const weekday = getDay(fullDate);
+            groupKey = `${weekday}`;
+            groupLabel = WEEKDAY_NAMES[weekday];
+            break;
+
+          case 'week':
+            const week = getWeek(fullDate, { weekStartsOn: 1 });
+            groupKey = `${week}`;
+            groupLabel = `Semana ${week}`;
+            break;
+
+          case 'month':
+            const month = format(fullDate, 'yyyy-MM');
+            groupKey = month;
+            groupLabel = format(fullDate, 'MMM/yy', { locale: ptBR });
+            break;
+
+          default:
+            groupKey = dateStr;
+            groupLabel = format(fullDate, 'dd/MM', { locale: ptBR });
         }
 
-        if (!dateKey) {
-          console.warn('⚠️ Data inválida:', item);
-          return;
+        if (!dataByGroup[groupKey]) {
+          dataByGroup[groupKey] = {
+            key: groupKey,
+            label: groupLabel,
+            value: 0
+          };
         }
 
-        if (!dataByDate[dateKey]) {
-          dataByDate[dateKey] = 0;
-        }
-
-        dataByDate[dateKey] += parseFloat(item.valor_reais || 0);
+        dataByGroup[groupKey].value += parseFloat(item.valor_reais || 0);
       } catch (error) {
         console.error('❌ Erro ao processar item:', item, error);
       }
     });
 
-    console.log('📊 Dados agrupados:', dataByDate);
-
     // Converter para array e ordenar
-    const chartArray = Object.entries(dataByDate)
-      .map(([date, value]) => ({
-        date: format(parseISO(date), 'dd/MM', { locale: ptBR }),
-        fullDate: date,
-        value: value
+    const chartArray = Object.values(dataByGroup)
+      .map(group => ({
+        date: group.label,
+        sortKey: group.key,
+        value: group.value
       }))
-      .sort((a, b) => a.fullDate.localeCompare(b.fullDate));
+      .sort((a, b) => {
+        // Ordenação específica por tipo de agrupamento
+        if (groupBy === 'weekday') {
+          return parseInt(a.sortKey) - parseInt(b.sortKey);
+        } else if (groupBy === 'hour') {
+          return parseInt(a.sortKey) - parseInt(b.sortKey);
+        } else {
+          return a.sortKey.localeCompare(b.sortKey);
+        }
+      });
 
-    console.log('📈 Array final para gráfico:', {
+    console.log('📊 Dados agrupados por', groupBy, ':', {
       length: chartArray.length,
       sample: chartArray.slice(0, 3),
       totalValue: chartArray.reduce((sum, d) => sum + d.value, 0)
     });
 
     return chartArray;
-  }, [rawData]);
+  }, [rawData, groupBy]);
 
   if (!rawData || rawData.length === 0) {
     return (
@@ -134,9 +173,23 @@ export default function GeneralEvolutionChart({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">
-          Evolução Temporal - {type === 'sales' ? 'Vendas' : 'Perdas'}
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base">
+            Evolução Temporal - {type === 'sales' ? 'Vendas' : 'Perdas'}
+          </CardTitle>
+          <Select value={groupBy} onValueChange={setGroupBy}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {GROUPING_OPTIONS.map(option => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="w-full h-80">
@@ -150,6 +203,9 @@ export default function GeneralEvolutionChart({
                 dataKey="date" 
                 stroke="#64748b"
                 style={{ fontSize: '12px' }}
+                angle={groupBy === 'day' ? -45 : 0}
+                textAnchor={groupBy === 'day' ? 'end' : 'middle'}
+                height={groupBy === 'day' ? 60 : 30}
               />
               <YAxis 
                 stroke="#64748b"
