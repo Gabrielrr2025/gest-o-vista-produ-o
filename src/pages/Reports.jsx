@@ -12,9 +12,11 @@ import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
 import DateRangePicker from "../components/reports/DateRangePicker";
-import SectorCards from "../components/reports/Sectorcards";
-import ProductRanking from "../components/reports/Productranking";
-import ProductEvolution from "../components/reports/Productevolution";
+import SectorCards from "../components/reports/SectorCards";
+import ProductRanking from "../components/reports/ProductRanking";
+import ProductEvolution from "../components/reports/ProductEvolution";
+import GeneralEvolutionChart from "../components/reports/GeneralEvolutionChart";
+import SectorDistributionChart from "../components/reports/SectorDistributionChart";
 
 export default function Reports() {
   const [hasAccess, setHasAccess] = useState(false);
@@ -281,6 +283,37 @@ export default function Reports() {
                     </span>
                   )}
                 </h3>
+
+                {/* TOTAL GERAL */}
+                <Card className="mb-6 bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-300">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-blue-700 font-medium mb-1">
+                          {activeTab === 'sales' ? 'FATURAMENTO TOTAL' : 'PERDAS TOTAIS'}
+                        </p>
+                        <p className="text-4xl font-bold text-blue-900">
+                          R$ {(reportData.totalGeral / 1000).toFixed(1)}k
+                        </p>
+                        <p className="text-sm text-blue-600 mt-1">
+                          {format(dateRange.from, 'dd/MM/yyyy')} - {format(dateRange.to, 'dd/MM/yyyy')}
+                        </p>
+                      </div>
+                      {compareData && (() => {
+                        const change = ((reportData.totalGeral - compareData.totalGeral) / compareData.totalGeral) * 100;
+                        return (
+                          <div className={`flex items-center gap-2 text-2xl font-bold ${
+                            change > 0 ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {change > 0 ? <TrendingUp className="w-8 h-8" /> : <TrendingDown className="w-8 h-8" />}
+                            {Math.abs(change).toFixed(1)}%
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </CardContent>
+                </Card>
+
                 <SectorCards
                   sectors={activeTab === 'sales' ? 
                     reportData.salesBySector : 
@@ -296,6 +329,36 @@ export default function Reports() {
                   totalGeral={reportData.totalGeral}
                 />
               </div>
+
+              {/* GRÁFICOS GERAIS (antes de selecionar setor) */}
+              {!selectedSector && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Gráfico de Linha - Evolução */}
+                  <GeneralEvolutionChart
+                    rawData={activeTab === 'sales' ? 
+                      reportData.salesBySectorProduct : 
+                      reportData.lossesBySectorProduct
+                    }
+                    compareRawData={compareData ? (
+                      activeTab === 'sales' ? 
+                        compareData.salesByProduct : 
+                        compareData.lossesByProduct
+                    ) : null}
+                    dateRange={dateRange}
+                    compareDateRange={compareDateRange}
+                    type={activeTab}
+                  />
+
+                  {/* Gráfico de Pizza - Distribuição */}
+                  <SectorDistributionChart
+                    sectors={activeTab === 'sales' ? 
+                      reportData.salesBySector : 
+                      reportData.lossesBySector
+                    }
+                    type={activeTab}
+                  />
+                </div>
+              )}
 
               {/* NÍVEL 2: Ranking de Produtos */}
               {filteredProducts.length > 0 && (
