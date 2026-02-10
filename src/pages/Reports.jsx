@@ -12,9 +12,9 @@ import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
 import DateRangePicker from "../components/reports/DateRangePicker";
-import SectorCards from "../components/reports/Sectorcards";
-import ProductRanking from "../components/reports/Productranking";
-import ProductEvolution from "../components/reports/Productevolution";
+import SectorCards from "../components/reports/SectorCards";
+import ProductRanking from "../components/reports/ProductRanking";
+import ProductEvolution from "../components/reports/ProductEvolution";
 import GeneralEvolutionChart from "../components/reports/GeneralEvolutionChart";
 import SectorDistributionChart from "../components/reports/SectorDistributionChart";
 
@@ -331,19 +331,12 @@ export default function Reports() {
               </div>
 
               {/* GRÁFICOS GERAIS (antes de selecionar setor) */}
-              {!selectedSector && (
+              {!selectedSector && reportData.rawData && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Gráfico de Linha - Evolução */}
                   <GeneralEvolutionChart
-                    rawData={activeTab === 'sales' ? 
-                      reportData.salesBySectorProduct : 
-                      reportData.lossesBySectorProduct
-                    }
-                    compareRawData={compareData ? (
-                      activeTab === 'sales' ? 
-                        compareData.salesByProduct : 
-                        compareData.lossesByProduct
-                    ) : null}
+                    rawData={reportData.rawData}
+                    compareRawData={compareData?.rawData}
                     dateRange={dateRange}
                     compareDateRange={compareDateRange}
                     type={activeTab}
