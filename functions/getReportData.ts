@@ -1,5 +1,13 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
+type PgError = {
+  message?: string;
+  stack?: string;
+  code?: string;
+  detail?: string;
+  hint?: string;
+};
+
 const buildPeriodFields = (granularity: string) => {
   switch (granularity) {
     case 'day':
@@ -34,14 +42,10 @@ const formatDate = (date: Date) => date.toISOString().slice(0, 10);
 
 const logError = (err: unknown) => {
   console.error('[getReportData] ERROR', err);
-  const message = (err as { message?: string })?.message;
-  const stack = (err as { stack?: string })?.stack;
-  if (message) {
-    console.error('[getReportData] ERROR message:', message);
-  }
-  if (stack) {
-    console.error('[getReportData] ERROR stack:', stack);
-  }
+  const message = (err as PgError)?.message;
+  const stack = (err as PgError)?.stack;
+  if (message) console.error('[getReportData] ERROR message:', message);
+  if (stack) console.error('[getReportData] ERROR stack:', stack);
 };
 
 Deno.serve(async (req) => {
@@ -54,7 +58,13 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { startDate, endDate, granularity = 'week', compareMode = 'none' } = body;
+    const {
+      startDate,
+      endDate,
+      granularity = 'week',
+      compareMode = 'none'
+    } = body ?? {};
+
     const allowedGranularities = new Set(['day', 'week', 'month', 'year']);
     const allowedCompareModes = new Set(['none', 'previous', 'yoy']);
 
@@ -75,28 +85,26 @@ Deno.serve(async (req) => {
 
     const { Client } = await import('npm:pg@8.11.3');
     const client = new Client(connectionString);
-    
+
     await client.connect();
 
     try {
-      console.log('🧭 getReportData inputs:', {
-        startDate,
-        endDate,
-        granularity,
-        compareMode
-      });
+      console.log('🧭 getReportData inputs:', { startDate, endDate, granularity, compareMode });
 
-      const sanityQuery = 'select count(*) as n, min(data) as min, max(data) as max from vw_movimentacoes;';
+      // Sanity check (helps diagnose empty/invalid view)
+      const sanityQuery =
+        'select count(*) as n, min(data) as min, max(data) as max from vw_movimentacoes;';
       console.log('🧪 Sanity SQL:', sanityQuery);
       const sanityResult = await client.query(sanityQuery);
       console.log('🧪 Sanity result:', sanityResult.rows?.[0]);
 
       const runQueries = async (rangeStart: string, rangeEnd: string) => {
         const { periodKey, periodLabel } = buildPeriodFields(granularity);
-
         const baseParams = [rangeStart, rangeEnd];
 
-        console.log(`📊 Buscando dados de relatório: ${rangeStart} a ${rangeEnd}, granularidade=${granularity}`);
+        console.log(
+          `📊 Buscando dados de relatório: ${rangeStart} a ${rangeEnd}, granularidade=${granularity}`
+        );
 
         const salesLossQuery = `
           SELECT 
@@ -152,35 +160,38 @@ Deno.serve(async (req) => {
         `;
         console.log('🧾 SQL summary:', summaryQuery.trim());
 
-        let salesLossResult;
-        let lossRateResult;
-        let revenueResult;
-        let summaryResult;
-
         try {
-          [salesLossResult, lossRateResult, revenueResult, summaryResult] = await Promise.all([
-            client.query(salesLossQuery, baseParams),
-            client.query(lossRateQuery, baseParams),
-            client.query(revenueQuery, baseParams),
-            client.query(summaryQuery, baseParams)
-          ]);
-        } catch (error) {
-          console.error('❌ Erro ao executar queries:', error);
-          console.error('❌ Stack trace:', error?.stack);
-          throw error;
-        }
+          const [salesLossResult, lossRateResult, revenueResult, summaryResult] =
+            await Promise.all([
+              client.query(salesLossQuery, baseParams),
+              client.query(lossRateQuery, baseParams),
+              client.query(revenueQuery, baseParams),
+              client.query(summaryQuery, baseParams)
+            ]);
 
-        return {
-          salesLoss: salesLossResult.rows,
-          lossRate: lossRateResult.rows,
-          revenue: revenueResult.rows,
-          summary: summaryResult.rows
-        };
+          console.log('📈 RowCounts:', {
+            salesLoss: salesLossResult.rowCount,
+            lossRate: lossRateResult.rowCount,
+            revenue: revenueResult.rowCount,
+            summary: summaryResult.rowCount
+          });
+
+          return {
+            salesLoss: salesLossResult.rows,
+            lossRate: lossRateResult.rows,
+            revenue: revenueResult.rows,
+            summary: summaryResult.rows
+          };
+        } catch (err) {
+          console.error('❌ Erro ao executar queries:', err);
+          console.error('❌ Stack trace:', (err as PgError)?.stack);
+          throw err;
+        }
       };
 
       const current = await runQueries(startDate, endDate);
 
-      let comparison = null;
+      let comparison: unknown = null;
       if (compareMode !== 'none') {
         const start = new Date(startDate);
         const end = new Date(endDate);
@@ -188,7 +199,8 @@ Deno.serve(async (req) => {
         let comparisonEnd = new Date(end);
 
         if (compareMode === 'previous') {
-          const durationDays = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+          const durationDays =
+            Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
           comparisonEnd.setDate(comparisonEnd.getDate() - durationDays);
           comparisonStart = new Date(comparisonEnd);
           comparisonStart.setDate(comparisonStart.getDate() - durationDays + 1);
@@ -206,29 +218,26 @@ Deno.serve(async (req) => {
         comparison = await runQueries(formatDate(comparisonStart), formatDate(comparisonEnd));
       }
 
-      console.log(`✅ Dados de relatório obtidos`);
+      console.log('✅ Dados de relatório obtidos');
 
-      return Response.json({
-        current,
-        comparison
-      });
+      return Response.json({ current, comparison });
     } finally {
       await client.end();
     }
   } catch (error) {
     logError(error);
-    const pgError = error as {
-      code?: string;
-      detail?: string;
-      hint?: string;
-    };
-    return Response.json({
-      ok: false,
-      error: error?.message ?? String(error),
-      stack: error?.stack ?? null,
-      code: pgError?.code ?? null,
-      detail: pgError?.detail ?? null,
-      hint: pgError?.hint ?? null
-    }, { status: 500 });
+
+    const pgError = error as PgError;
+    return Response.json(
+      {
+        ok: false,
+        error: pgError?.message ?? String(error),
+        stack: pgError?.stack ?? null,
+        code: pgError?.code ?? null,
+        detail: pgError?.detail ?? null,
+        hint: pgError?.hint ?? null
+      },
+      { status: 500 }
+    );
   }
 });
