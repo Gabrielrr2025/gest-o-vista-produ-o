@@ -41,6 +41,13 @@ export default function GeneralEvolutionChart({
   compareDateRange = null,
   type = 'sales'
 }) {
+  console.log('🔍 DEBUG GeneralEvolutionChart:', {
+    rawDataLength: rawData?.length,
+    rawDataSample: rawData?.[0],
+    dateRange,
+    type
+  });
+
   if (!rawData || rawData.length === 0) {
     return (
       <Card>
@@ -95,6 +102,12 @@ export default function GeneralEvolutionChart({
     }
 
     return dataPoint;
+  });
+
+  console.log('📊 Dados processados para gráfico:', {
+    chartDataLength: chartData.length,
+    chartDataSample: chartData.slice(0, 3),
+    totalValue: chartData.reduce((sum, d) => sum + d.value, 0)
   });
 
   const lineColor = type === 'sales' ? '#3b82f6' : '#ef4444';
