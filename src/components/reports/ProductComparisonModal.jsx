@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import * as XLSX from 'xlsx';
 import DateRangePicker from "./DateRangePicker";
 import ProductComparisonChart from "./ProductComparisonChart";
-import Productcomparisontable from "./Productcomparisontable";
+import ProductComparisonTable from "./ProductComparisonTable";
 
 export default function ProductComparisonModal({ 
   isOpen, 
@@ -112,6 +112,11 @@ export default function ProductComparisonModal({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <style>{`
+          [data-radix-popper-content-wrapper] {
+            z-index: 150 !important;
+          }
+        `}</style>
         <DialogHeader>
           <DialogTitle className="text-xl">
             🔍 Comparação de Produtos - {type === 'sales' ? 'Vendas' : 'Perdas'}
@@ -155,7 +160,7 @@ export default function ProductComparisonModal({
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="+ Adicionar produto" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="z-[150]">
                       {availableProducts.map(product => (
                         <SelectItem 
                           key={product.produto_id} 
@@ -205,7 +210,7 @@ export default function ProductComparisonModal({
               />
 
               {/* Tabela */}
-              <Productcomparisontable 
+              <ProductComparisonTable 
                 productsData={comparisonQuery.data.products}
               />
             </>
