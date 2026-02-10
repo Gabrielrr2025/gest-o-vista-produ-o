@@ -3,6 +3,13 @@ import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, Tool
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
+const PERIOD_COLORS = [
+  '#3b82f6', // Azul
+  '#f59e0b', // Laranja
+  '#22c55e', // Verde
+  '#a855f7'  // Roxo
+];
+
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
@@ -33,14 +40,8 @@ const formatYAxis = (value) => {
   return `R$ ${value}`;
 };
 
-export default function LineChart({ 
-  data, 
-  compareData = null, 
-  showSales = true, 
-  showLosses = true,
-  reportType = 'sales'
-}) {
-  if (!data || data.length === 0) {
+export default function LineChart({ periodsData = [], reportType = 'sales' }) {
+  if (!periodsData || periodsData.length === 0) {
     return (
       <div className="flex items-center justify-center h-64 text-slate-500">
         Nenhum dado disponível para o período selecionado
@@ -48,50 +49,37 @@ export default function LineChart({
     );
   }
 
-  // Agrupar dados por data e somar valores
-  const aggregatedData = {};
-  
-  data.forEach(item => {
-    const dateKey = format(new Date(item.data), 'dd/MM', { locale: ptBR });
-    
-    if (!aggregatedData[dateKey]) {
-      aggregatedData[dateKey] = {
-        date: dateKey,
-        value: 0,
-        compareValue: 0
-      };
-    }
-    
-    aggregatedData[dateKey].value += parseFloat(item.valor_reais || 0);
-  });
-
-  // Adicionar dados de comparação se existir
-  if (compareData && compareData.length > 0) {
-    compareData.forEach(item => {
+  // Consolidar todas as datas de todos os períodos
+  const allDates = new Set();
+  periodsData.forEach(period => {
+    period.data.raw.forEach(item => {
       const dateKey = format(new Date(item.data), 'dd/MM', { locale: ptBR });
-      
-      if (!aggregatedData[dateKey]) {
-        aggregatedData[dateKey] = {
-          date: dateKey,
-          value: 0,
-          compareValue: 0
-        };
-      }
-      
-      aggregatedData[dateKey].compareValue += parseFloat(item.valor_reais || 0);
+      allDates.add(dateKey);
     });
-  }
-
-  const chartData = Object.values(aggregatedData).sort((a, b) => {
-    // Ordenar por data
-    const [dayA, monthA] = a.date.split('/');
-    const [dayB, monthB] = b.date.split('/');
-    return monthA === monthB ? dayA - dayB : monthA - monthB;
   });
 
-  const lineColor = reportType === 'sales' ? '#3b82f6' : '#ef4444';
-  const compareLineColor = reportType === 'sales' ? '#f59e0b' : '#f97316';
-  const label = reportType === 'sales' ? 'Faturamento' : 'Perdas';
+  // Criar estrutura de dados para o gráfico
+  const chartData = Array.from(allDates).sort((a, b) => {
+    const [dayA, monthA] = a.split('/');
+    const [dayB, monthB] = b.split('/');
+    return monthA === monthB ? dayA - dayB : monthA - monthB;
+  }).map(date => {
+    const dataPoint = { date };
+    
+    // Para cada período, agregar os valores desta data
+    periodsData.forEach((period, idx) => {
+      let total = 0;
+      period.data.raw.forEach(item => {
+        const itemDate = format(new Date(item.data), 'dd/MM', { locale: ptBR });
+        if (itemDate === date) {
+          total += parseFloat(item.valor_reais || 0);
+        }
+      });
+      dataPoint[`period${idx}`] = total;
+    });
+    
+    return dataPoint;
+  });
 
   return (
     <div className="w-full h-80">
@@ -116,30 +104,20 @@ export default function LineChart({
             wrapperStyle={{ fontSize: '14px', paddingTop: '10px' }}
           />
           
-          {/* Linha principal */}
-          <Line 
-            type="monotone" 
-            dataKey="value" 
-            stroke={lineColor}
-            strokeWidth={2}
-            name={`${label} (Período Atual)`}
-            dot={{ fill: lineColor, r: 4 }}
-            activeDot={{ r: 6 }}
-          />
-          
-          {/* Linha de comparação */}
-          {compareData && (
+          {/* Renderizar uma linha para cada período */}
+          {periodsData.map((period, idx) => (
             <Line 
+              key={idx}
               type="monotone" 
-              dataKey="compareValue" 
-              stroke={compareLineColor}
+              dataKey={`period${idx}`}
+              stroke={PERIOD_COLORS[idx]}
               strokeWidth={2}
-              strokeDasharray="5 5"
-              name={`${label} (Período Comparação)`}
-              dot={{ fill: compareLineColor, r: 4 }}
+              name={period.label}
+              dot={{ fill: PERIOD_COLORS[idx], r: 4 }}
               activeDot={{ r: 6 }}
+              strokeDasharray={idx > 0 ? "5 5" : "0"} // Períodos de comparação com linha tracejada
             />
-          )}
+          ))}
         </RechartsLineChart>
       </ResponsiveContainer>
     </div>
