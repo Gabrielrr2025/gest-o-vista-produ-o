@@ -87,6 +87,15 @@ Deno.serve(async (req) => {
     // Total geral
     const totalGeral = salesBySector.reduce((sum, s) => sum + parseFloat(s.total_valor), 0);
 
+    // Dados brutos (dia a dia para gráficos)
+    const rawSalesData = await sql`
+      SELECT 
+        v.data,
+        v.valor_reais
+      FROM vendas v
+      WHERE v.data BETWEEN ${startDate} AND ${endDate}
+    `;
+
     console.log(`✅ ${salesBySector.length} setores, ${salesByProduct.length} produtos (top ${topN})`);
 
     // ========================================
@@ -124,9 +133,18 @@ Deno.serve(async (req) => {
 
       const compareTotalGeral = compareSalesBySector.reduce((sum, s) => sum + parseFloat(s.total_valor), 0);
 
+      const compareRawSalesData = await sql`
+        SELECT 
+          v.data,
+          v.valor_reais
+        FROM vendas v
+        WHERE v.data BETWEEN ${compareStartDate} AND ${compareEndDate}
+      `;
+
       compareData = {
         salesBySector: compareSalesBySector,
         salesByProduct: compareSalesByProduct,
+        rawData: compareRawSalesData,
         totalGeral: compareTotalGeral
       };
 
@@ -150,6 +168,7 @@ Deno.serve(async (req) => {
         salesBySector,
         salesByProduct,
         salesBySectorProduct,
+        rawData: rawSalesData,
         totalGeral
       },
       compareData
