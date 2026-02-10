@@ -6,13 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, Download, FileSpreadsheet } from "lucide-react";
+import { FileText, Download, FileSpreadsheet, Package, Percent, Layers, DollarSign, TrendingUp, TrendingDown } from "lucide-react";
 import { toast } from "sonner";
-import { format, subDays, subWeeks, subMonths, startOfYear, parseISO, getWeek, getMonth, getYear } from "date-fns";
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, subWeeks, subMonths, subYears } from "date-fns";
 import SalesLossChart from "../components/reports/SalesLossChart";
 import LossRateChart from "../components/reports/LossRateChart";
 import RevenueChart from "../components/reports/RevenueChart";
 import SummaryTable from "../components/reports/SummaryTable";
+import KPICard from "../components/common/KPICard";
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import * as XLSX from 'xlsx';
@@ -20,14 +21,15 @@ import * as XLSX from 'xlsx';
 export default function Reports() {
   const [currentUser, setCurrentUser] = useState(null);
   const [hasAccess, setHasAccess] = useState(false);
+  const [kpiView, setKpiView] = useState('operational');
   const [filters, setFilters] = useState({
-    period: '4weeks',
-    startDate: format(subWeeks(new Date(), 4), 'yyyy-MM-dd'),
-    endDate: format(new Date(), 'yyyy-MM-dd'),
-    comparisonType: 'weeks',
-    sector: 'all',
-    product: 'all'
+    preset: 'currentWeek',
+    startDate: format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd'),
+    endDate: format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd'),
+    granularity: 'week',
+    compareMode: 'none'
   });
+  const [appliedFilters, setAppliedFilters] = useState(filters);
 
   // Verificar permissão de acesso
   useEffect(() => {
@@ -65,66 +67,64 @@ export default function Reports() {
     enabled: hasAccess
   });
 
-  const { data: salesData = [] } = useQuery({
-    queryKey: ['salesRecords'],
-    queryFn: () => base44.entities.SalesRecord.list(),
-    enabled: hasAccess
-  });
-
-  const { data: lossData = [] } = useQuery({
-    queryKey: ['lossRecords'],
-    queryFn: () => base44.entities.LossRecord.list(),
-    enabled: hasAccess
-  });
-
-  const handlePeriodChange = (value) => {
+  const handlePresetChange = (value) => {
     const today = new Date();
-    let start;
-    
-    if (value !== 'custom') {
-      switch(value) {
-        case 'week':
-          start = subWeeks(today, 1);
-          break;
-        case '4weeks':
-          start = subWeeks(today, 4);
-          break;
-        case 'month':
-          start = subMonths(today, 1);
-          break;
-        case '3months':
-          start = subMonths(today, 3);
-          break;
-        case 'year':
-          start = startOfYear(today);
-          break;
-        default:
-          start = subWeeks(today, 4);
+    let start = filters.startDate;
+    let end = filters.endDate;
+
+    switch (value) {
+      case 'currentWeek':
+        start = format(startOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+        end = format(endOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+        break;
+      case 'previousWeek': {
+        const previousWeek = subWeeks(today, 1);
+        start = format(startOfWeek(previousWeek, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+        end = format(endOfWeek(previousWeek, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+        break;
       }
-      
-      setFilters({
-        ...filters,
-        period: value,
-        startDate: format(start, 'yyyy-MM-dd'),
-        endDate: format(today, 'yyyy-MM-dd')
-      });
-    } else {
-      setFilters({
-        ...filters,
-        period: 'custom'
-      });
+      case 'currentMonth':
+        start = format(startOfMonth(today), 'yyyy-MM-dd');
+        end = format(endOfMonth(today), 'yyyy-MM-dd');
+        break;
+      case 'previousMonth': {
+        const previousMonth = subMonths(today, 1);
+        start = format(startOfMonth(previousMonth), 'yyyy-MM-dd');
+        end = format(endOfMonth(previousMonth), 'yyyy-MM-dd');
+        break;
+      }
+      case 'currentYear':
+        start = format(startOfYear(today), 'yyyy-MM-dd');
+        end = format(endOfYear(today), 'yyyy-MM-dd');
+        break;
+      case 'previousYear': {
+        const previousYear = subYears(today, 1);
+        start = format(startOfYear(previousYear), 'yyyy-MM-dd');
+        end = format(endOfYear(previousYear), 'yyyy-MM-dd');
+        break;
+      }
+      case 'custom':
+      default:
+        break;
     }
+
+    setFilters((prev) => ({
+      ...prev,
+      preset: value,
+      startDate: value === 'custom' ? prev.startDate : start,
+      endDate: value === 'custom' ? prev.endDate : end
+    }));
   };
 
   // Buscar dados do relatório do backend (vw_movimentacoes)
   const { data: reportDataRaw = {} } = useQuery({
-    queryKey: ['reportData', filters.startDate, filters.endDate, filters.sector, filters.product],
+    queryKey: ['reportData', appliedFilters.startDate, appliedFilters.endDate, appliedFilters.granularity, appliedFilters.compareMode],
     queryFn: async () => {
       const result = await base44.functions.invoke('getReportData', {
-        startDate: filters.startDate,
-        endDate: filters.endDate,
-        sector: filters.sector,
-        product: filters.product
+        startDate: appliedFilters.startDate,
+        endDate: appliedFilters.endDate,
+        granularity: appliedFilters.granularity,
+        compareMode: appliedFilters.compareMode
       });
       return result.data || {};
     },
@@ -134,12 +134,14 @@ export default function Reports() {
   // Processar dados do gráfico
   const chartData = useMemo(() => {
     // Usar dados do backend
-    const summaryData = reportDataRaw.summary || [];
+    const summaryData = reportDataRaw.current?.summary || [];
     
-    console.log('📊 Dados de relatório processados:', summaryData.length, 'semanas');
+    console.log('📊 Dados de relatório processados:', summaryData.length, 'períodos');
 
     return summaryData.map(row => ({
-      period: `Semana ${row.semana}`,
+      periodKey: row.period_key,
+      periodLabel: row.period_label,
+      period: row.period_key,
       sales: parseFloat(row.vendas_qtd) || 0,
       losses: parseFloat(row.perdas_qtd) || 0,
       lossRate: parseFloat(row.taxa_perda) || 0,
@@ -147,8 +149,277 @@ export default function Reports() {
     }));
   }, [reportDataRaw]);
 
+  const comparisonChartData = useMemo(() => {
+    const summaryData = reportDataRaw.comparison?.summary || [];
+    return summaryData.map(row => ({
+      periodKey: row.period_key,
+      periodLabel: row.period_label,
+      period: row.period_key,
+      sales: parseFloat(row.vendas_qtd) || 0,
+      losses: parseFloat(row.perdas_qtd) || 0,
+      lossRate: parseFloat(row.taxa_perda) || 0,
+      revenue: parseFloat(row.faturamento) || 0
+    }));
+  }, [reportDataRaw]);
+
+  const calculateTotals = (data) => data.reduce((acc, item) => ({
+    sales: acc.sales + item.sales,
+    losses: acc.losses + item.losses,
+    revenue: acc.revenue + item.revenue
+  }), { sales: 0, losses: 0, revenue: 0 });
+
+  const kpiData = useMemo(() => {
+    const totals = calculateTotals(chartData);
+    const comparisonTotals = appliedFilters.compareMode !== 'none'
+      ? calculateTotals(comparisonChartData)
+      : null;
+    const periods = chartData.length || 1;
+    const comparisonPeriods = comparisonChartData.length || 1;
+    const lossRate = totals.sales > 0 ? (totals.losses / totals.sales) * 100 : 0;
+    const netSales = totals.sales - totals.losses;
+    const avgSales = totals.sales / periods;
+    const avgLosses = totals.losses / periods;
+    const avgRevenue = totals.revenue / periods;
+    const comparisonLossRate = comparisonTotals && comparisonTotals.sales > 0
+      ? (comparisonTotals.losses / comparisonTotals.sales) * 100
+      : null;
+    const comparisonNetSales = comparisonTotals
+      ? comparisonTotals.sales - comparisonTotals.losses
+      : null;
+    const comparisonAvgSales = comparisonTotals ? comparisonTotals.sales / comparisonPeriods : null;
+    const comparisonAvgLosses = comparisonTotals ? comparisonTotals.losses / comparisonPeriods : null;
+    const comparisonAvgRevenue = comparisonTotals ? comparisonTotals.revenue / comparisonPeriods : null;
+
+    return {
+      totals,
+      comparisonTotals,
+      comparisonLossRate,
+      comparisonNetSales,
+      comparisonAvgSales,
+      comparisonAvgLosses,
+      comparisonAvgRevenue,
+      lossRate,
+      netSales,
+      avgSales,
+      avgLosses,
+      avgRevenue
+    };
+  }, [chartData, comparisonChartData, appliedFilters.compareMode]);
+
+  const formatNumber = (value) => value.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+  const formatCurrency = (value) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const formatPercent = (value) => `${value.toFixed(1)}%`;
+
+  const getComparisonMeta = (currentValue, comparisonValue, formatter, { positiveGood = true, unitSuffix = "" } = {}) => {
+    if (comparisonValue === null || comparisonValue === undefined) {
+      return {};
+    }
+    const delta = currentValue - comparisonValue;
+    const percentDelta = comparisonValue !== 0 ? (delta / comparisonValue) * 100 : null;
+    const trend = delta === 0
+      ? "neutral"
+      : (delta > 0 ? (positiveGood ? "up" : "down") : (positiveGood ? "down" : "up"));
+    const deltaLabel = `${delta > 0 ? "+" : ""}${formatter(Math.abs(delta))}${unitSuffix}`;
+    const percentLabel = percentDelta === null
+      ? ""
+      : ` (${percentDelta > 0 ? "+" : ""}${percentDelta.toFixed(1)}%)`;
+    return { trend, trendValue: `Δ ${deltaLabel}${percentLabel}`.trim() };
+  };
+
+  const kpiCards = useMemo(() => {
+    const revenuePerKg = kpiData.totals.sales > 0 ? kpiData.totals.revenue / kpiData.totals.sales : 0;
+    const estimatedLossValue = revenuePerKg * kpiData.totals.losses;
+
+    const operational = [
+      {
+        title: "Vendas totais",
+        value: `${formatNumber(kpiData.totals.sales)} kg`,
+        subtitle: "Volume no período",
+        icon: Package,
+        color: "blue",
+        ...getComparisonMeta(
+          kpiData.totals.sales,
+          kpiData.comparisonTotals?.sales,
+          formatNumber,
+          { positiveGood: true, unitSuffix: " kg" }
+        )
+      },
+      {
+        title: "Perdas totais",
+        value: `${formatNumber(kpiData.totals.losses)} kg`,
+        subtitle: "Volume no período",
+        icon: TrendingDown,
+        color: "red",
+        ...getComparisonMeta(
+          kpiData.totals.losses,
+          kpiData.comparisonTotals?.losses,
+          formatNumber,
+          { positiveGood: false, unitSuffix: " kg" }
+        )
+      },
+      {
+        title: "Saldo líquido",
+        value: `${formatNumber(kpiData.netSales)} kg`,
+        subtitle: "Vendas - perdas",
+        icon: Layers,
+        color: "green",
+        ...getComparisonMeta(
+          kpiData.netSales,
+          kpiData.comparisonTotals ? kpiData.comparisonTotals.sales - kpiData.comparisonTotals.losses : null,
+          formatNumber,
+          { positiveGood: true, unitSuffix: " kg" }
+        )
+      },
+      {
+        title: "Taxa de perda",
+        value: formatPercent(kpiData.lossRate),
+        subtitle: "Perdas / vendas",
+        icon: Percent,
+        color: "orange",
+        ...getComparisonMeta(
+          kpiData.lossRate,
+          kpiData.comparisonTotals
+            ? (kpiData.comparisonTotals.sales > 0
+              ? (kpiData.comparisonTotals.losses / kpiData.comparisonTotals.sales) * 100
+              : 0)
+            : null,
+          (value) => value.toFixed(1),
+          { positiveGood: false, unitSuffix: " pp" }
+        )
+      }
+    ];
+
+    const efficiency = [
+      {
+        title: "Média de vendas",
+        value: `${formatNumber(kpiData.avgSales)} kg`,
+        subtitle: "Por período analisado",
+        icon: TrendingUp,
+        color: "blue",
+        ...getComparisonMeta(
+          kpiData.avgSales,
+          kpiData.comparisonAvgSales,
+          formatNumber,
+          { positiveGood: true, unitSuffix: " kg" }
+        )
+      },
+      {
+        title: "Média de perdas",
+        value: `${formatNumber(kpiData.avgLosses)} kg`,
+        subtitle: "Por período analisado",
+        icon: TrendingDown,
+        color: "red",
+        ...getComparisonMeta(
+          kpiData.avgLosses,
+          kpiData.comparisonAvgLosses,
+          formatNumber,
+          { positiveGood: false, unitSuffix: " kg" }
+        )
+      },
+      {
+        title: "Eficiência",
+        value: formatPercent(100 - kpiData.lossRate),
+        subtitle: "Aproveitamento",
+        icon: Percent,
+        color: "green",
+        ...getComparisonMeta(
+          100 - kpiData.lossRate,
+          kpiData.comparisonLossRate !== null ? 100 - kpiData.comparisonLossRate : null,
+          (value) => value.toFixed(1),
+          { positiveGood: true, unitSuffix: " pp" }
+        )
+      },
+      {
+        title: "Saldo médio",
+        value: `${formatNumber(kpiData.avgSales - kpiData.avgLosses)} kg`,
+        subtitle: "Por período",
+        icon: Layers,
+        color: "purple",
+        ...getComparisonMeta(
+          kpiData.avgSales - kpiData.avgLosses,
+          kpiData.comparisonAvgSales !== null && kpiData.comparisonAvgLosses !== null
+            ? kpiData.comparisonAvgSales - kpiData.comparisonAvgLosses
+            : null,
+          formatNumber,
+          { positiveGood: true, unitSuffix: " kg" }
+        )
+      }
+    ];
+
+    const financial = [
+      {
+        title: "Faturamento total",
+        value: formatCurrency(kpiData.totals.revenue),
+        subtitle: "No período",
+        icon: DollarSign,
+        color: "green",
+        ...getComparisonMeta(
+          kpiData.totals.revenue,
+          kpiData.comparisonTotals?.revenue,
+          formatCurrency,
+          { positiveGood: true }
+        )
+      },
+      {
+        title: "Média de faturamento",
+        value: formatCurrency(kpiData.avgRevenue),
+        subtitle: "Por período",
+        icon: DollarSign,
+        color: "blue",
+        ...getComparisonMeta(
+          kpiData.avgRevenue,
+          kpiData.comparisonAvgRevenue,
+          formatCurrency,
+          { positiveGood: true }
+        )
+      },
+      {
+        title: "Receita por kg",
+        value: formatCurrency(revenuePerKg),
+        subtitle: "Faturamento / volume",
+        icon: DollarSign,
+        color: "purple",
+        ...getComparisonMeta(
+          revenuePerKg,
+          kpiData.comparisonTotals && kpiData.comparisonTotals.sales > 0
+            ? kpiData.comparisonTotals.revenue / kpiData.comparisonTotals.sales
+            : null,
+          formatCurrency,
+          { positiveGood: true }
+        )
+      },
+      {
+        title: "Perda estimada",
+        value: formatCurrency(estimatedLossValue),
+        subtitle: "Valor não aproveitado",
+        icon: TrendingDown,
+        color: "orange",
+        ...getComparisonMeta(
+          estimatedLossValue,
+          kpiData.comparisonTotals && kpiData.comparisonTotals.sales > 0
+            ? (kpiData.comparisonTotals.revenue / kpiData.comparisonTotals.sales) * kpiData.comparisonTotals.losses
+            : null,
+          formatCurrency,
+          { positiveGood: false }
+        )
+      }
+    ];
+
+    return { operational, efficiency, financial };
+  }, [kpiData]);
+
   const handleApplyFilters = () => {
-    // Filtros já estão aplicados automaticamente via useMemo
+    if (filters.preset === 'custom') {
+      if (!filters.startDate || !filters.endDate) {
+        toast.error('Selecione data de início e fim para o período personalizado.');
+        return;
+      }
+      if (new Date(filters.startDate) > new Date(filters.endDate)) {
+        toast.error('A data inicial deve ser menor ou igual à data final.');
+        return;
+      }
+    }
+    setAppliedFilters(filters);
   };
 
   const handleExportPDF = async () => {
@@ -195,7 +466,7 @@ export default function Reports() {
       pdf.setFontSize(16);
       pdf.setFont('helvetica', 'normal');
       pdf.text(
-        `${format(new Date(filters.startDate), 'dd/MM/yyyy')} a ${format(new Date(filters.endDate), 'dd/MM/yyyy')}`,
+        `${format(new Date(appliedFilters.startDate), 'dd/MM/yyyy')} a ${format(new Date(appliedFilters.endDate), 'dd/MM/yyyy')}`,
         pageWidth / 2,
         yPos,
         { align: 'center' }
@@ -212,21 +483,21 @@ export default function Reports() {
       pdf.setFont('helvetica', 'normal');
       
       const comparisonLabels = {
-        'weeks': 'Por Semanas',
-        'months': 'Por Meses',
-        'products': 'Por Produtos',
-        'sectors': 'Por Setores'
+        'none': 'Sem comparação',
+        'previous': 'Período anterior',
+        'yoy': 'Ano contra ano'
+      };
+
+      const granularityLabels = {
+        'day': 'Diária',
+        'week': 'Semanal',
+        'month': 'Mensal',
+        'year': 'Anual'
       };
       
-      pdf.text(`• Tipo de comparação: ${comparisonLabels[filters.comparisonType]}`, margin, yPos);
+      pdf.text(`• Granularidade: ${granularityLabels[appliedFilters.granularity]}`, margin, yPos);
       yPos += 7;
-      pdf.text(`• Setor: ${filters.sector === 'all' ? 'Todos os setores' : filters.sector}`, margin, yPos);
-      
-      if (filters.product !== 'all') {
-        yPos += 7;
-        const selectedProduct = products.find(p => p.id === filters.product);
-        pdf.text(`• Produto: ${selectedProduct?.name || 'N/A'}`, margin, yPos);
-      }
+      pdf.text(`• Comparação: ${comparisonLabels[appliedFilters.compareMode]}`, margin, yPos);
 
       // Data de geração
       yPos += 20;
@@ -548,23 +819,24 @@ export default function Reports() {
               <div>
                 <Label className="text-sm font-semibold mb-2 block">Período</Label>
                 <Select 
-                  value={filters.period} 
-                  onValueChange={handlePeriodChange}
+                  value={filters.preset} 
+                  onValueChange={handlePresetChange}
                 >
                   <SelectTrigger className="h-10">
                     <SelectValue placeholder="Selecione o período" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="week">Última semana</SelectItem>
-                    <SelectItem value="4weeks">Últimas 4 semanas</SelectItem>
-                    <SelectItem value="month">Último mês</SelectItem>
-                    <SelectItem value="3months">Últimos 3 meses</SelectItem>
-                    <SelectItem value="year">Ano atual</SelectItem>
+                    <SelectItem value="currentWeek">Semana atual</SelectItem>
+                    <SelectItem value="previousWeek">Semana anterior</SelectItem>
+                    <SelectItem value="currentMonth">Mês atual</SelectItem>
+                    <SelectItem value="previousMonth">Mês anterior</SelectItem>
+                    <SelectItem value="currentYear">Ano atual</SelectItem>
+                    <SelectItem value="previousYear">Ano anterior</SelectItem>
                     <SelectItem value="custom">Personalizado</SelectItem>
                   </SelectContent>
                 </Select>
 
-                {filters.period === 'custom' && (
+                {filters.preset === 'custom' && (
                   <div className="space-y-2 mt-3">
                     <div>
                       <Label className="text-xs text-slate-600">Data Início</Label>
@@ -588,72 +860,41 @@ export default function Reports() {
                 )}
               </div>
 
-              {/* TIPO DE COMPARAÇÃO */}
+              {/* GRANULARIDADE */}
               <div>
-                <Label className="text-sm font-semibold mb-2 block">Comparar por</Label>
+                <Label className="text-sm font-semibold mb-2 block">Granularidade</Label>
                 <Select 
-                  value={filters.comparisonType} 
-                  onValueChange={(value) => setFilters({...filters, comparisonType: value})}
+                  value={filters.granularity} 
+                  onValueChange={(value) => setFilters({...filters, granularity: value})}
                 >
                   <SelectTrigger className="h-10">
-                    <SelectValue placeholder="Selecione o tipo" />
+                    <SelectValue placeholder="Selecione a granularidade" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="weeks">Semanas</SelectItem>
-                    <SelectItem value="months">Meses</SelectItem>
-                    <SelectItem value="products">Produtos</SelectItem>
-                    <SelectItem value="sectors">Setores</SelectItem>
+                    <SelectItem value="day">Dia</SelectItem>
+                    <SelectItem value="week">Semana</SelectItem>
+                    <SelectItem value="month">Mês</SelectItem>
+                    <SelectItem value="year">Ano</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              {/* SETOR */}
+              {/* COMPARAÇÃO */}
               <div>
-                <Label className="text-sm font-semibold mb-2 block">Filtrar por setor</Label>
+                <Label className="text-sm font-semibold mb-2 block">Comparação</Label>
                 <Select 
-                  value={filters.sector} 
-                  onValueChange={(value) => setFilters({...filters, sector: value})}
+                  value={filters.compareMode} 
+                  onValueChange={(value) => setFilters({...filters, compareMode: value})}
                 >
                   <SelectTrigger className="h-10">
-                    <SelectValue placeholder="Todos os setores" />
+                    <SelectValue placeholder="Sem comparação" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Todos os setores</SelectItem>
-                    <SelectItem value="Padaria">Padaria</SelectItem>
-                    <SelectItem value="Confeitaria">Confeitaria</SelectItem>
-                    <SelectItem value="Salgados">Salgados</SelectItem>
-                    <SelectItem value="Frios">Frios</SelectItem>
-                    <SelectItem value="Restaurante">Restaurante</SelectItem>
-                    <SelectItem value="Minimercado">Minimercado</SelectItem>
+                    <SelectItem value="none">Sem comparação</SelectItem>
+                    <SelectItem value="previous">Período anterior</SelectItem>
+                    <SelectItem value="yoy">Ano contra ano</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-
-              {/* PRODUTO */}
-              <div>
-                <Label className="text-sm font-semibold mb-2 block">Filtrar por produto</Label>
-                <Select 
-                  value={filters.product} 
-                  onValueChange={(value) => setFilters({...filters, product: value})}
-                  disabled={filters.comparisonType !== 'products'}
-                >
-                  <SelectTrigger className="h-10">
-                    <SelectValue placeholder="Todos os produtos" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os produtos</SelectItem>
-                    {products.map(product => (
-                      <SelectItem key={product.id} value={product.id}>
-                        {product.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {filters.comparisonType !== 'products' && (
-                  <p className="text-xs text-slate-500 mt-1">
-                    Disponível ao selecionar "Produtos"
-                  </p>
-                )}
               </div>
 
               <Button 
@@ -668,14 +909,48 @@ export default function Reports() {
 
         {/* ÁREA DE GRÁFICOS/CONTEÚDO */}
         <div className="lg:col-span-3 space-y-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between gap-4">
+              <div>
+                <CardTitle className="text-base">KPIs do relatório</CardTitle>
+                <p className="text-sm text-slate-500">Selecione o tipo de indicadores que deseja visualizar.</p>
+              </div>
+              <Select value={kpiView} onValueChange={setKpiView}>
+                <SelectTrigger className="h-9 w-[220px]">
+                  <SelectValue placeholder="Tipo de KPI" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="operational">Operacionais</SelectItem>
+                  <SelectItem value="efficiency">Eficiência</SelectItem>
+                  <SelectItem value="financial">Financeiros</SelectItem>
+                </SelectContent>
+              </Select>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                {kpiCards[kpiView].map((kpi) => (
+                  <KPICard
+                    key={kpi.title}
+                    title={kpi.title}
+                    value={kpi.value}
+                    subtitle={kpi.subtitle}
+                    icon={kpi.icon}
+                    trend={kpi.trend}
+                    trendValue={kpi.trendValue}
+                    color={kpi.color}
+                  />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
           <div id="sales-loss-chart">
-            <SalesLossChart data={chartData} />
+            <SalesLossChart data={chartData} comparisonData={comparisonChartData} />
           </div>
           <div id="loss-rate-chart">
-            <LossRateChart data={chartData} />
+            <LossRateChart data={chartData} comparisonData={comparisonChartData} />
           </div>
           <div id="revenue-chart">
-            <RevenueChart data={chartData} products={products} />
+            <RevenueChart data={chartData} comparisonData={comparisonChartData} products={products} />
           </div>
           <SummaryTable data={chartData} products={products} />
         </div>

@@ -110,7 +110,7 @@ export default function SummaryTable({ data, products }) {
                     key={index}
                     className={index % 2 === 0 ? 'bg-white' : 'bg-slate-50'}
                   >
-                    <TableCell className="font-medium">{row.period}</TableCell>
+                    <TableCell className="font-medium">{row.periodLabel || row.period}</TableCell>
                     <TableCell className="text-right">{row.sales.toFixed(2)} KG</TableCell>
                     <TableCell className="text-right">{row.losses.toFixed(2)} KG</TableCell>
                     <TableCell className="text-right">{rate.toFixed(1)}%</TableCell>
