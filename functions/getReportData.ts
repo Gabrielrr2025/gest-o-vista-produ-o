@@ -1,52 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-
-type PgError = {
-  message?: string;
-  stack?: string;
-  code?: string;
-  detail?: string;
-  hint?: string;
-};
-
-const buildPeriodFields = (granularity: string) => {
-  switch (granularity) {
-    case 'day':
-      return {
-        periodDate: `date_trunc('day', data::date)`,
-        periodKey: `to_char(date_trunc('day', data::date), 'YYYY-MM-DD')`,
-        periodLabel: `to_char(date_trunc('day', data::date), 'DD/MM/YYYY')`
-      };
-    case 'month':
-      return {
-        periodDate: `date_trunc('month', data::date)`,
-        periodKey: `to_char(date_trunc('month', data::date), 'YYYY-MM')`,
-        periodLabel: `to_char(date_trunc('month', data::date), 'MM/YYYY')`
-      };
-    case 'year':
-      return {
-        periodDate: `date_trunc('year', data::date)`,
-        periodKey: `to_char(date_trunc('year', data::date), 'YYYY')`,
-        periodLabel: `to_char(date_trunc('year', data::date), 'YYYY')`
-      };
-    case 'week':
-    default:
-      return {
-        periodDate: `date_trunc('week', data::date)`,
-        periodKey: `to_char(date_trunc('week', data::date), 'IYYY-"W"IW')`,
-        periodLabel: `to_char(date_trunc('week', data::date), 'IW/YYYY')`
-      };
-  }
-};
-
-const formatDate = (date: Date) => date.toISOString().slice(0, 10);
-
-const logError = (err: unknown) => {
-  console.error('[getReportData] ERROR', err);
-  const message = (err as PgError)?.message;
-  const stack = (err as PgError)?.stack;
-  if (message) console.error('[getReportData] ERROR message:', message);
-  if (stack) console.error('[getReportData] ERROR stack:', stack);
-};
+import { neon } from 'npm:@neondatabase/serverless@0.9.0';
 
 Deno.serve(async (req) => {
   try {
@@ -58,186 +11,291 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const {
-      startDate,
-      endDate,
-      granularity = 'week',
-      compareMode = 'none'
-    } = body ?? {};
-
-    const allowedGranularities = new Set(['day', 'week', 'month', 'year']);
-    const allowedCompareModes = new Set(['none', 'previous', 'yoy']);
+    const { 
+      startDate, 
+      endDate, 
+      compareStartDate, 
+      compareEndDate,
+      sector = 'all',
+      reportType = 'sales'
+    } = body;
 
     if (!startDate || !endDate) {
-      return Response.json({ error: 'Missing startDate or endDate' }, { status: 400 });
-    }
-    if (!allowedGranularities.has(granularity)) {
-      return Response.json({ error: 'Invalid granularity' }, { status: 400 });
-    }
-    if (!allowedCompareModes.has(compareMode)) {
-      return Response.json({ error: 'Invalid compareMode' }, { status: 400 });
+      return Response.json({ error: 'startDate e endDate são obrigatórios' }, { status: 400 });
     }
 
     const connectionString = Deno.env.get('POSTGRES_CONNECTION_URL');
+    
     if (!connectionString) {
-      return Response.json({ error: 'Database connection not configured' }, { status: 500 });
+      return Response.json({ error: 'POSTGRES_CONNECTION_URL não configurada' }, { status: 500 });
     }
 
-    const { Client } = await import('npm:pg@8.11.3');
-    const client = new Client(connectionString);
+    const sql = neon(connectionString);
 
-    await client.connect();
+    console.log(`📊 Relatório ${reportType}: ${startDate} a ${endDate}, setor: ${sector}`);
 
-    try {
-      console.log('🧭 getReportData inputs:', { startDate, endDate, granularity, compareMode });
+    // ========================================
+    // QUERY PRINCIPAL (simplificada)
+    // ========================================
 
-      // Sanity check (helps diagnose empty/invalid view)
-      const sanityQuery =
-        'select count(*) as n, min(data) as min, max(data) as max from vw_movimentacoes;';
-      console.log('🧪 Sanity SQL:', sanityQuery);
-      const sanityResult = await client.query(sanityQuery);
-      console.log('🧪 Sanity result:', sanityResult.rows?.[0]);
+    let mainData = [];
 
-      const runQueries = async (rangeStart: string, rangeEnd: string) => {
-        const { periodKey, periodLabel } = buildPeriodFields(granularity);
-        const baseParams = [rangeStart, rangeEnd];
-
-        console.log(
-          `📊 Buscando dados de relatório: ${rangeStart} a ${rangeEnd}, granularidade=${granularity}`
-        );
-
-        const salesLossQuery = `
+    if (reportType === 'sales') {
+      if (sector === 'all') {
+        mainData = await sql`
           SELECT 
-            ${periodKey} as period_key,
-            ${periodLabel} as period_label,
-            SUM(CASE WHEN tipo = 'venda' THEN valor ELSE 0 END) as vendas_reais,
-            SUM(CASE WHEN tipo = 'perda' THEN valor ELSE 0 END) as perdas_reais
-          FROM vw_movimentacoes
-          WHERE data BETWEEN $1 AND $2
-          GROUP BY ${periodKey}, ${periodLabel}
-          ORDER BY ${periodKey}
+            v.data,
+            p.id as produto_id,
+            p.nome as produto_nome,
+            p.setor,
+            p.unidade,
+            SUM(v.quantidade) as quantidade,
+            SUM(v.valor_reais) as valor_reais
+          FROM vendas v
+          JOIN produtos p ON v.produto_id = p.id
+          WHERE v.data BETWEEN ${startDate} AND ${endDate}
+          GROUP BY v.data, p.id, p.nome, p.setor, p.unidade
+          ORDER BY v.data, p.nome
         `;
-        console.log('🧾 SQL salesLoss:', salesLossQuery.trim());
-
-        const lossRateQuery = `
+      } else {
+        mainData = await sql`
           SELECT 
-            ${periodKey} as period_key,
-            ${periodLabel} as period_label,
-            (SUM(CASE WHEN tipo = 'perda' THEN quantidade ELSE 0 END) / 
-             NULLIF(SUM(CASE WHEN tipo = 'venda' THEN quantidade ELSE 0 END), 0) * 100) as taxa_perda
-          FROM vw_movimentacoes
-          WHERE data BETWEEN $1 AND $2
-          GROUP BY ${periodKey}, ${periodLabel}
-          ORDER BY ${periodKey}
+            v.data,
+            p.id as produto_id,
+            p.nome as produto_nome,
+            p.setor,
+            p.unidade,
+            SUM(v.quantidade) as quantidade,
+            SUM(v.valor_reais) as valor_reais
+          FROM vendas v
+          JOIN produtos p ON v.produto_id = p.id
+          WHERE v.data BETWEEN ${startDate} AND ${endDate}
+            AND p.setor = ${sector}
+          GROUP BY v.data, p.id, p.nome, p.setor, p.unidade
+          ORDER BY v.data, p.nome
         `;
-        console.log('🧾 SQL lossRate:', lossRateQuery.trim());
-
-        const revenueQuery = `
+      }
+    } else if (reportType === 'losses') {
+      if (sector === 'all') {
+        mainData = await sql`
           SELECT 
-            ${periodKey} as period_key,
-            ${periodLabel} as period_label,
-            SUM(CASE WHEN tipo = 'venda' THEN valor ELSE 0 END) as faturamento
-          FROM vw_movimentacoes
-          WHERE data BETWEEN $1 AND $2
-          GROUP BY ${periodKey}, ${periodLabel}
-          ORDER BY ${periodKey}
+            pe.data,
+            p.id as produto_id,
+            p.nome as produto_nome,
+            p.setor,
+            p.unidade,
+            SUM(pe.quantidade) as quantidade,
+            SUM(pe.valor_reais) as valor_reais
+          FROM perdas pe
+          JOIN produtos p ON pe.produto_id = p.id
+          WHERE pe.data BETWEEN ${startDate} AND ${endDate}
+          GROUP BY pe.data, p.id, p.nome, p.setor, p.unidade
+          ORDER BY pe.data, p.nome
         `;
-        console.log('🧾 SQL revenue:', revenueQuery.trim());
-
-        const summaryQuery = `
+      } else {
+        mainData = await sql`
           SELECT 
-            ${periodKey} as period_key,
-            ${periodLabel} as period_label,
-            SUM(CASE WHEN tipo = 'venda' THEN quantidade ELSE 0 END) as vendas_qtd,
-            SUM(CASE WHEN tipo = 'perda' THEN quantidade ELSE 0 END) as perdas_qtd,
-            (SUM(CASE WHEN tipo = 'perda' THEN quantidade ELSE 0 END) / 
-             NULLIF(SUM(CASE WHEN tipo = 'venda' THEN quantidade ELSE 0 END), 0) * 100) as taxa_perda,
-            SUM(CASE WHEN tipo = 'venda' THEN valor ELSE 0 END) as faturamento
-          FROM vw_movimentacoes
-          WHERE data BETWEEN $1 AND $2
-          GROUP BY ${periodKey}, ${periodLabel}
-          ORDER BY ${periodKey}
+            pe.data,
+            p.id as produto_id,
+            p.nome as produto_nome,
+            p.setor,
+            p.unidade,
+            SUM(pe.quantidade) as quantidade,
+            SUM(pe.valor_reais) as valor_reais
+          FROM perdas pe
+          JOIN produtos p ON pe.produto_id = p.id
+          WHERE pe.data BETWEEN ${startDate} AND ${endDate}
+            AND p.setor = ${sector}
+          GROUP BY pe.data, p.id, p.nome, p.setor, p.unidade
+          ORDER BY pe.data, p.nome
         `;
-        console.log('🧾 SQL summary:', summaryQuery.trim());
+      }
+    }
 
-        try {
-          const [salesLossResult, lossRateResult, revenueResult, summaryResult] =
-            await Promise.all([
-              client.query(salesLossQuery, baseParams),
-              client.query(lossRateQuery, baseParams),
-              client.query(revenueQuery, baseParams),
-              client.query(summaryQuery, baseParams)
-            ]);
+    console.log(`✅ ${mainData.length} registros encontrados`);
 
-          console.log('📈 RowCounts:', {
-            salesLoss: salesLossResult.rowCount,
-            lossRate: lossRateResult.rowCount,
-            revenue: revenueResult.rowCount,
-            summary: summaryResult.rowCount
-          });
+    // ========================================
+    // COMPARAÇÃO (se solicitado)
+    // ========================================
 
-          return {
-            salesLoss: salesLossResult.rows,
-            lossRate: lossRateResult.rows,
-            revenue: revenueResult.rows,
-            summary: summaryResult.rows
-          };
-        } catch (err) {
-          console.error('❌ Erro ao executar queries:', err);
-          console.error('❌ Stack trace:', (err as PgError)?.stack);
-          throw err;
+    let compareData = null;
+
+    if (compareStartDate && compareEndDate) {
+      console.log(`📊 Buscando comparação: ${compareStartDate} a ${compareEndDate}`);
+
+      if (reportType === 'sales') {
+        if (sector === 'all') {
+          compareData = await sql`
+            SELECT 
+              v.data,
+              p.id as produto_id,
+              p.nome as produto_nome,
+              p.setor,
+              p.unidade,
+              SUM(v.quantidade) as quantidade,
+              SUM(v.valor_reais) as valor_reais
+            FROM vendas v
+            JOIN produtos p ON v.produto_id = p.id
+            WHERE v.data BETWEEN ${compareStartDate} AND ${compareEndDate}
+            GROUP BY v.data, p.id, p.nome, p.setor, p.unidade
+          `;
+        } else {
+          compareData = await sql`
+            SELECT 
+              v.data,
+              p.id as produto_id,
+              p.nome as produto_nome,
+              p.setor,
+              p.unidade,
+              SUM(v.quantidade) as quantidade,
+              SUM(v.valor_reais) as valor_reais
+            FROM vendas v
+            JOIN produtos p ON v.produto_id = p.id
+            WHERE v.data BETWEEN ${compareStartDate} AND ${compareEndDate}
+              AND p.setor = ${sector}
+            GROUP BY v.data, p.id, p.nome, p.setor, p.unidade
+          `;
         }
-      };
-
-      const current = await runQueries(startDate, endDate);
-
-      let comparison: unknown = null;
-      if (compareMode !== 'none') {
-        const start = new Date(startDate);
-        const end = new Date(endDate);
-        let comparisonStart = new Date(start);
-        let comparisonEnd = new Date(end);
-
-        if (compareMode === 'previous') {
-          const durationDays =
-            Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-          comparisonEnd.setDate(comparisonEnd.getDate() - durationDays);
-          comparisonStart = new Date(comparisonEnd);
-          comparisonStart.setDate(comparisonStart.getDate() - durationDays + 1);
-        } else if (compareMode === 'yoy') {
-          comparisonStart.setFullYear(comparisonStart.getFullYear() - 1);
-          comparisonEnd.setFullYear(comparisonEnd.getFullYear() - 1);
+      } else if (reportType === 'losses') {
+        if (sector === 'all') {
+          compareData = await sql`
+            SELECT 
+              pe.data,
+              p.id as produto_id,
+              p.nome as produto_nome,
+              p.setor,
+              p.unidade,
+              SUM(pe.quantidade) as quantidade,
+              SUM(pe.valor_reais) as valor_reais
+            FROM perdas pe
+            JOIN produtos p ON pe.produto_id = p.id
+            WHERE pe.data BETWEEN ${compareStartDate} AND ${compareEndDate}
+            GROUP BY pe.data, p.id, p.nome, p.setor, p.unidade
+          `;
+        } else {
+          compareData = await sql`
+            SELECT 
+              pe.data,
+              p.id as produto_id,
+              p.nome as produto_nome,
+              p.setor,
+              p.unidade,
+              SUM(pe.quantidade) as quantidade,
+              SUM(pe.valor_reais) as valor_reais
+            FROM perdas pe
+            JOIN produtos p ON pe.produto_id = p.id
+            WHERE pe.data BETWEEN ${compareStartDate} AND ${compareEndDate}
+              AND p.setor = ${sector}
+            GROUP BY pe.data, p.id, p.nome, p.setor, p.unidade
+          `;
         }
-
-        console.log('🧭 Comparison range:', {
-          compareMode,
-          comparisonStart: formatDate(comparisonStart),
-          comparisonEnd: formatDate(comparisonEnd)
-        });
-
-        comparison = await runQueries(formatDate(comparisonStart), formatDate(comparisonEnd));
       }
 
-      console.log('✅ Dados de relatório obtidos');
-
-      return Response.json({ current, comparison });
-    } finally {
-      await client.end();
+      console.log(`✅ ${compareData.length} registros de comparação`);
     }
-  } catch (error) {
-    logError(error);
 
-    const pgError = error as PgError;
-    return Response.json(
-      {
-        ok: false,
-        error: pgError?.message ?? String(error),
-        stack: pgError?.stack ?? null,
-        code: pgError?.code ?? null,
-        detail: pgError?.detail ?? null,
-        hint: pgError?.hint ?? null
+    // ========================================
+    // PROCESSAR TOTAIS
+    // ========================================
+
+    // Total por setor
+    const totalBySecor = {};
+    mainData.forEach(row => {
+      const s = row.setor;
+      if (!totalBySecor[s]) totalBySecor[s] = { quantidade: 0, valor_reais: 0 };
+      totalBySecor[s].quantidade += parseFloat(row.quantidade || 0);
+      totalBySecor[s].valor_reais += parseFloat(row.valor_reais || 0);
+    });
+
+    // Total por produto
+    const totalByProduct = {};
+    mainData.forEach(row => {
+      const pid = row.produto_id;
+      if (!totalByProduct[pid]) {
+        totalByProduct[pid] = {
+          nome: row.produto_nome,
+          setor: row.setor,
+          unidade: row.unidade,
+          quantidade: 0,
+          valor_reais: 0
+        };
+      }
+      totalByProduct[pid].quantidade += parseFloat(row.quantidade || 0);
+      totalByProduct[pid].valor_reais += parseFloat(row.valor_reais || 0);
+    });
+
+    // Total geral
+    const totalGeral = {
+      quantidade: Object.values(totalBySecor).reduce((sum, s) => sum + s.quantidade, 0),
+      valor_reais: Object.values(totalBySecor).reduce((sum, s) => sum + s.valor_reais, 0)
+    };
+
+    // Processar comparação
+    let totalBySectorCompare = null;
+    let totalByProductCompare = null;
+    let totalGeralCompare = null;
+
+    if (compareData) {
+      totalBySectorCompare = {};
+      compareData.forEach(row => {
+        const s = row.setor;
+        if (!totalBySectorCompare[s]) totalBySectorCompare[s] = { quantidade: 0, valor_reais: 0 };
+        totalBySectorCompare[s].quantidade += parseFloat(row.quantidade || 0);
+        totalBySectorCompare[s].valor_reais += parseFloat(row.valor_reais || 0);
+      });
+
+      totalByProductCompare = {};
+      compareData.forEach(row => {
+        const pid = row.produto_id;
+        if (!totalByProductCompare[pid]) {
+          totalByProductCompare[pid] = {
+            nome: row.produto_nome,
+            setor: row.setor,
+            unidade: row.unidade,
+            quantidade: 0,
+            valor_reais: 0
+          };
+        }
+        totalByProductCompare[pid].quantidade += parseFloat(row.quantidade || 0);
+        totalByProductCompare[pid].valor_reais += parseFloat(row.valor_reais || 0);
+      });
+
+      totalGeralCompare = {
+        quantidade: Object.values(totalBySectorCompare).reduce((sum, s) => sum + s.quantidade, 0),
+        valor_reais: Object.values(totalBySectorCompare).reduce((sum, s) => sum + s.valor_reais, 0)
+      };
+    }
+
+    // ========================================
+    // RESPOSTA
+    // ========================================
+
+    return Response.json({
+      period: { start: startDate, end: endDate },
+      comparePeriod: compareStartDate ? { start: compareStartDate, end: compareEndDate } : null,
+      reportType,
+      filters: { sector },
+      data: {
+        raw: mainData,
+        totalBySecor,
+        totalByProduct,
+        totalGeral
       },
-      { status: 500 }
-    );
+      compareData: compareData ? {
+        raw: compareData,
+        totalBySecor: totalBySectorCompare,
+        totalByProduct: totalByProductCompare,
+        totalGeral: totalGeralCompare
+      } : null
+    });
+
+  } catch (error) {
+    console.error('❌ ERRO:', error.message);
+    console.error('Stack:', error.stack);
+    
+    return Response.json({ 
+      error: error.message,
+      stack: error.stack
+    }, { status: 500 });
   }
 });
