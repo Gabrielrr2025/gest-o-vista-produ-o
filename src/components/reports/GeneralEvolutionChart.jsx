@@ -66,15 +66,22 @@ export default function GeneralEvolutionChart({
     end: dateRange.to
   });
 
+  console.log('📅 Período selecionado:', {
+    from: dateRange.from,
+    to: dateRange.to,
+    totalDays: allDays.length
+  });
+
   // Agregar dados por dia
   const chartData = allDays.map(day => {
     const dateStr = format(day, 'yyyy-MM-dd');
     const dateLabel = format(day, 'dd/MM', { locale: ptBR });
     
     // Somar valores do dia atual
-    const dayValue = rawData
-      .filter(item => item.data === dateStr)
-      .reduce((sum, item) => sum + parseFloat(item.valor_reais || 0), 0);
+    const matchingData = rawData.filter(item => item.data === dateStr);
+    const dayValue = matchingData.reduce((sum, item) => sum + parseFloat(item.valor_reais || 0), 0);
+
+    console.log(`📆 ${dateStr} (${dateLabel}): ${matchingData.length} registros, total: R$ ${dayValue.toFixed(2)}`);
 
     const dataPoint = {
       date: dateLabel,
