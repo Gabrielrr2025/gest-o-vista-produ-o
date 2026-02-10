@@ -12,9 +12,9 @@ import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
 import DateRangePicker from "../components/reports/DateRangePicker";
-import SectorCards from "../components/reports/SectorCards";
-import ProductRanking from "../components/reports/ProductRanking";
-import ProductEvolution from "../components/reports/ProductEvolution";
+import Sectorcards from "../components/reports/Sectorcards";
+import Productranking from "../components/reports/Productranking";
+import Productevolution from "../components/reports/Productevolution";
 import GeneralEvolutionChart from "../components/reports/GeneralEvolutionChart";
 import SectorDistributionChart from "../components/reports/SectorDistributionChart";
 import SectorEvolutionChart from "../components/reports/SectorEvolutionChart";
@@ -326,7 +326,7 @@ export default function Reports() {
                   </CardContent>
                 </Card>
 
-                <SectorCards
+                <Sectorcards
                   sectors={activeTab === 'sales' ? 
                     reportData.salesBySector : 
                     reportData.lossesBySector
@@ -390,7 +390,7 @@ export default function Reports() {
 
               {/* NÍVEL 2: Ranking de Produtos */}
               {filteredProducts.length > 0 && (
-                <ProductRanking
+                <Productranking
                   products={filteredProducts}
                   selectedSector={selectedSector}
                   selectedProduct={selectedProduct}
