@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import * as XLSX from 'xlsx';
 import DateRangePicker from "./DateRangePicker";
 import ProductComparisonChart from "./ProductComparisonChart";
-import Productcomparisontable from "./Productcomparisontable";
+import ProductComparisonTable from "./ProductComparisonTable";
 
 export default function ProductComparisonModal({ 
   isOpen, 
@@ -23,12 +23,21 @@ export default function ProductComparisonModal({
   type = 'sales'
 }) {
   // Produtos selecionados para comparação (máx 3)
-  const [selectedProducts, setSelectedProducts] = useState(
-    initialProduct ? [initialProduct] : []
-  );
+  const [selectedProducts, setSelectedProducts] = useState([]);
   
   // Período compartilhado
   const [dateRange, setDateRange] = useState(initialDateRange);
+
+  // Adicionar produto inicial quando modal abre
+  React.useEffect(() => {
+    if (isOpen && initialProduct) {
+      console.log('📦 Initial Product recebido:', initialProduct);
+      setSelectedProducts([initialProduct]);
+    } else if (!isOpen) {
+      // Limpar quando fecha
+      setSelectedProducts([]);
+    }
+  }, [isOpen, initialProduct]);
 
   // Buscar dados de comparação
   const productIds = useMemo(() => {
@@ -42,17 +51,34 @@ export default function ProductComparisonModal({
   const comparisonQuery = useQuery({
     queryKey: ['productComparison', productIds, dateRange, type],
     queryFn: async () => {
+      console.log('🚀 INICIANDO QUERY com:', {
+        productIds,
+        dateRangeFrom: dateRange?.from,
+        dateRangeTo: dateRange?.to,
+        startDate: dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : null,
+        endDate: dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : null,
+        type
+      });
+
       if (productIds.length === 0 || !dateRange?.from || !dateRange?.to) {
+        console.log('❌ Query abortada - faltam dados');
         return null;
       }
 
-      const response = await base44.functions.invoke('getProductComparison', {
-        productIds,
-        startDate: format(dateRange.from, 'yyyy-MM-dd'),
-        endDate: format(dateRange.to, 'yyyy-MM-dd'),
-        type
-      });
-      return response.data;
+      try {
+        const response = await base44.functions.invoke('getProductComparison', {
+          productIds,
+          startDate: format(dateRange.from, 'yyyy-MM-dd'),
+          endDate: format(dateRange.to, 'yyyy-MM-dd'),
+          type
+        });
+        
+        console.log('✅ Resposta recebida:', response.data);
+        return response.data;
+      } catch (error) {
+        console.error('❌ ERRO na query:', error);
+        throw error;
+      }
     },
     enabled: isOpen && productIds.length > 0 && !!dateRange?.from && !!dateRange?.to
   });
@@ -131,8 +157,15 @@ export default function ProductComparisonModal({
 
         <div className="space-y-6">
           {/* DEBUG INFO */}
-          <div className="text-xs text-slate-500 p-2 bg-slate-50 rounded">
-            Debug: {selectedProducts.length} produtos | Período: {dateRange?.from ? 'OK' : 'NULL'} | Query: {comparisonQuery.isLoading ? 'Loading...' : comparisonQuery.data ? 'Data OK' : 'No data'}
+          <div className="text-xs text-slate-500 p-2 bg-slate-50 rounded font-mono">
+            <div>Debug: {selectedProducts.length} produtos</div>
+            <div>Período: {dateRange?.from ? format(dateRange.from, 'dd/MM/yyyy') : 'NULL'} - {dateRange?.to ? format(dateRange.to, 'dd/MM/yyyy') : 'NULL'}</div>
+            <div>ProductIds: [{productIds.join(', ')}]</div>
+            <div>Query Status: {comparisonQuery.isLoading ? 'Loading...' : comparisonQuery.error ? 'ERROR' : comparisonQuery.data ? 'Data OK' : 'No data'}</div>
+            <div>Enabled: {(isOpen && productIds.length > 0 && !!dateRange?.from && !!dateRange?.to).toString()}</div>
+            {comparisonQuery.error && (
+              <div className="text-red-600">Error: {comparisonQuery.error.message}</div>
+            )}
           </div>
 
           {/* Seleção de Produtos */}
@@ -228,7 +261,7 @@ export default function ProductComparisonModal({
               />
 
               {/* Tabela */}
-              <Productcomparisontable 
+              <ProductComparisonTable 
                 productsData={comparisonQuery.data.products}
               />
             </>
