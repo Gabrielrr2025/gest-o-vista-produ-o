@@ -12,14 +12,19 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
     const { 
-      productIds, // Array de IDs dos produtos a comparar
+      productIds: rawProductIds, 
       startDate, 
       endDate,
-      type = 'sales' // 'sales' ou 'losses'
+      type = 'sales'
     } = body;
 
-    if (!productIds || productIds.length === 0) {
-      return Response.json({ error: 'productIds é obrigatório' }, { status: 400 });
+    // Garantir que são números
+    const productIds = Array.isArray(rawProductIds) ? 
+      rawProductIds.map(id => parseInt(id)) : 
+      [parseInt(rawProductIds)];
+
+    if (!productIds || productIds.length === 0 || productIds.some(id => isNaN(id))) {
+      return Response.json({ error: 'productIds inválidos' }, { status: 400 });
     }
 
     if (!startDate || !endDate) {
@@ -35,6 +40,8 @@ Deno.serve(async (req) => {
     const sql = neon(connectionString);
 
     console.log(`📊 Comparação de ${productIds.length} produtos: ${startDate} a ${endDate}`);
+    console.log(`📦 Product IDs:`, productIds);
+    console.log(`🎯 Type:`, type);
 
     // ========================================
     // BUSCAR DADOS DE CADA PRODUTO
@@ -43,6 +50,8 @@ Deno.serve(async (req) => {
     const productsData = [];
 
     for (const productId of productIds) {
+      console.log(`🔍 Processando produto ${productId}...`);
+      
       // Info do produto
       const productInfo = await sql`
         SELECT id, nome, setor, unidade
@@ -54,6 +63,8 @@ Deno.serve(async (req) => {
         console.warn(`⚠️ Produto ${productId} não encontrado`);
         continue;
       }
+
+      console.log(`✅ Produto encontrado:`, productInfo[0].nome);
 
       // Dados temporais (dia a dia)
       let evolutionData = [];
