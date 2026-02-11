@@ -50,50 +50,55 @@ Deno.serve(async (req) => {
     const productsData = [];
 
     for (const productId of productIds) {
-      console.log(`🔍 Processando produto ${productId}...`);
-      
-      // Info do produto
-      const productInfo = await sql`
-        SELECT id, nome, setor, unidade
-        FROM produtos
-        WHERE id = ${productId}
-      `;
-
-      if (productInfo.length === 0) {
-        console.warn(`⚠️ Produto ${productId} não encontrado`);
-        continue;
-      }
-
-      console.log(`✅ Produto encontrado:`, productInfo[0].nome);
-
-      // Dados temporais (dia a dia)
-      let evolutionData = [];
-
-      if (type === 'sales') {
-        evolutionData = await sql`
-          SELECT 
-            v.data,
-            SUM(v.valor_reais) as valor,
-            SUM(v.quantidade) as quantidade
-          FROM vendas v
-          WHERE v.produto_id = ${productId}
-            AND v.data BETWEEN ${startDate} AND ${endDate}
-          GROUP BY v.data
-          ORDER BY v.data
+      try {
+        console.log(`🔍 Processando produto ${productId}...`);
+        
+        // Info do produto
+        const productInfo = await sql`
+          SELECT id, nome, setor, unidade
+          FROM produtos
+          WHERE id = ${productId}
         `;
-      } else if (type === 'losses') {
-        evolutionData = await sql`
-          SELECT 
-            pe.data,
-            SUM(pe.valor_reais) as valor,
-            SUM(pe.quantidade) as quantidade
-          FROM perdas pe
-          WHERE pe.produto_id = ${productId}
-            AND pe.data BETWEEN ${startDate} AND ${endDate}
-          GROUP BY pe.data
-          ORDER BY pe.data
-        `;
-      }
+
+        if (productInfo.length === 0) {
+          console.warn(`⚠️ Produto ${productId} não encontrado`);
+          continue;
+        }
+
+        console.log(`✅ Produto encontrado:`, productInfo[0].nome);
+
+        // Dados temporais (dia a dia)
+        let evolutionData = [];
+
+        if (type === 'sales') {
+          console.log(`📊 Buscando vendas para produto ${productId}...`);
+          evolutionData = await sql`
+            SELECT 
+              v.data,
+              SUM(v.valor_reais) as valor,
+              SUM(v.quantidade) as quantidade
+            FROM vendas v
+            WHERE v.produto_id = ${productId}
+              AND v.data BETWEEN ${startDate} AND ${endDate}
+            GROUP BY v.data
+            ORDER BY v.data
+          `;
+          console.log(`✅ ${evolutionData.length} dias de vendas encontrados`);
+        } else if (type === 'losses') {
+          console.log(`💸 Buscando perdas para produto ${productId}...`);
+          evolutionData = await sql`
+            SELECT 
+              pe.data,
+              SUM(pe.valor_reais) as valor,
+              SUM(pe.quantidade) as quantidade
+            FROM perdas pe
+            WHERE pe.produto_id = ${productId}
+              AND pe.data BETWEEN ${startDate} AND ${endDate}
+            GROUP BY pe.data
+            ORDER BY pe.data
+          `;
+          console.log(`✅ ${evolutionData.length} dias de perdas encontrados`);
+        }
 
       // Estatísticas
       const totalValor = evolutionData.reduce((sum, d) => sum + parseFloat(d.valor || 0), 0);
@@ -126,7 +131,13 @@ Deno.serve(async (req) => {
         }
       });
 
-      console.log(`✅ Produto ${productInfo[0].nome}: ${evolutionData.length} dias de dados`);
+      console.log(`✅ Produto ${productInfo[0].nome}: ${evolutionData.length} dias, Total R$ ${totalValor.toFixed(2)}`);
+      
+      } catch (productError) {
+        console.error(`❌ Erro ao processar produto ${productId}:`, productError.message);
+        console.error('Stack:', productError.stack);
+        continue;
+      }
     }
 
     // ========================================
