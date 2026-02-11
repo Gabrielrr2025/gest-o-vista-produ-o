@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import { format } from "date-fns";
 import ProductsManager from "../components/products/ProductsManager";
+import UnmappedProductsSuggestion from "../components/products/UnmappedProductsSuggestion";
 import * as XLSX from 'xlsx';
 
 export default function Products() {
@@ -17,6 +18,16 @@ export default function Products() {
       const response = await base44.functions.invoke('getProducts', {});
       return response.data;
     }
+  });
+
+  // Buscar dados da VIEW SQL para detectar produtos não mapeados
+  const { data: sqlData } = useQuery({
+    queryKey: ['sqlData'],
+    queryFn: async () => {
+      const response = await base44.functions.invoke('fetchSQLData', {});
+      return response.data || { sales: [], losses: [] };
+    },
+    refetchInterval: 5 * 60 * 1000, // Atualiza a cada 5 minutos
   });
 
   const products = productsData?.products || [];
@@ -81,6 +92,15 @@ export default function Products() {
           </Button>
         </div>
       </div>
+
+      {/* Produtos não mapeados da VIEW SQL */}
+      {sqlData && (
+        <UnmappedProductsSuggestion
+          sqlData={sqlData}
+          products={products}
+          onProductCreated={handleRefresh}
+        />
+      )}
 
       <ProductsManager 
         products={products} 
