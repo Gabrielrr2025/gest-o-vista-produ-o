@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import * as XLSX from 'xlsx';
 import DateRangePicker from "./DateRangePicker";
 import ProductComparisonChart from "./ProductComparisonChart";
-import Productcomparisontable from "./Productcomparisontable";
+import ProductComparisonTable from "./ProductComparisonTable";
 
 export default function ProductComparisonModal({ 
   isOpen, 
@@ -31,7 +31,13 @@ export default function ProductComparisonModal({
   const [dateRange, setDateRange] = useState(initialDateRange);
 
   // Buscar dados de comparação
-  const productIds = selectedProducts.map(p => p.produto_id);
+  const productIds = useMemo(() => {
+    return selectedProducts
+      .map(p => parseInt(p.produto_id))
+      .filter(id => !isNaN(id));
+  }, [selectedProducts]);
+
+  console.log('🔍 ProductIds para query:', productIds);
 
   const comparisonQuery = useQuery({
     queryKey: ['productComparison', productIds, dateRange, type],
@@ -222,7 +228,7 @@ export default function ProductComparisonModal({
               />
 
               {/* Tabela */}
-              <Productcomparisontable 
+              <ProductComparisonTable 
                 productsData={comparisonQuery.data.products}
               />
             </>
