@@ -11,6 +11,8 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
+    console.log('📥 Request body:', JSON.stringify(body, null, 2));
+    
     const { 
       productIds: rawProductIds, 
       startDate, 
@@ -22,6 +24,9 @@ Deno.serve(async (req) => {
     const productIds = Array.isArray(rawProductIds) ? 
       rawProductIds.map(id => parseInt(id)) : 
       [parseInt(rawProductIds)];
+
+    console.log('🎯 Parsed productIds:', productIds);
+    console.log('📅 Dates:', { startDate, endDate, type });
 
     if (!productIds || productIds.length === 0 || productIds.some(id => isNaN(id))) {
       return Response.json({ error: 'productIds inválidos' }, { status: 400 });
@@ -39,10 +44,6 @@ Deno.serve(async (req) => {
 
     const sql = neon(connectionString);
 
-    console.log(`📊 Comparação de ${productIds.length} produtos: ${startDate} a ${endDate}`);
-    console.log(`📦 Product IDs:`, productIds);
-    console.log(`🎯 Type:`, type);
-
     // ========================================
     // BUSCAR DADOS DE CADA PRODUTO
     // ========================================
@@ -50,111 +51,118 @@ Deno.serve(async (req) => {
     const productsData = [];
 
     for (const productId of productIds) {
+      console.log(`\n🔍 === Processando produto ${productId} ===`);
+      
       try {
-        console.log(`🔍 Processando produto ${productId}...`);
-        
-        // Info do produto
+        // 1. Info do produto
+        console.log(`   Query 1: Buscando info do produto...`);
         const productInfo = await sql`
           SELECT id, nome, setor, unidade
           FROM produtos
           WHERE id = ${productId}
         `;
+        console.log(`   ✅ Resultado:`, productInfo);
 
         if (productInfo.length === 0) {
-          console.warn(`⚠️ Produto ${productId} não encontrado`);
+          console.warn(`   ⚠️ Produto ${productId} não encontrado no banco`);
           continue;
         }
 
-        console.log(`✅ Produto encontrado:`, productInfo[0].nome);
+        const produto = productInfo[0];
+        console.log(`   ✅ Produto: ${produto.nome} (${produto.setor})`);
 
-        // Dados temporais (dia a dia)
+        // 2. Dados de evolução
+        console.log(`   Query 2: Buscando ${type}...`);
+        
         let evolutionData = [];
-
+        
         if (type === 'sales') {
-          console.log(`📊 Buscando vendas para produto ${productId}...`);
           evolutionData = await sql`
             SELECT 
-              v.data,
-              SUM(v.valor_reais) as valor,
-              SUM(v.quantidade) as quantidade
-            FROM vendas v
-            WHERE v.produto_id = ${productId}
-              AND v.data BETWEEN ${startDate} AND ${endDate}
-            GROUP BY v.data
-            ORDER BY v.data
+              data::date as data,
+              COALESCE(SUM(valor_reais), 0) as valor,
+              COALESCE(SUM(quantidade), 0) as quantidade
+            FROM vendas
+            WHERE produto_id = ${productId}
+              AND data >= ${startDate}::date
+              AND data <= ${endDate}::date
+            GROUP BY data::date
+            ORDER BY data::date
           `;
-          console.log(`✅ ${evolutionData.length} dias de vendas encontrados`);
-        } else if (type === 'losses') {
-          console.log(`💸 Buscando perdas para produto ${productId}...`);
+        } else {
           evolutionData = await sql`
             SELECT 
-              pe.data,
-              SUM(pe.valor_reais) as valor,
-              SUM(pe.quantidade) as quantidade
-            FROM perdas pe
-            WHERE pe.produto_id = ${productId}
-              AND pe.data BETWEEN ${startDate} AND ${endDate}
-            GROUP BY pe.data
-            ORDER BY pe.data
+              data::date as data,
+              COALESCE(SUM(valor_reais), 0) as valor,
+              COALESCE(SUM(quantidade), 0) as quantidade
+            FROM perdas
+            WHERE produto_id = ${productId}
+              AND data >= ${startDate}::date
+              AND data <= ${endDate}::date
+            GROUP BY data::date
+            ORDER BY data::date
           `;
-          console.log(`✅ ${evolutionData.length} dias de perdas encontrados`);
         }
 
-      // Estatísticas
-      const totalValor = evolutionData.reduce((sum, d) => sum + parseFloat(d.valor || 0), 0);
-      const totalQuantidade = evolutionData.reduce((sum, d) => sum + parseFloat(d.quantidade || 0), 0);
-      const mediaValor = evolutionData.length > 0 ? totalValor / evolutionData.length : 0;
-      
-      // Pico e vale
-      const valores = evolutionData.map(d => parseFloat(d.valor || 0));
-      const picoValor = valores.length > 0 ? Math.max(...valores) : 0;
-      const valeValor = valores.length > 0 ? Math.min(...valores) : 0;
-      const picoData = evolutionData.find(d => parseFloat(d.valor) === picoValor)?.data || null;
-      const valeData = evolutionData.find(d => parseFloat(d.valor) === valeValor)?.data || null;
+        console.log(`   ✅ ${evolutionData.length} dias encontrados`);
 
-      productsData.push({
-        produto: productInfo[0],
-        evolution: evolutionData,
-        stats: {
-          totalValor,
-          totalQuantidade,
-          mediaValor,
-          diasComDados: evolutionData.length,
-          pico: {
-            valor: picoValor,
-            data: picoData
+        // 3. Calcular estatísticas
+        const totalValor = evolutionData.reduce((sum, d) => sum + parseFloat(d.valor || 0), 0);
+        const totalQuantidade = evolutionData.reduce((sum, d) => sum + parseFloat(d.quantidade || 0), 0);
+        const mediaValor = evolutionData.length > 0 ? totalValor / evolutionData.length : 0;
+        
+        const valores = evolutionData.map(d => parseFloat(d.valor || 0));
+        const picoValor = valores.length > 0 ? Math.max(...valores) : 0;
+        const valeValor = valores.length > 0 ? Math.min(...valores) : 0;
+        
+        const picoItem = evolutionData.find(d => parseFloat(d.valor) === picoValor);
+        const valeItem = evolutionData.find(d => parseFloat(d.valor) === valeValor);
+
+        productsData.push({
+          produto: {
+            id: produto.id,
+            nome: produto.nome,
+            setor: produto.setor,
+            unidade: produto.unidade
           },
-          vale: {
-            valor: valeValor,
-            data: valeData
+          evolution: evolutionData,
+          stats: {
+            totalValor,
+            totalQuantidade,
+            mediaValor,
+            diasComDados: evolutionData.length,
+            pico: {
+              valor: picoValor,
+              data: picoItem?.data || null
+            },
+            vale: {
+              valor: valeValor,
+              data: valeItem?.data || null
+            }
           }
-        }
-      });
+        });
 
-      console.log(`✅ Produto ${productInfo[0].nome}: ${evolutionData.length} dias, Total R$ ${totalValor.toFixed(2)}`);
-      
+        console.log(`   ✅ Sucesso! Total: R$ ${totalValor.toFixed(2)}`);
+
       } catch (productError) {
-        console.error(`❌ Erro ao processar produto ${productId}:`, productError.message);
-        console.error('Stack:', productError.stack);
-        continue;
+        console.error(`\n   ❌ ERRO no produto ${productId}:`);
+        console.error(`   Message: ${productError.message}`);
+        console.error(`   Stack: ${productError.stack}`);
+        // Continua para o próximo
       }
     }
 
-    // ========================================
-    // RESPOSTA
-    // ========================================
+    console.log(`\n✅ Processamento completo: ${productsData.length} produtos`);
 
     return Response.json({
-      period: {
-        start: startDate,
-        end: endDate
-      },
+      period: { start: startDate, end: endDate },
       type,
       products: productsData
     });
 
   } catch (error) {
-    console.error('❌ ERRO:', error.message);
+    console.error('\n❌ ERRO GERAL:');
+    console.error('Message:', error.message);
     console.error('Stack:', error.stack);
     
     return Response.json({ 
