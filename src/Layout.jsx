@@ -37,27 +37,33 @@ export default function Layout({ children, currentPageName }) {
       try {
         const user = await base44.auth.me();
         console.log("🔐 Usuário carregado:", user);
+        console.log("📋 Permissões salvas no banco:", user.permissions);
         
-        // Criar permissões padrão baseado no role
-        const permissions = user?.role === 'admin' ? {
-          products: true,
-          planning: true,
-          calendar: true,
-          reports: true,
-          settings: true,
-          admin: true
-        } : {
-          products: true,
-          planning: true,
-          calendar: true,
-          reports: false,
-          settings: false,
-          admin: false
-        };
+        // Usar permissões do banco se existirem, senão criar padrão
+        if (!user.permissions) {
+          console.log("⚠️ Usuário sem permissões definidas, criando padrão...");
+          
+          // Criar permissões padrão baseado no role
+          const defaultPermissions = user?.role === 'admin' ? {
+            products: true,
+            planning: true,
+            calendar: true,
+            reports: true,
+            settings: true,
+            admin: true
+          } : {
+            products: true,
+            planning: true,
+            calendar: true,
+            reports: user.reports_access || false, // compatibilidade com campo antigo
+            settings: false,
+            admin: false
+          };
+          
+          user.permissions = defaultPermissions;
+        }
         
-        // Adicionar permissões ao usuário
-        user.permissions = permissions;
-        console.log("📋 Permissões do usuário:", user.permissions);
+        console.log("✅ Permissões finais do usuário:", user.permissions);
         setCurrentUser(user);
       } catch (error) {
         console.error("Erro ao carregar usuário:", error);
