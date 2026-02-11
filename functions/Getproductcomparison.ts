@@ -79,28 +79,28 @@ Deno.serve(async (req) => {
         if (type === 'sales') {
           evolutionData = await sql`
             SELECT 
-              data::date as data,
-              COALESCE(SUM(valor_reais), 0) as valor,
-              COALESCE(SUM(quantidade), 0) as quantidade
+              DATE(data) as data,
+              CAST(COALESCE(SUM(valor_reais), 0) AS DECIMAL) as valor,
+              CAST(COALESCE(SUM(quantidade), 0) AS DECIMAL) as quantidade
             FROM vendas
             WHERE produto_id = ${productId}
-              AND data >= ${startDate}::date
-              AND data <= ${endDate}::date
-            GROUP BY data::date
-            ORDER BY data::date
+              AND DATE(data) >= DATE(${startDate})
+              AND DATE(data) <= DATE(${endDate})
+            GROUP BY DATE(data)
+            ORDER BY DATE(data)
           `;
         } else {
           evolutionData = await sql`
             SELECT 
-              data::date as data,
-              COALESCE(SUM(valor_reais), 0) as valor,
-              COALESCE(SUM(quantidade), 0) as quantidade
+              DATE(data) as data,
+              CAST(COALESCE(SUM(valor_reais), 0) AS DECIMAL) as valor,
+              CAST(COALESCE(SUM(quantidade), 0) AS DECIMAL) as quantidade
             FROM perdas
             WHERE produto_id = ${productId}
-              AND data >= ${startDate}::date
-              AND data <= ${endDate}::date
-            GROUP BY data::date
-            ORDER BY data::date
+              AND DATE(data) >= DATE(${startDate})
+              AND DATE(data) <= DATE(${endDate})
+            GROUP BY DATE(data)
+            ORDER BY DATE(data)
           `;
         }
 
