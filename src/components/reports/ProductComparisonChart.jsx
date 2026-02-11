@@ -49,6 +49,12 @@ const formatYAxis = (value) => {
 export default function ProductComparisonChart({ productsData }) {
   const [groupBy, setGroupBy] = useState('day');
 
+  console.log('📊 ProductComparisonChart recebeu:', {
+    productsDataLength: productsData?.length,
+    products: productsData?.map(p => p.produto?.nome),
+    fullData: productsData
+  });
+
   const chartData = useMemo(() => {
     if (!productsData || productsData.length === 0) {
       return [];
