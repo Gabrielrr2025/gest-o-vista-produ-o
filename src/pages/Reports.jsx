@@ -12,9 +12,9 @@ import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
 import DateRangePicker from "../components/reports/DateRangePicker";
-import Sectorcards from "../components/reports/Sectorcards";
-import Productranking from "../components/reports/Productranking";
-import Productevolution from "../components/reports/Productevolution";
+import SectorCards from "../components/reports/SectorCards";
+import ProductRanking from "../components/reports/ProductRanking";
+import ProductEvolution from "../components/reports/ProductEvolution";
 import GeneralEvolutionChart from "../components/reports/GeneralEvolutionChart";
 import SectorDistributionChart from "../components/reports/SectorDistributionChart";
 import SectorEvolutionChart from "../components/reports/SectorEvolutionChart";
@@ -144,12 +144,20 @@ export default function Reports() {
   };
 
   const handleProductClick = (produtoId, produtoNome) => {
+    console.log('🖱️ Clicou no produto:', { produtoId, produtoNome });
+    console.log('📋 Produtos disponíveis:', filteredProducts);
+    
     // Buscar dados completos do produto
     const productData = filteredProducts.find(p => p.produto_id === produtoId);
+    
+    console.log('📦 Produto encontrado:', productData);
     
     if (productData) {
       setComparisonInitialProduct(productData);
       setComparisonModalOpen(true);
+    } else {
+      console.error('❌ Produto não encontrado no filteredProducts!');
+      toast.error('Erro ao abrir comparação');
     }
   };
 
@@ -326,7 +334,7 @@ export default function Reports() {
                   </CardContent>
                 </Card>
 
-                <Sectorcards
+                <SectorCards
                   sectors={activeTab === 'sales' ? 
                     reportData.salesBySector : 
                     reportData.lossesBySector
@@ -390,7 +398,7 @@ export default function Reports() {
 
               {/* NÍVEL 2: Ranking de Produtos */}
               {filteredProducts.length > 0 && (
-                <Productranking
+                <ProductRanking
                   products={filteredProducts}
                   selectedSector={selectedSector}
                   selectedProduct={selectedProduct}
