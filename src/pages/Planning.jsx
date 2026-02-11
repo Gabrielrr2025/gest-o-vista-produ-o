@@ -171,6 +171,17 @@ export default function Planning() {
     return filtered;
   }, [planningData, selectedSector, searchTerm]);
 
+  // Sincronizar selectedProduct com dados atualizados
+  useEffect(() => {
+    if (selectedProduct && filteredPlanning.length > 0) {
+      const updated = filteredPlanning.find(p => p.produto_id === selectedProduct.produto_id);
+      if (updated && JSON.stringify(updated) !== JSON.stringify(selectedProduct)) {
+        console.log('🔄 Atualizando selectedProduct com dados novos');
+        setSelectedProduct(updated);
+      }
+    }
+  }, [filteredPlanning]);
+
   // Navegação de semanas
   const handlePreviousWeek = () => {
     setCurrentDate(prev => subWeeks(prev, 1));
@@ -390,7 +401,10 @@ export default function Planning() {
       ];
       
       headers.forEach((header, i) => {
-        doc.text(header, xPos + 2, yPos + 4.5);
+        // Centralizar texto na célula
+        const textWidth = doc.getTextWidth(header);
+        const centerX = xPos + (colWidths[i] / 2) - (textWidth / 2);
+        doc.text(header, centerX, yPos + 4.5);
         xPos += colWidths[i];
       });
       
@@ -424,7 +438,15 @@ export default function Planning() {
         ];
         
         rowData.forEach((cell, i) => {
-          doc.text(cell, xPos + 2, yPos + 4.5);
+          // Primeira coluna: alinhada à esquerda
+          // Demais colunas: centralizadas
+          if (i === 0) {
+            doc.text(cell, xPos + 2, yPos + 4.5);
+          } else {
+            const textWidth = doc.getTextWidth(cell);
+            const centerX = xPos + (colWidths[i] / 2) - (textWidth / 2);
+            doc.text(cell, centerX, yPos + 4.5);
+          }
           xPos += colWidths[i];
         });
         
