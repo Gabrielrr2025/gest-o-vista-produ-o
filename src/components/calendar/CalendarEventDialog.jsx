@@ -85,6 +85,20 @@ export default function CalendarEventDialog({ event, initialDate, onClose, onSav
         return;
       }
 
+      // Verificar se já existe um evento com mesmo nome e data
+      if (!event) { // Só valida ao criar, não ao editar
+        const allEvents = await base44.entities.CalendarEvent.list();
+        const duplicate = allEvents.find(e => 
+          e.date === formData.date && 
+          e.name.toLowerCase().trim() === formData.name.toLowerCase().trim()
+        );
+
+        if (duplicate) {
+          toast.error(`Já existe um evento "${duplicate.name}" em ${formData.date}`);
+          return;
+        }
+      }
+
       if (event) {
         await base44.entities.CalendarEvent.update(event.id, formData);
         toast.success("Evento atualizado");
