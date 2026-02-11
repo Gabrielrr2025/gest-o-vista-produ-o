@@ -66,7 +66,7 @@ export default function ProductComparisonModal({
       }
 
       try {
-        const response = await base44.functions.invoke('getProductComparison', {
+        const response = await base44.functions.invoke('Getproductcomparison', {
           productIds,
           startDate: format(dateRange.from, 'yyyy-MM-dd'),
           endDate: format(dateRange.to, 'yyyy-MM-dd'),
