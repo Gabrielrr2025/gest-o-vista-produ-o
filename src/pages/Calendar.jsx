@@ -43,8 +43,6 @@ export default function Calendar() {
     queryFn: () => base44.entities.CalendarEvent.list()
   });
 
-  const loadHolidays = async () => {
-
   const removeDuplicates = async () => {
     try {
       // Agrupar eventos por data + nome (case insensitive)
