@@ -292,6 +292,14 @@ export default function Planning() {
 
     setPlannedQuantities(newQuantities);
     toast.success(`Sugestão aplicada para ${selectedProduct.produto_nome}`);
+    
+    // Fechar painel lateral para atualizar dados
+    setSelectedProduct(null);
+    
+    // Recarregar dados após 500ms
+    setTimeout(() => {
+      queryClient.invalidateQueries(['planningData']);
+    }, 500);
   };
 
   // Exportar para Excel
@@ -301,8 +309,7 @@ export default function Planning() {
         const row = {
           'Produto': product.produto_nome,
           'Setor': product.setor,
-          'Unidade': product.unidade,
-          'Média (4 sem)': Math.round(product.avg_sales)
+          'Unidade': product.unidade
         };
 
         weekDays.forEach((day, idx) => {
@@ -364,21 +371,21 @@ export default function Planning() {
       let yPos = selectedSector !== 'all' ? 40 : 35;
       const startX = 14;
       const rowHeight = 7;
-      const colWidths = [45, 20, 20, ...weekDays.map(() => 14), 18];
+      // Colunas: Produto (maior), Setor, 7 dias (mais espaço), Total
+      const colWidths = [60, 25, ...weekDays.map(() => 18), 20];
       
       // Cabeçalhos
       doc.setFillColor(245, 158, 11);
       doc.rect(startX, yPos, colWidths.reduce((a, b) => a + b, 0), rowHeight, 'F');
       doc.setTextColor(255, 255, 255);
-      doc.setFontSize(8);
+      doc.setFontSize(7); // Fonte menor para caber melhor
       doc.setFont('helvetica', 'bold');
       
       let xPos = startX;
       const headers = [
         'Produto',
         'Setor',
-        'Média',
-        ...weekDays.map(day => format(day, 'EEE dd/MM', { locale: ptBR })),
+        ...weekDays.map(day => format(day, 'EE dd/MM', { locale: ptBR })), // EE = apenas 3 letras
         'Total'
       ];
       
@@ -407,9 +414,8 @@ export default function Planning() {
         
         xPos = startX;
         const rowData = [
-          product.produto_nome.length > 25 ? product.produto_nome.substring(0, 22) + '...' : product.produto_nome,
-          product.setor.substring(0, 10),
-          Math.round(product.avg_sales).toString(),
+          product.produto_nome.length > 30 ? product.produto_nome.substring(0, 27) + '...' : product.produto_nome,
+          product.setor.substring(0, 12),
           ...weekDays.map((_, i) => {
             const qty = plannedQuantities[`${product.produto_id}-${i}`] || 0;
             return qty > 0 ? qty.toString() : '-';
