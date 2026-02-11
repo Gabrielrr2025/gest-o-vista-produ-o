@@ -43,60 +43,6 @@ export default function Calendar() {
     queryFn: () => base44.entities.CalendarEvent.list()
   });
 
-  const removeDuplicates = async () => {
-    try {
-      // Agrupar eventos por data + nome (case insensitive)
-      const eventMap = new Map();
-      events.forEach(event => {
-        const key = `${event.date}-${event.name.toLowerCase()}`;
-        if (!eventMap.has(key)) {
-          eventMap.set(key, []);
-        }
-        eventMap.get(key).push(event);
-      });
-
-      // Encontrar duplicados (grupos com mais de 1 evento)
-      const duplicates = Array.from(eventMap.values())
-        .filter(group => group.length > 1)
-        .flat();
-
-      if (duplicates.length === 0) {
-        toast.info("Nenhum evento duplicado encontrado");
-        return;
-      }
-
-      // Para cada grupo de duplicados, manter só o primeiro
-      const toDelete = [];
-      eventMap.forEach((group) => {
-        if (group.length > 1) {
-          // Ordenar por ID (manter o mais antigo)
-          group.sort((a, b) => a.id - b.id);
-          // Deletar todos exceto o primeiro
-          toDelete.push(...group.slice(1));
-        }
-      });
-
-      if (toDelete.length === 0) {
-        toast.info("Nenhum evento duplicado encontrado");
-        return;
-      }
-
-      const confirmDelete = confirm(`Encontrados ${toDelete.length} eventos duplicados. Deseja removê-los?`);
-      if (!confirmDelete) return;
-
-      // Deletar duplicados
-      await Promise.all(
-        toDelete.map(event => base44.entities.CalendarEvent.delete(event.id))
-      );
-
-      queryClient.invalidateQueries(['calendarEvents']);
-      toast.success(`${toDelete.length} eventos duplicados removidos`);
-    } catch (error) {
-      console.error(error);
-      toast.error("Erro ao remover duplicados");
-    }
-  };
-
   const loadHolidays = async () => {
     try {
       setLoadingHolidays(true);
@@ -347,15 +293,6 @@ export default function Calendar() {
           }}>
             <Plus className="w-4 h-4 mr-2" />
             Novo Evento
-          </Button>
-
-          {/* Remover Duplicados */}
-          <Button 
-            variant="outline"
-            onClick={removeDuplicates}
-            title="Remove eventos duplicados (mesmo nome e data)"
-          >
-            🗑️ Limpar Duplicados
           </Button>
         </div>
       </div>
