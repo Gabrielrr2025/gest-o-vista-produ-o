@@ -240,7 +240,7 @@ export default function Calendar() {
           <p className="text-sm text-slate-500 mt-1">Organize eventos, feriados e períodos especiais</p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {/* Seletor de Ano */}
           <div className="flex items-center gap-2">
             <Button 
@@ -286,11 +286,14 @@ export default function Calendar() {
           </div>
 
           {/* Novo Evento */}
-          <Button onClick={() => {
-            setSelectedEvent(null);
-            setSelectedDate(null);
-            setShowDialog(true);
-          }}>
+          <Button 
+            onClick={() => {
+              setSelectedEvent(null);
+              setSelectedDate(null);
+              setShowDialog(true);
+            }}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+          >
             <Plus className="w-4 h-4 mr-2" />
             Novo Evento
           </Button>
