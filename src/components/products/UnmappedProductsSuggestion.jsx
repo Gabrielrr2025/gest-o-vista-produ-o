@@ -59,7 +59,7 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
     setCreating(prev => new Set(prev).add(key));
     
     try {
-      await base44.entities.Product.create({
+      await base44.functions.invoke('Createproduct', {
         code: product.code || '',
         name: product.name,
         sector: product.sector,
