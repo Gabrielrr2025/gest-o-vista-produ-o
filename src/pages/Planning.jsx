@@ -147,7 +147,9 @@ export default function Planning() {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['savedPlanning']);
+      // NÃO invalidar queries aqui - causa conflito com estado local
+      // A query só será invalidada ao mudar de semana ou recarregar página
+      console.log('✅ Quantidade salva no banco');
     }
   });
 
@@ -187,12 +189,18 @@ export default function Planning() {
     setCurrentDate(prev => subWeeks(prev, 1));
     setSelectedProduct(null);
     setIsUnlocked(false);
+    // Recarregar dados da nova semana
+    queryClient.invalidateQueries(['savedPlanning']);
+    queryClient.invalidateQueries(['planningData']);
   };
 
   const handleNextWeek = () => {
     setCurrentDate(prev => addWeeks(prev, 1));
     setSelectedProduct(null);
     setIsUnlocked(false);
+    // Recarregar dados da nova semana
+    queryClient.invalidateQueries(['savedPlanning']);
+    queryClient.invalidateQueries(['planningData']);
   };
 
   // Auto-save com debounce
@@ -304,13 +312,8 @@ export default function Planning() {
     setPlannedQuantities(newQuantities);
     toast.success(`Sugestão aplicada para ${selectedProduct.produto_nome}`);
     
-    // Fechar painel lateral para atualizar dados
+    // Fechar painel lateral
     setSelectedProduct(null);
-    
-    // Recarregar dados após 500ms
-    setTimeout(() => {
-      queryClient.invalidateQueries(['planningData']);
-    }, 500);
   };
 
   // Exportar para Excel
