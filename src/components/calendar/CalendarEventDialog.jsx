@@ -158,22 +158,32 @@ export default function CalendarEventDialog({ event, initialDate, onClose, onSav
               />
             </div>
             <div>
-              <Label className="text-sm">Impacto na Produção</Label>
-              <Select 
-                value={formData.impact_percentage.toString()} 
-                onValueChange={(value) => setFormData({...formData, impact_percentage: parseFloat(value)})}
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="z-[10000]">
+              <Label className="text-sm">Impacto na Produção (%)</Label>
+              <div className="space-y-2">
+                <Input
+                  type="number"
+                  value={formData.impact_percentage}
+                  onChange={(e) => setFormData({...formData, impact_percentage: parseFloat(e.target.value) || 0})}
+                  placeholder="Ex: 30, -20, 50"
+                  className="h-9"
+                  step="5"
+                />
+                {/* Botões de sugestão rápida */}
+                <div className="flex flex-wrap gap-1">
                   {IMPACT_OPTIONS.map(opt => (
-                    <SelectItem key={opt.value} value={opt.value.toString()}>
+                    <Button
+                      key={opt.value}
+                      type="button"
+                      variant={formData.impact_percentage === opt.value ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setFormData({...formData, impact_percentage: opt.value})}
+                      className="h-7 text-xs"
+                    >
                       {opt.label}
-                    </SelectItem>
+                    </Button>
                   ))}
-                </SelectContent>
-              </Select>
+                </div>
+              </div>
             </div>
           </div>
 
