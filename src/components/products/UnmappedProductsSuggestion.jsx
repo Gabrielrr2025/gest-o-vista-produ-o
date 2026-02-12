@@ -13,6 +13,10 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
 
   // Detectar produtos da VIEW que não existem no cadastro
   const unmappedProducts = useMemo(() => {
+    console.log('🔍 Detectando produtos não mapeados...');
+    console.log('📥 SQL Data recebida:', sqlData);
+    console.log('📦 Produtos cadastrados:', products.length);
+    
     const allSQLProducts = new Map();
     
     // Coletar produtos únicos da VIEW SQL
@@ -36,9 +40,14 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
       }
     });
 
+    console.log(`📊 Total de produtos únicos na VIEW: ${allSQLProducts.size}`);
+
     // Criar índices dos produtos cadastrados
     const registeredByCode = new Set(products.filter(p => p.code).map(p => p.code.toLowerCase().trim()));
     const registeredByName = new Set(products.map(p => `${p.name.toLowerCase().trim()}-${p.sector}`));
+
+    console.log(`✅ Produtos cadastrados por código: ${registeredByCode.size}`);
+    console.log(`✅ Produtos cadastrados por nome: ${registeredByName.size}`);
 
     // Filtrar produtos não cadastrados
     const unmapped = [];
@@ -48,9 +57,11 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
       
       if (!isRegisteredByCode && !isRegisteredByName) {
         unmapped.push(product);
+        console.log(`🆕 Produto não mapeado encontrado: ${product.name} (${product.sector})`);
       }
     });
 
+    console.log(`🎯 Total de produtos não mapeados: ${unmapped.length}`);
     return unmapped.sort((a, b) => (b.sales + b.losses) - (a.sales + a.losses));
   }, [sqlData, products]);
 
