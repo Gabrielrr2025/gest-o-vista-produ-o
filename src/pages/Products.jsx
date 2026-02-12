@@ -24,13 +24,19 @@ export default function Products() {
   const { data: sqlData } = useQuery({
     queryKey: ['sqlData'],
     queryFn: async () => {
+      console.log('🔍 Buscando dados da VIEW SQL...');
       const response = await base44.functions.invoke('fetchSQLData', {});
+      console.log('📊 Resposta fetchSQLData:', response);
+      console.log('📦 Data:', response.data);
       return response.data || { sales: [], losses: [] };
     },
     refetchInterval: 5 * 60 * 1000, // Atualiza a cada 5 minutos
   });
 
   const products = productsData?.products || [];
+
+  console.log('🛒 Produtos cadastrados:', products.length);
+  console.log('📊 SQL Data:', sqlData);
 
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: ['products'] });
