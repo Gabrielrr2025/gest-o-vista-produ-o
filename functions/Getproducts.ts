@@ -18,10 +18,10 @@ Deno.serve(async (req) => {
 
     const sql = neon(connectionString);
 
-    console.log('📦 Listando produtos...');
+    console.log('📦 Listando produtos do Neon...');
 
-    // Buscar todos os produtos
-    const products = await sql`
+    // Buscar todos os produtos (sintaxe compatível com Neon)
+    const products = await sql(`
       SELECT 
         id,
         nome,
@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
         updated_at
       FROM produtos
       ORDER BY setor, nome
-    `;
+    `);
 
     console.log(`✅ ${products.length} produtos encontrados`);
 
@@ -58,9 +58,13 @@ Deno.serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('❌ Erro ao listar produtos:', error.message);
+    console.error('=== ERRO getProducts ===');
+    console.error('Message:', error.message);
+    console.error('Stack:', error.stack);
+    console.error('========================');
     return Response.json({ 
-      error: error.message
+      error: error.message,
+      details: error.stack
     }, { status: 500 });
   }
 });
