@@ -21,14 +21,26 @@ export default function Products() {
   });
 
   // Buscar dados da VIEW SQL para detectar produtos não mapeados
-  const { data: sqlData } = useQuery({
+  const { data: sqlData, error: sqlError, isLoading: sqlLoading } = useQuery({
     queryKey: ['sqlData'],
     queryFn: async () => {
       console.log('🔍 Buscando dados da VIEW SQL...');
-      const response = await base44.functions.invoke('fetchSQLData', {});
-      console.log('📊 Resposta fetchSQLData:', response);
-      console.log('📦 Data:', response.data);
-      return response.data || { sales: [], losses: [] };
+      try {
+        const response = await base44.functions.invoke('fetchSQLData', {});
+        console.log('📊 Resposta COMPLETA fetchSQLData:', response);
+        console.log('📦 response.data:', response.data);
+        console.log('📦 response.error:', response.error);
+        
+        if (response.error) {
+          console.error('❌ Erro na response:', response.error);
+          return { sales: [], losses: [] };
+        }
+        
+        return response.data || { sales: [], losses: [] };
+      } catch (err) {
+        console.error('❌ Erro ao chamar fetchSQLData:', err);
+        return { sales: [], losses: [] };
+      }
     },
     refetchInterval: 5 * 60 * 1000, // Atualiza a cada 5 minutos
   });
@@ -37,6 +49,8 @@ export default function Products() {
 
   console.log('🛒 Produtos cadastrados:', products.length);
   console.log('📊 SQL Data:', sqlData);
+  console.log('❌ SQL Error:', sqlError);
+  console.log('⏳ SQL Loading:', sqlLoading);
 
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: ['products'] });
