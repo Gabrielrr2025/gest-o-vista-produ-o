@@ -17,6 +17,14 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
     console.log('📥 SQL Data recebida:', sqlData);
     console.log('📦 Produtos cadastrados:', products.length);
     
+    // Verificar se sqlData existe e tem arrays válidos
+    if (!sqlData || !sqlData.sales || !sqlData.losses) {
+      console.warn('⚠️ sqlData inválido ou vazio');
+      return [];
+    }
+    
+    console.log(`📊 Sales: ${sqlData.sales.length}, Losses: ${sqlData.losses.length}`);
+    
     const allSQLProducts = new Map();
     
     // Coletar produtos únicos da VIEW SQL
@@ -43,8 +51,12 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
     console.log(`📊 Total de produtos únicos na VIEW: ${allSQLProducts.size}`);
 
     // Criar índices dos produtos cadastrados
-    const registeredByCode = new Set(products.filter(p => p.code).map(p => p.code.toLowerCase().trim()));
-    const registeredByName = new Set(products.map(p => `${p.name.toLowerCase().trim()}-${p.sector}`));
+    const registeredByCode = new Set(
+      (products || []).filter(p => p.code).map(p => p.code.toLowerCase().trim())
+    );
+    const registeredByName = new Set(
+      (products || []).map(p => `${p.name.toLowerCase().trim()}-${p.sector}`)
+    );
 
     console.log(`✅ Produtos cadastrados por código: ${registeredByCode.size}`);
     console.log(`✅ Produtos cadastrados por nome: ${registeredByName.size}`);
@@ -70,7 +82,7 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
     setCreating(prev => new Set(prev).add(key));
     
     try {
-      await base44.functions.invoke('Createproduct', {
+      const response = await base44.functions.invoke('Createproduct', {
         code: product.code || '',
         name: product.name,
         sector: product.sector,
@@ -79,12 +91,29 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
         production_days: ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'],
         active: true
       });
-      
-      toast.success(`Produto "${product.name}" cadastrado`);
-      onProductCreated?.();
+
+      if (response.error) {
+        // Produto já existe
+        if (response.error.includes('já existe')) {
+          toast.info(`Produto "${product.name}" já está cadastrado`);
+          // Remove da lista de não mapeados
+          setDismissed(prev => new Set(prev).add(key));
+        } else {
+          toast.error(response.error);
+        }
+      } else {
+        toast.success(`Produto "${product.name}" cadastrado`);
+        onProductCreated?.();
+      }
     } catch (error) {
-      toast.error('Erro ao cadastrar produto');
-      console.error(error);
+      console.error('Erro ao cadastrar:', error);
+      
+      if (error.response?.status === 409) {
+        toast.info(`Produto "${product.name}" já está cadastrado`);
+        setDismissed(prev => new Set(prev).add(key));
+      } else {
+        toast.error('Erro ao cadastrar produto');
+      }
     } finally {
       setCreating(prev => {
         const next = new Set(prev);
@@ -168,9 +197,9 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
                     <SectorBadge sector={product.sector} />
                   </div>
                   <div className="flex gap-3 text-xs text-slate-600">
-                    <span>Vendas: {product.sales}</span>
-                    <span>Perdas: {product.losses}</span>
-                    <span>Total: {product.sales + product.losses}</span>
+                    <span>Vendas: {Math.round(product.sales * 100) / 100}</span>
+                    <span>Perdas: {Math.round(product.losses * 100) / 100}</span>
+                    <span>Total: {Math.round((product.sales + product.losses) * 100) / 100}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
