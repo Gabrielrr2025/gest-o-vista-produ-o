@@ -36,7 +36,17 @@ export default function Products() {
           return { sales: [], losses: [] };
         }
         
-        return response.data || { sales: [], losses: [] };
+        const data = response.data || {};
+        
+        // Normalizar: aceitar tanto sales/losses quanto salesData/lossData
+        const normalized = {
+          sales: data.sales || data.salesData || [],
+          losses: data.losses || data.lossData || []
+        };
+        
+        console.log('✅ Dados normalizados:', normalized);
+        
+        return normalized;
       } catch (err) {
         console.error('❌ Erro ao chamar fetchSQLData:', err);
         return { sales: [], losses: [] };
@@ -51,6 +61,17 @@ export default function Products() {
   console.log('📊 SQL Data:', sqlData);
   console.log('❌ SQL Error:', sqlError);
   console.log('⏳ SQL Loading:', sqlLoading);
+  
+  // Debug: verificar se vai renderizar o componente
+  const shouldRender = !sqlLoading && sqlData && sqlData.sales && sqlData.losses;
+  console.log('🎨 Deve renderizar UnmappedProducts?', shouldRender);
+  if (shouldRender) {
+    console.log('📊 Vai passar para componente:', {
+      salesLength: sqlData.sales.length,
+      lossesLength: sqlData.losses.length,
+      productsLength: products.length
+    });
+  }
 
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: ['products'] });
