@@ -27,19 +27,17 @@ Deno.serve(async (req) => {
         
         const sql = neon(DATABASE_URL);
 
-        // Tentar buscar da VIEW
+        // Usar APENAS colunas que EXISTEM na VIEW (baseado em getProductMovementData)
         let query = `
             SELECT 
-                data, 
+                data,
+                produto,
+                setor,
+                quantidade,
+                valor,
+                tipo,
                 numero_semana,
-                ano,
-                data_inicio,
-                data_fim,
-                produto, 
-                setor, 
-                quantidade, 
-                valor, 
-                tipo
+                ano
             FROM vw_movimentacoes
             WHERE 1=1
         `;
@@ -53,10 +51,9 @@ Deno.serve(async (req) => {
             params.push(startDate);
         }
 
-        query += ` ORDER BY data DESC LIMIT 10000`; // Limite de segurança
+        query += ` ORDER BY data DESC LIMIT 10000`;
 
         console.log('📊 Executando query fetchSQLData...');
-        console.log('📊 Params:', params);
 
         const results = await sql(query, params);
         
@@ -74,9 +71,7 @@ Deno.serve(async (req) => {
                 value: parseFloat(row.valor) || 0,
                 date: row.data,
                 week_number: row.numero_semana,
-                year: row.ano,
-                week_start: row.data_inicio,
-                week_end: row.data_fim
+                year: row.ano
             };
 
             const tipo = (row.tipo || '').toLowerCase();
@@ -102,13 +97,12 @@ Deno.serve(async (req) => {
         console.error('Stack:', error.stack);
         console.error('================================');
         
-        // Retornar arrays vazios em vez de erro para não quebrar o frontend
+        // Retornar arrays vazios em vez de erro
         return Response.json({ 
             success: false,
             sales: [],
             losses: [],
-            error: error.message,
-            details: error.stack
+            error: error.message
         });
     }
 });
