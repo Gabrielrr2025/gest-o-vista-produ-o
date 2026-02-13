@@ -98,6 +98,8 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
           toast.info(`Produto "${product.name}" já está cadastrado`);
           // Remove da lista de não mapeados
           setDismissed(prev => new Set(prev).add(key));
+          // Atualiza lista de produtos para mostrar
+          onProductCreated?.();
         } else {
           toast.error(response.error);
         }
@@ -111,6 +113,8 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
       if (error.response?.status === 409) {
         toast.info(`Produto "${product.name}" já está cadastrado`);
         setDismissed(prev => new Set(prev).add(key));
+        // Atualiza lista de produtos para mostrar
+        onProductCreated?.();
       } else {
         toast.error('Erro ao cadastrar produto');
       }
