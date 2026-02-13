@@ -27,11 +27,14 @@ Deno.serve(async (req) => {
         
         const sql = neon(DATABASE_URL);
 
-        // Usar APENAS colunas que EXISTEM na VIEW (baseado em getProductMovementData)
+        console.log('📊 Buscando dados da VIEW vw_movimentacoes...');
+
+        // Buscar da VIEW (pronto para integração futura!)
         let query = `
             SELECT 
                 data,
                 produto,
+                produto_codigo,
                 setor,
                 quantidade,
                 valor,
@@ -53,11 +56,11 @@ Deno.serve(async (req) => {
 
         query += ` ORDER BY data DESC LIMIT 10000`;
 
-        console.log('📊 Executando query fetchSQLData...');
+        console.log('🔍 Executando query na VIEW...');
 
         const results = await sql(query, params);
         
-        console.log(`✅ Query executada! ${results.length} registros`);
+        console.log(`✅ Query executada! ${results.length} registros da VIEW`);
 
         const salesData = [];
         const lossData = [];
@@ -65,7 +68,7 @@ Deno.serve(async (req) => {
         for (const row of results) {
             const record = {
                 product_name: row.produto,
-                product_code: '',
+                product_code: row.produto_codigo || '',
                 sector: row.setor,
                 quantity: parseFloat(row.quantidade) || 0,
                 value: parseFloat(row.valor) || 0,
@@ -82,7 +85,7 @@ Deno.serve(async (req) => {
             }
         }
 
-        console.log(`📊 Processado: ${salesData.length} vendas, ${lossData.length} perdas`);
+        console.log(`📊 Processado da VIEW: ${salesData.length} vendas, ${lossData.length} perdas`);
 
         return Response.json({
             success: true,
@@ -92,17 +95,17 @@ Deno.serve(async (req) => {
         });
 
     } catch (error) {
-        console.error('=== ERRO SQL fetchSQLData ===');
+        console.error('=== ERRO fetchSQLData (VIEW) ===');
         console.error('Message:', error.message);
         console.error('Stack:', error.stack);
-        console.error('================================');
+        console.error('=================================');
         
-        // Retornar arrays vazios em vez de erro
         return Response.json({ 
             success: false,
             sales: [],
             losses: [],
-            error: error.message
+            error: error.message,
+            details: error.stack
         });
     }
 });
