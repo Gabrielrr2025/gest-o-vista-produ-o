@@ -114,12 +114,25 @@ export default function Products() {
       </div>
 
       {/* Produtos não mapeados da VIEW SQL */}
-      {sqlData && (
+      {!sqlLoading && sqlData && sqlData.sales && sqlData.losses && (
         <UnmappedProductsSuggestion
           sqlData={sqlData}
           products={products}
           onProductCreated={handleRefresh}
         />
+      )}
+
+      {sqlLoading && (
+        <div className="text-center py-8 text-slate-500">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900 mx-auto mb-2"></div>
+          Buscando produtos não mapeados...
+        </div>
+      )}
+
+      {sqlError && (
+        <div className="text-center py-8 text-red-500">
+          Erro ao buscar produtos não mapeados: {sqlError.message}
+        </div>
       )}
 
       <ProductsManager 
