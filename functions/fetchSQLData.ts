@@ -14,9 +14,20 @@ Deno.serve(async (req) => {
         const { startDate, endDate } = body;
 
         const DATABASE_URL = Deno.env.get('POSTGRES_CONNECTION_URL');
+        
+        if (!DATABASE_URL) {
+            console.error('❌ POSTGRES_CONNECTION_URL não configurada');
+            return Response.json({ 
+                success: false,
+                sales: [],
+                losses: [],
+                error: 'Database URL não configurada'
+            });
+        }
+        
         const sql = neon(DATABASE_URL);
 
-        // ATUALIZADO: usar as novas colunas da view
+        // Tentar buscar da VIEW
         let query = `
             SELECT 
                 data, 
@@ -42,9 +53,14 @@ Deno.serve(async (req) => {
             params.push(startDate);
         }
 
-        query += ` ORDER BY data DESC`;
+        query += ` ORDER BY data DESC LIMIT 10000`; // Limite de segurança
+
+        console.log('📊 Executando query fetchSQLData...');
+        console.log('📊 Params:', params);
 
         const results = await sql(query, params);
+        
+        console.log(`✅ Query executada! ${results.length} registros`);
 
         const salesData = [];
         const lossData = [];
@@ -52,10 +68,10 @@ Deno.serve(async (req) => {
         for (const row of results) {
             const record = {
                 product_name: row.produto,
-                product_code: '', // VIEW pode não ter código
+                product_code: '',
                 sector: row.setor,
-                quantity: parseFloat(row.quantidade),
-                value: parseFloat(row.valor),
+                quantity: parseFloat(row.quantidade) || 0,
+                value: parseFloat(row.valor) || 0,
                 date: row.data,
                 week_number: row.numero_semana,
                 year: row.ano,
@@ -63,25 +79,36 @@ Deno.serve(async (req) => {
                 week_end: row.data_fim
             };
 
-            if (row.tipo.toLowerCase() === 'venda') {
+            const tipo = (row.tipo || '').toLowerCase();
+            if (tipo === 'venda') {
                 salesData.push(record);
-            } else if (row.tipo.toLowerCase() === 'perda') {
+            } else if (tipo === 'perda') {
                 lossData.push(record);
             }
         }
 
+        console.log(`📊 Processado: ${salesData.length} vendas, ${lossData.length} perdas`);
+
         return Response.json({
             success: true,
-            sales: salesData, // Mudado de salesData para sales
-            losses: lossData, // Mudado de lossData para losses
+            sales: salesData,
+            losses: lossData,
             totalRecords: results.length
         });
 
     } catch (error) {
-        console.error('=== ERRO SQL ===', error);
+        console.error('=== ERRO SQL fetchSQLData ===');
+        console.error('Message:', error.message);
+        console.error('Stack:', error.stack);
+        console.error('================================');
+        
+        // Retornar arrays vazios em vez de erro para não quebrar o frontend
         return Response.json({ 
             success: false,
-            error: error.message
-        }, { status: 500 });
+            sales: [],
+            losses: [],
+            error: error.message,
+            details: error.stack
+        });
     }
 });
