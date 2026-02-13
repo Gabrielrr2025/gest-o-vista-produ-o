@@ -20,8 +20,8 @@ Deno.serve(async (req) => {
 
     console.log('📦 Listando produtos do Neon...');
 
-    // Buscar todos os produtos (sintaxe compatível com Neon)
-    const products = await sql(`
+    // Buscar todos os produtos - sintaxe template string do neon
+    const products = await sql`
       SELECT 
         id,
         nome,
@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
         updated_at
       FROM produtos
       ORDER BY setor, nome
-    `);
+    `;
 
     console.log(`✅ ${products.length} produtos encontrados`);
 
