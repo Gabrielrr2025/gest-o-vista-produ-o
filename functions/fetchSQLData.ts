@@ -10,7 +10,8 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Não autorizado' }, { status: 401 });
         }
 
-        const { startDate, endDate } = await req.json();
+        const body = await req.json().catch(() => ({}));
+        const { startDate, endDate } = body;
 
         const DATABASE_URL = Deno.env.get('POSTGRES_CONNECTION_URL');
         const sql = neon(DATABASE_URL);
@@ -51,14 +52,15 @@ Deno.serve(async (req) => {
         for (const row of results) {
             const record = {
                 product_name: row.produto,
+                product_code: '', // VIEW pode não ter código
                 sector: row.setor,
                 quantity: parseFloat(row.quantidade),
                 value: parseFloat(row.valor),
                 date: row.data,
-                week_number: row.numero_semana,  // ATUALIZADO
-                year: row.ano,  // ATUALIZADO
-                week_start: row.data_inicio,  // NOVO
-                week_end: row.data_fim  // NOVO
+                week_number: row.numero_semana,
+                year: row.ano,
+                week_start: row.data_inicio,
+                week_end: row.data_fim
             };
 
             if (row.tipo.toLowerCase() === 'venda') {
@@ -70,8 +72,8 @@ Deno.serve(async (req) => {
 
         return Response.json({
             success: true,
-            salesData,
-            lossData,
+            sales: salesData, // Mudado de salesData para sales
+            losses: lossData, // Mudado de lossData para losses
             totalRecords: results.length
         });
 
