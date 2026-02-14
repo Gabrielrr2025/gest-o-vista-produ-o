@@ -15,7 +15,9 @@ export default function Products() {
   const { data: productsData, isLoading } = useQuery({
     queryKey: ['products'],
     queryFn: async () => {
-      const response = await base44.functions.invoke('getProducts', {});
+      console.log('🔍 Chamando Getproducts...');
+      const response = await base44.functions.invoke('Getproducts', {});
+      console.log('📦 Resposta Getproducts:', response.data);
       return response.data;
     }
   });
