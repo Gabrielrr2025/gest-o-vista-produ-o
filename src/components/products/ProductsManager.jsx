@@ -37,7 +37,7 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
   // Mutation para criar produto
   const createMutation = useMutation({
     mutationFn: async (data) => {
-      const response = await base44.functions.invoke('createProduct', data);
+      const response = await base44.functions.invoke('Createproduct', data);
       return response.data;
     },
     onSuccess: () => {
@@ -54,7 +54,7 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
   // Mutation para atualizar produto
   const updateMutation = useMutation({
     mutationFn: async ({ id, ...data }) => {
-      const response = await base44.functions.invoke('updateProduct', { id, ...data });
+      const response = await base44.functions.invoke('Updateproduct', { id, ...data });
       return response.data;
     },
     onSuccess: () => {
@@ -71,18 +71,13 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
   // Mutation para deletar produto
   const deleteMutation = useMutation({
     mutationFn: async ({ id, soft }) => {
-      const response = await base44.functions.invoke('deleteProduct', { id, soft });
+      const response = await base44.functions.invoke('deleteproduct', { id, soft });
       return response.data;
     },
     onSuccess: (data) => {
       toast.success(data.message || "Produto removido");
       setDeleteDialog(false);
       setProductToDelete(null);
-      
-      // Invalidar cache do react-query para forçar refetch
-      queryClient.invalidateQueries(['products']);
-      queryClient.invalidateQueries(['sqlData']);
-      
       onRefresh?.();
     },
     onError: (error) => {
@@ -440,13 +435,12 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
       <Dialog open={deleteDialog} onOpenChange={setDeleteDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Confirmar Remoção</DialogTitle>
+            <DialogTitle>Confirmar Desativação</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-slate-600">
-            Tem certeza que deseja remover o produto <strong>{productToDelete?.name}</strong>?
+            Tem certeza que deseja desativar o produto <strong>{productToDelete?.name}</strong>?
             <br /><br />
-            Se houver histórico de vendas, perdas ou planejamento, o produto será apenas desativado.
-            Caso contrário, será removido permanentemente.
+            O produto será desativado mas manterá todo o histórico de vendas e perdas.
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => {
@@ -460,7 +454,7 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
               disabled={deleteMutation.isLoading}
               className="bg-red-600 hover:bg-red-700"
             >
-              {deleteMutation.isLoading ? 'Removendo...' : 'Remover'}
+              {deleteMutation.isLoading ? 'Desativando...' : 'Desativar'}
             </Button>
           </DialogFooter>
         </DialogContent>
