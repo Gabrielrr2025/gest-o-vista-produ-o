@@ -99,8 +99,31 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('❌ Erro ao criar produto:', error.message);
+    console.error('Stack trace:', error.stack);
+    console.error('Dados recebidos:', { name, code, sector, unit, recipe_yield, production_days, active });
+    
+    // Mensagem mais detalhada dependendo do tipo de erro
+    let errorMessage = error.message;
+    let statusCode = 500;
+    
+    // Erro de conexão com banco
+    if (error.message.includes('connection') || error.message.includes('ECONNREFUSED')) {
+      errorMessage = 'Erro de conexão com o banco de dados. Verifique POSTGRES_CONNECTION_URL.';
+    }
+    // Erro de tabela não existe
+    else if (error.message.includes('relation') && error.message.includes('does not exist')) {
+      errorMessage = 'Tabela "produtos" não existe. Execute o script create_produtos_table.sql.';
+    }
+    // Erro de constraint/validação
+    else if (error.message.includes('violates') || error.message.includes('constraint')) {
+      errorMessage = `Violação de restrição do banco: ${error.message}`;
+      statusCode = 400;
+    }
+    
     return Response.json({ 
-      error: error.message
-    }, { status: 500 });
+      error: errorMessage,
+      details: error.message,
+      stack: error.stack
+    }, { status: statusCode });
   }
 });
