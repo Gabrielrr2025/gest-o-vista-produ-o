@@ -20,6 +20,7 @@ import {
   Alert,
   AlertDescription,
 } from "@/components/ui/alert";
+import DatabaseDiagnostic from "@/components/settings/DatabaseDiagnostic";
 
 export default function Settings() {
   const queryClient = useQueryClient();
@@ -154,6 +155,11 @@ export default function Settings() {
           </div>
         </CardContent>
       </Card>
+
+      <Separator />
+
+      {/* Diagnóstico do Banco de Dados */}
+      <DatabaseDiagnostic />
 
       <Separator />
 
