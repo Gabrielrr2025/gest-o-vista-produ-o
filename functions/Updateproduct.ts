@@ -11,7 +11,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { id, name, code, sector, unit, recipe_yield, production_days, active } = body;
+    const { id, name, code, sector, unit, recipe_yield, production_days, active, manufacturing_time, sale_time } = body;
 
     if (!id) {
       return Response.json({ error: 'ID do produto é obrigatório' }, { status: 400 });
@@ -101,6 +101,14 @@ Deno.serve(async (req) => {
       updates.push(`status = $${paramIndex++}`);
       values.push(active ? 'ativo' : 'inativo');
     }
+    if (manufacturing_time !== undefined) {
+      updates.push(`horario_fabricacao = $${paramIndex++}`);
+      values.push(manufacturing_time || null);
+    }
+    if (sale_time !== undefined) {
+      updates.push(`horario_venda = $${paramIndex++}`);
+      values.push(sale_time || null);
+    }
 
     updates.push(`updated_at = NOW()`);
     values.push(id); // ID sempre no final
@@ -127,6 +135,8 @@ Deno.serve(async (req) => {
       recipe_yield: parseFloat(updated.rendimento) || 1,
       production_days: updated.dias_producao || [],
       active: updated.status === 'ativo',
+      manufacturing_time: updated.horario_fabricacao || null,
+      sale_time: updated.horario_venda || null,
       created_at: updated.created_at,
       updated_at: updated.updated_at
     };

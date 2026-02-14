@@ -27,6 +27,8 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
     recipe_yield: 1,
     unit: "unidade",
     production_days: ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"],
+    manufacturing_time: "",
+    sale_time: "",
     active: true
   });
 
@@ -56,6 +58,8 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
         recipe_yield: product.recipe_yield || 1,
         unit: product.unit || "unidade",
         production_days: product.production_days || ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"],
+        manufacturing_time: product.manufacturing_time || "",
+        sale_time: product.sale_time || "",
         active: product.active !== false
       });
     } else {
@@ -67,6 +71,8 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
         recipe_yield: 1,
         unit: "unidade",
         production_days: ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"],
+        manufacturing_time: "",
+        sale_time: "",
         active: true
       });
     }
@@ -89,6 +95,8 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
           unit: formData.unit,
           recipe_yield: formData.recipe_yield,
           production_days: formData.production_days,
+          manufacturing_time: formData.manufacturing_time || '',
+          sale_time: formData.sale_time || '',
           active: formData.active
         });
 
@@ -105,6 +113,8 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
           unit: formData.unit,
           recipe_yield: formData.recipe_yield,
           production_days: formData.production_days,
+          manufacturing_time: formData.manufacturing_time || '',
+          sale_time: formData.sale_time || '',
           active: formData.active
         });
 
@@ -245,6 +255,8 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
                 <TableHead className="text-xs font-semibold text-slate-700 text-center">Rendimento</TableHead>
                 <TableHead className="text-xs font-semibold text-slate-700 text-center">Unidade Venda</TableHead>
                 <TableHead className="text-xs font-semibold text-slate-700 text-center">Dias de Produção</TableHead>
+                <TableHead className="text-xs font-semibold text-slate-700 text-center">Fabricação</TableHead>
+                <TableHead className="text-xs font-semibold text-slate-700 text-center">Venda</TableHead>
                 <TableHead className="text-xs font-semibold text-slate-700 text-center">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -275,11 +287,13 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
                         ))}
                       </div>
                     </TableCell>
+                    <TableCell className="text-center text-sm text-slate-600">{product.manufacturing_time || "—"}</TableCell>
+                    <TableCell className="text-center text-sm text-slate-600">{product.sale_time || "—"}</TableCell>
                     <TableCell className="text-center">
                       <div className="flex items-center justify-center gap-1">
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => handleOpenDialog(product)}
                           className="h-8 w-8 p-0"
                         >
@@ -300,7 +314,7 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
               })}
               {filteredProducts.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-slate-500 py-8">
+                  <TableCell colSpan={8} className="text-center text-slate-500 py-8">
                     Nenhum produto encontrado
                   </TableCell>
                 </TableRow>
@@ -416,6 +430,25 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
                         <span className="text-sm">{day.slice(0, 3)}</span>
                       </div>
                     ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Horário de Fabricação</Label>
+                    <Input
+                      type="time"
+                      value={formData.manufacturing_time || ""}
+                      onChange={(e) => setFormData({ ...formData, manufacturing_time: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label>Horário de Venda</Label>
+                    <Input
+                      type="time"
+                      value={formData.sale_time || ""}
+                      onChange={(e) => setFormData({ ...formData, sale_time: e.target.value })}
+                    />
                   </div>
                 </div>
 
