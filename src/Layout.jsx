@@ -282,8 +282,8 @@ export default function Layout({ children, currentPageName }) {
             onClick={toggleSidebar}
             className={`
               hidden lg:flex
-              absolute -right-5 top-24
-              w-10 h-10
+              absolute -right-3 top-24
+              w-6 h-6
               items-center justify-center
               glass-strong hover:glass
               border border-[hsl(var(--border-medium))]
@@ -296,9 +296,9 @@ export default function Layout({ children, currentPageName }) {
             title={sidebarMinimized ? "Expandir menu" : "Minimizar menu"}
           >
             {sidebarMinimized ? (
-              <ChevronRight className="w-4 h-4 text-[hsl(var(--accent-neon))]" strokeWidth={2.5} />
+              <ChevronRight className="w-3 h-3 text-[hsl(var(--accent-neon))]" strokeWidth={2.5} />
             ) : (
-              <ChevronLeft className="w-4 h-4 text-[hsl(var(--accent-neon))]" strokeWidth={2.5} />
+              <ChevronLeft className="w-3 h-3 text-[hsl(var(--accent-neon))]" strokeWidth={2.5} />
             )}
           </button>
 
