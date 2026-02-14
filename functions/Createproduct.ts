@@ -2,7 +2,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 import { neon } from 'npm:@neondatabase/serverless@0.9.0';
 
 Deno.serve(async (req) => {
-  let name, code, sector, unit, recipe_yield, production_days, active; // Declarar fora do try
+  let name, code, sector, unit, recipe_yield, production_days, active, manufacturing_time, sale_time; // Declarar fora do try
   
   try {
     const base44 = createClientFromRequest(req);
@@ -14,7 +14,7 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
     // Atribuir valores às variáveis já declaradas
-    ({ name, code, sector, unit, recipe_yield, production_days, active } = body);
+    ({ name, code, sector, unit, recipe_yield, production_days, active, manufacturing_time, sale_time } = body);
 
     if (!name || !sector) {
       return Response.json({ 
@@ -63,13 +63,15 @@ Deno.serve(async (req) => {
     // Criar produto
     const result = await sql`
       INSERT INTO produtos (
-        nome, 
-        codigo, 
-        setor, 
-        unidade, 
-        rendimento, 
-        dias_producao, 
-        status
+        nome,
+        codigo,
+        setor,
+        unidade,
+        rendimento,
+        dias_producao,
+        status,
+        horario_fabricacao,
+        horario_venda
       ) VALUES (
         ${name},
         ${code || null},
@@ -77,7 +79,9 @@ Deno.serve(async (req) => {
         ${unit || 'UN'},
         ${recipe_yield || 1},
         ${JSON.stringify(production_days || [])},
-        ${active !== false ? 'ativo' : 'inativo'}
+        ${active !== false ? 'ativo' : 'inativo'},
+        ${manufacturing_time || null},
+        ${sale_time || null}
       )
       RETURNING *
     `;
@@ -95,6 +99,8 @@ Deno.serve(async (req) => {
       recipe_yield: parseFloat(created.rendimento) || 1,
       production_days: created.dias_producao || [],
       active: created.status === 'ativo',
+      manufacturing_time: created.horario_fabricacao || null,
+      sale_time: created.horario_venda || null,
       created_at: created.created_at,
       updated_at: created.updated_at
     };
@@ -110,7 +116,7 @@ Deno.serve(async (req) => {
     
     // Agora as variáveis estão acessíveis aqui
     if (name || code || sector) {
-      console.error('Dados recebidos:', { name, code, sector, unit, recipe_yield, production_days, active });
+      console.error('Dados recebidos:', { name, code, sector, unit, recipe_yield, production_days, active, manufacturing_time, sale_time });
     }
     
     // Mensagem mais detalhada dependendo do tipo de erro
