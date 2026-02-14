@@ -645,20 +645,30 @@ export default function Planning() {
                             <TableCell className="text-center text-sm text-slate-600">
                               {Math.round(product.avg_sales)} {product.unidade}
                             </TableCell>
-                            {weekDays.map((_, idx) => {
-                              const qty = plannedQuantities[`${product.produto_id}-${idx}`] || 0;
-                              
-                              return (
-                                <TableCell key={idx} className="p-1">
-                                  <Input
-                                    type="number"
-                                    min="0"
-                                    value={qty || ''}
-                                    onChange={(e) => handleQuantityChange(product.produto_id, idx, e.target.value)}
-                                    className="w-20 text-center h-9"
-                                  />
-                                </TableCell>
-                              );
+                            {weekDays.map((day, idx) => {
+                             const qty = plannedQuantities[`${product.produto_id}-${idx}`] || 0;
+
+                             // Mapear dia da semana para nome em português
+                             const dayNames = ['Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo', 'Segunda'];
+                             const dayName = dayNames[idx];
+
+                             // Verificar se produto é produzido neste dia
+                             const productionDays = product.production_days || [];
+                             const isProductionDay = productionDays.includes(dayName);
+
+                             return (
+                               <TableCell key={idx} className="p-1">
+                                 <Input
+                                   type="number"
+                                   min="0"
+                                   value={qty || ''}
+                                   onChange={(e) => handleQuantityChange(product.produto_id, idx, e.target.value)}
+                                   className={`w-20 text-center h-9 ${!isProductionDay ? 'bg-slate-100 text-slate-400' : ''}`}
+                                   disabled={!isProductionDay}
+                                   title={!isProductionDay ? 'Produto não é produzido neste dia' : ''}
+                                 />
+                               </TableCell>
+                             );
                             })}
                             <TableCell className="text-center font-bold">
                               {total} {product.unidade}
