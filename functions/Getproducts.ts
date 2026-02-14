@@ -31,8 +31,7 @@ Deno.serve(async (req) => {
         rendimento,
         dias_producao,
         status,
-        created_at,
-        updated_at
+        created_at
       FROM produtos
       ORDER BY setor, nome
     `;
@@ -49,8 +48,7 @@ Deno.serve(async (req) => {
       recipe_yield: parseFloat(p.rendimento) || 1,
       production_days: p.dias_producao || [],
       active: p.status === 'ativo',
-      created_at: p.created_at,
-      updated_at: p.updated_at
+      created_at: p.created_at
     }));
 
     return Response.json({
