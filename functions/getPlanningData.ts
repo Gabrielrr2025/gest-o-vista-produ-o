@@ -208,6 +208,7 @@ Deno.serve(async (req) => {
         produto_nome: product.nome,
         setor: product.setor,
         unidade: product.unidade,
+        production_days: diasProducao, // Array dos dias de produção
         
         // Médias das últimas 4 semanas
         avg_sales: Math.round(avgSales * 100) / 100,
