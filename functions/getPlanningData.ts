@@ -45,6 +45,11 @@ Deno.serve(async (req) => {
     const products = await sql(productsQuery);
 
     console.log(`✅ ${products.length} produtos ativos encontrados`);
+    
+    // Debug: mostrar dias_producao dos produtos
+    products.forEach(p => {
+      console.log(`📅 Produto ${p.nome} - dias_producao RAW:`, typeof p.dias_producao, p.dias_producao);
+    });
 
     // Query 2: Buscar vendas das últimas 4 semanas (para calcular médias)
     const salesHistoryQuery = `
