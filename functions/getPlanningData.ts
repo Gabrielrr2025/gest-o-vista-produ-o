@@ -117,9 +117,10 @@ Deno.serve(async (req) => {
           } else if (typeof product.dias_producao === 'string') {
             diasProducao = JSON.parse(product.dias_producao);
           } else if (typeof product.dias_producao === 'object') {
-            diasProducao = product.dias_producao;
+            diasProducao = Object.values(product.dias_producao);
           }
         }
+        console.log(`📅 ${product.nome} - dias_producao:`, product.dias_producao, '→ parsed:', diasProducao);
       } catch (e) {
         console.log(`⚠️ Erro ao parsear dias_producao do produto ${product.nome}:`, e);
         diasProducao = [];
