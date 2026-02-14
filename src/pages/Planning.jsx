@@ -681,8 +681,19 @@ export default function Planning() {
                              const dayName = dayNames[idx];
 
                              // Verificar se produto é produzido neste dia
-                             const productionDays = product.production_days || [];
+                             const productionDays = Array.isArray(product.production_days) ? product.production_days : [];
                              const isProductionDay = productionDays.includes(dayName);
+
+                             // Debug para primeiro produto
+                             if (idx === 0 && product === filteredPlanning[0]) {
+                               console.log('🔍 Debug primeiro produto:', {
+                                 produto: product.produto_nome,
+                                 production_days: product.production_days,
+                                 productionDays,
+                                 dayName,
+                                 isProductionDay
+                               });
+                             }
 
                              return (
                                <TableCell key={idx} className="p-1">
@@ -693,7 +704,7 @@ export default function Planning() {
                                    onChange={(e) => handleQuantityChange(product.produto_id, idx, e.target.value)}
                                    className={`w-20 text-center h-9 ${!isProductionDay ? 'bg-slate-100 text-slate-400' : ''}`}
                                    disabled={!isProductionDay}
-                                   title={!isProductionDay ? 'Produto não é produzido neste dia' : ''}
+                                   title={!isProductionDay ? `Produto não é produzido neste dia. Days: ${JSON.stringify(productionDays)}` : ''}
                                  />
                                </TableCell>
                              );
