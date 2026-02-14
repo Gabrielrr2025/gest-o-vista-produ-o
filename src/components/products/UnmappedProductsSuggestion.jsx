@@ -3,13 +3,16 @@ import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, Plus, Check, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { AlertCircle, Plus, Check, X, ChevronDown, ChevronUp, Search } from "lucide-react";
 import { toast } from "sonner";
 import SectorBadge from "../common/SectorBadge";
 
 export default function UnmappedProductsSuggestion({ sqlData, products, onProductCreated }) {
   const [creating, setCreating] = useState(new Set());
   const [dismissed, setDismissed] = useState(new Set());
+  const [isExpanded, setIsExpanded] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Detectar produtos da VIEW que não existem no cadastro
   const unmappedProducts = useMemo(() => {
@@ -167,47 +170,70 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
 
   const visibleProducts = unmappedProducts.filter(product => {
     const key = `${product.name}-${product.sector}`;
-    return !dismissed.has(key);
+    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         product.sector.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (product.code && product.code.toLowerCase().includes(searchTerm.toLowerCase()));
+    return !dismissed.has(key) && matchesSearch;
   });
 
-  if (visibleProducts.length === 0) {
+  if (unmappedProducts.filter(p => !dismissed.has(`${p.name}-${p.sector}`)).length === 0) {
     return null;
   }
 
+  const totalUnmapped = unmappedProducts.filter(p => !dismissed.has(`${p.name}-${p.sector}`)).length;
+
   return (
     <Card className="border-orange-200 bg-orange-50">
-      <CardHeader>
+      <CardHeader className="cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <AlertCircle className="w-5 h-5 text-orange-600" />
             <CardTitle className="text-lg text-orange-900">
               Produtos Detectados na VIEW SQL
             </CardTitle>
+            <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-300">
+              {totalUnmapped} {totalUnmapped === 1 ? 'produto' : 'produtos'}
+            </Badge>
           </div>
-          <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-300">
-            {visibleProducts.length} {visibleProducts.length === 1 ? 'produto' : 'produtos'}
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <p className="text-sm text-orange-800">
-          Encontramos produtos na VIEW SQL que ainda não estão cadastrados no sistema. 
-          Cadastre-os para ativar o planejamento de produção e rastreamento completo.
-        </p>
-
-        <div className="flex gap-2 mb-3">
-          <Button 
-            size="sm" 
-            onClick={handleCreateAll}
-            disabled={creating.size > 0}
-            className="bg-orange-600 hover:bg-orange-700"
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-orange-700 hover:bg-orange-100"
           >
-            <Plus className="w-4 h-4 mr-1" />
-            Cadastrar Todos
+            {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </Button>
         </div>
+      </CardHeader>
+      
+      {isExpanded && (
+        <CardContent className="space-y-3">
+          <p className="text-sm text-orange-800">
+            Encontramos produtos na VIEW SQL que ainda não estão cadastrados no sistema. 
+            Cadastre-os para ativar o planejamento de produção e rastreamento completo.
+          </p>
 
-        <div className="space-y-2 max-h-96 overflow-y-auto">
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-orange-400" />
+              <Input
+                placeholder="Buscar por nome, código ou setor..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9 border-orange-200 focus:border-orange-400"
+              />
+            </div>
+            <Button 
+              size="sm" 
+              onClick={handleCreateAll}
+              disabled={creating.size > 0 || visibleProducts.length === 0}
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              Cadastrar Todos
+            </Button>
+          </div>
+
+          <div className="space-y-2 max-h-96 overflow-y-auto">
           {visibleProducts.map((product, idx) => {
             const key = `${product.name}-${product.sector}`;
             const isCreating = creating.has(key);
@@ -266,8 +292,15 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
               </div>
             );
           })}
-        </div>
-      </CardContent>
+          </div>
+
+          {visibleProducts.length === 0 && searchTerm && (
+            <div className="text-center py-8 text-orange-600">
+              Nenhum produto encontrado para "{searchTerm}"
+            </div>
+          )}
+        </CardContent>
+      )}
     </Card>
   );
 }
