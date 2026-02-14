@@ -2,6 +2,8 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 import { neon } from 'npm:@neondatabase/serverless@0.9.0';
 
 Deno.serve(async (req) => {
+  let name, code, sector, unit, recipe_yield, production_days, active; // Declarar fora do try
+  
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
@@ -11,7 +13,8 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { name, code, sector, unit, recipe_yield, production_days, active } = body;
+    // Atribuir valores às variáveis já declaradas
+    ({ name, code, sector, unit, recipe_yield, production_days, active } = body);
 
     if (!name || !sector) {
       return Response.json({ 
@@ -100,7 +103,11 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('❌ Erro ao criar produto:', error.message);
     console.error('Stack trace:', error.stack);
-    console.error('Dados recebidos:', { name, code, sector, unit, recipe_yield, production_days, active });
+    
+    // Agora as variáveis estão acessíveis aqui
+    if (name || code || sector) {
+      console.error('Dados recebidos:', { name, code, sector, unit, recipe_yield, production_days, active });
+    }
     
     // Mensagem mais detalhada dependendo do tipo de erro
     let errorMessage = error.message;
