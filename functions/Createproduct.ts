@@ -30,16 +30,20 @@ Deno.serve(async (req) => {
 
     const sql = neon(connectionString);
 
-    console.log(`📦 Criando produto: ${name}`);
+    console.log(`📦 Criando produto: ${name} (${sector})`);
 
-    // Verificar se já existe produto com mesmo nome
+    // Verificar se já existe produto com mesmo nome E setor
     const existing = await sql`
-      SELECT id, nome FROM produtos WHERE LOWER(nome) = LOWER(${name})
+      SELECT id, nome, setor FROM produtos 
+      WHERE LOWER(nome) = LOWER(${name}) 
+      AND LOWER(setor) = LOWER(${sector})
     `;
 
     if (existing.length > 0) {
+      console.log(`⚠️ Produto "${name}" (${sector}) já existe com ID ${existing[0].id}`);
       return Response.json({ 
-        error: `Produto "${name}" já existe` 
+        error: `Produto "${name}" no setor "${sector}" já existe`,
+        existingId: existing[0].id
       }, { status: 409 });
     }
 
