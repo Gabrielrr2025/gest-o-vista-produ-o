@@ -262,20 +262,33 @@ export default function Planning() {
     }
 
     const newQuantities = {};
+    const dayNames = ['Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo', 'Segunda'];
     
     filteredPlanning.forEach(product => {
-      const dailyQty = Math.ceil(product.suggested_production / 7);
+      const productionDays = product.production_days || [];
+      
+      // Contar dias ativos de produção
+      const activeDaysCount = weekDays.filter((_, idx) => 
+        productionDays.includes(dayNames[idx])
+      ).length;
+      
+      // Distribuir apenas nos dias de produção
+      const dailyQty = activeDaysCount > 0 
+        ? Math.ceil(product.suggested_production / activeDaysCount)
+        : 0;
       
       weekDays.forEach((day, idx) => {
         const key = `${product.produto_id}-${idx}`;
-        newQuantities[key] = dailyQty;
+        const isProductionDay = productionDays.includes(dayNames[idx]);
+        
+        newQuantities[key] = isProductionDay ? dailyQty : 0;
         
         // Salvar cada um
         const dateStr = format(day, 'yyyy-MM-dd');
         saveMutation.mutate({
           produto_id: product.produto_id,
           data: dateStr,
-          quantidade_planejada: dailyQty
+          quantidade_planejada: isProductionDay ? dailyQty : 0
         });
       });
     });
