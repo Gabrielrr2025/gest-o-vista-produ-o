@@ -262,15 +262,19 @@ export default function Planning() {
     }
 
     const newQuantities = {};
-    const dayNames = ['Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo', 'Segunda'];
     
     filteredPlanning.forEach(product => {
       const productionDays = product.production_days || [];
       
       // Contar dias ativos de produção
-      const activeDaysCount = weekDays.filter((_, idx) => 
-        productionDays.includes(dayNames[idx])
-      ).length;
+      const activeDaysCount = weekDays.filter((day) => {
+        const dayOfWeek = day.getDay();
+        const dayNameMap = {
+          0: 'Domingo', 1: 'Segunda', 2: 'Terça', 3: 'Quarta',
+          4: 'Quinta', 5: 'Sexta', 6: 'Sábado'
+        };
+        return productionDays.includes(dayNameMap[dayOfWeek]);
+      }).length;
       
       // Distribuir apenas nos dias de produção
       const dailyQty = activeDaysCount > 0 
@@ -279,7 +283,12 @@ export default function Planning() {
       
       weekDays.forEach((day, idx) => {
         const key = `${product.produto_id}-${idx}`;
-        const isProductionDay = productionDays.includes(dayNames[idx]);
+        const dayOfWeek = day.getDay();
+        const dayNameMap = {
+          0: 'Domingo', 1: 'Segunda', 2: 'Terça', 3: 'Quarta',
+          4: 'Quinta', 5: 'Sexta', 6: 'Sábado'
+        };
+        const isProductionDay = productionDays.includes(dayNameMap[dayOfWeek]);
         
         newQuantities[key] = isProductionDay ? dailyQty : 0;
         
