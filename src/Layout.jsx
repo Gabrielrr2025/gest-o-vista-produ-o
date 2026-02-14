@@ -14,7 +14,9 @@ import {
   Settings,
   Shield,
   Zap,
-  Activity
+  Activity,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -117,6 +119,7 @@ export default function Layout({ children, currentPageName }) {
       {/* Sidebar Futuristic */}
       <aside 
         className={`
+          group/sidebar
           fixed top-0 left-0 h-full glass-strong border-r border-[hsl(var(--border-medium))] z-50
           transform transition-all duration-300 ease-in-out
           lg:translate-x-0
@@ -279,24 +282,24 @@ export default function Layout({ children, currentPageName }) {
             onClick={toggleSidebar}
             className={`
               hidden lg:flex
-              absolute -right-4 top-1/2 -translate-y-1/2
-              w-8 h-12
+              absolute -right-5 top-24
+              w-10 h-10
               items-center justify-center
               glass-strong hover:glass
               border border-[hsl(var(--border-medium))]
-              rounded-r-xl
+              rounded-full
               transition-all duration-300
-              group
-              hover:w-9
+              opacity-0 group-hover/sidebar:opacity-100
+              hover:scale-110
+              glow-cyan
             `}
             title={sidebarMinimized ? "Expandir menu" : "Minimizar menu"}
           >
-            <div className={`
-              w-1 h-6 bg-gradient-to-b from-[hsl(var(--accent-neon))] to-[hsl(var(--accent-purple))] 
-              rounded-full transition-all duration-300
-              ${sidebarMinimized ? 'rotate-180' : ''}
-              group-hover:h-8
-            `}></div>
+            {sidebarMinimized ? (
+              <ChevronRight className="w-4 h-4 text-[hsl(var(--accent-neon))]" strokeWidth={2.5} />
+            ) : (
+              <ChevronLeft className="w-4 h-4 text-[hsl(var(--accent-neon))]" strokeWidth={2.5} />
+            )}
           </button>
 
           {/* Bottom Decoration */}
