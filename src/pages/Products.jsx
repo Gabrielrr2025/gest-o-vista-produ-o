@@ -75,6 +75,7 @@ export default function Products() {
 
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: ['products'] });
+    queryClient.invalidateQueries({ queryKey: ['sqlData'] });
   };
 
   const handleExportExcel = () => {
