@@ -101,9 +101,29 @@ Deno.serve(async (req) => {
     `;
     const currentWeekLoss = await sql(currentWeekLossQuery, [startDate, endDate]);
 
+    // Mapear dias da semana (terça a segunda)
+    const weekDays = ['Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo', 'Segunda'];
+    
     // Processar dados para cada produto
     const productAnalysis = products.map(product => {
       const productId = product.id;
+      
+      // Parsear dias de produção
+      let diasProducao = [];
+      try {
+        if (product.dias_producao) {
+          if (Array.isArray(product.dias_producao)) {
+            diasProducao = product.dias_producao;
+          } else if (typeof product.dias_producao === 'string') {
+            diasProducao = JSON.parse(product.dias_producao);
+          } else if (typeof product.dias_producao === 'object') {
+            diasProducao = product.dias_producao;
+          }
+        }
+      } catch (e) {
+        console.log(`⚠️ Erro ao parsear dias_producao do produto ${product.nome}:`, e);
+        diasProducao = [];
+      }
 
       // Agrupar vendas por semana (últimas 4 semanas)
       const productSales = salesHistory.filter(s => s.produto_id === productId);
