@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
 
     console.log('📦 Listando produtos do Neon...');
 
-    // Buscar todos os produtos - sintaxe template string do neon
+    // Buscar todos os produtos
     const products = await sql`
       SELECT 
         id,
@@ -39,17 +39,43 @@ Deno.serve(async (req) => {
     console.log(`✅ ${products.length} produtos encontrados`);
 
     // Transformar para o formato esperado pelo frontend
-    const formattedProducts = products.map(p => ({
-      id: p.id,
-      name: p.nome,
-      code: p.codigo,
-      sector: p.setor,
-      unit: p.unidade,
-      recipe_yield: parseFloat(p.rendimento) || 1,
-      production_days: p.dias_producao || [],
-      active: p.status === 'ativo',
-      created_at: p.created_at
-    }));
+    const formattedProducts = products.map(p => {
+      // Parsear dias_producao de forma segura
+      let diasProducao = [];
+      try {
+        if (p.dias_producao) {
+          // Se já é um array, usa direto
+          if (Array.isArray(p.dias_producao)) {
+            diasProducao = p.dias_producao;
+          }
+          // Se é string JSON, faz parse
+          else if (typeof p.dias_producao === 'string') {
+            diasProducao = JSON.parse(p.dias_producao);
+          }
+          // Se é objeto, tenta converter
+          else if (typeof p.dias_producao === 'object') {
+            diasProducao = p.dias_producao;
+          }
+        }
+      } catch (parseError) {
+        console.warn(`⚠️ Erro ao parsear dias_producao do produto ${p.nome}:`, parseError);
+        diasProducao = [];
+      }
+
+      return {
+        id: p.id,
+        name: p.nome,
+        code: p.codigo,
+        sector: p.setor,
+        unit: p.unidade,
+        recipe_yield: parseFloat(p.rendimento) || 1,
+        production_days: diasProducao,
+        active: p.status === 'ativo',
+        created_at: p.created_at
+      };
+    });
+
+    console.log('📊 Produtos formatados:', formattedProducts.length);
 
     return Response.json({
       products: formattedProducts
@@ -59,10 +85,13 @@ Deno.serve(async (req) => {
     console.error('=== ERRO getProducts ===');
     console.error('Message:', error.message);
     console.error('Stack:', error.stack);
+    console.error('Error name:', error.name);
     console.error('========================');
+    
     return Response.json({ 
       error: error.message,
-      details: error.stack
+      details: error.stack,
+      errorName: error.name
     }, { status: 500 });
   }
 });
