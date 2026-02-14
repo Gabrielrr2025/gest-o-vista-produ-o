@@ -97,33 +97,34 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
       console.log('📥 Resposta do servidor:', response);
 
       // Verificar se houve erro na resposta
-      if (response.error) {
-        console.error('❌ Erro na resposta:', response.error);
+      if (response.data?.error || response.error) {
+        const errorMsg = response.data?.error || response.error;
+        console.error('❌ Erro na resposta:', errorMsg);
         
         // Produto já existe
-        if (response.error.includes('já existe')) {
+        if (errorMsg.includes('já existe')) {
           toast.info(`Produto "${product.name}" já está cadastrado`);
           // Remove da lista de não mapeados
           setDismissed(prev => new Set(prev).add(key));
           // Atualiza lista de produtos para mostrar
-          onProductCreated?.();
+          await onProductCreated?.();
         } 
         // Erro de conexão com banco
-        else if (response.error.includes('conexão') || response.error.includes('POSTGRES_CONNECTION_URL')) {
+        else if (errorMsg.includes('conexão') || errorMsg.includes('POSTGRES_CONNECTION_URL')) {
           toast.error('Erro: Banco de dados não configurado. Verifique as variáveis de ambiente.');
         }
         // Tabela não existe
-        else if (response.error.includes('Tabela') || response.error.includes('não existe')) {
+        else if (errorMsg.includes('Tabela') || errorMsg.includes('não existe')) {
           toast.error('Erro: Tabela de produtos não existe no banco. Execute o script SQL.');
         }
         // Outros erros
         else {
-          toast.error(`Erro: ${response.error}`);
+          toast.error(`Erro: ${errorMsg}`);
         }
       } else if (response.data?.success) {
         console.log('✅ Produto criado com sucesso:', response.data.product);
         toast.success(`Produto "${product.name}" cadastrado`);
-        onProductCreated?.();
+        await onProductCreated?.();
       } else {
         console.error('⚠️ Resposta inesperada:', response);
         toast.error('Erro: Resposta inesperada do servidor');
@@ -131,10 +132,10 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
     } catch (error) {
       console.error('❌ Erro ao cadastrar:', error);
       
-      if (error.response?.status === 409) {
+      if (error.response?.status === 409 || error.response?.data?.error?.includes('já existe')) {
         toast.info(`Produto "${product.name}" já está cadastrado`);
         setDismissed(prev => new Set(prev).add(key));
-        onProductCreated?.();
+        await onProductCreated?.();
       } else if (error.response?.status === 500) {
         toast.error('Erro interno do servidor (500). Verifique os logs do console.');
       } else if (error.response?.status === 400) {
