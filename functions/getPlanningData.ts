@@ -35,9 +35,9 @@ Deno.serve(async (req) => {
 
     console.log(`📅 Buscando histórico desde: ${fourWeeksAgoStr}`);
 
-    // Query 1: Buscar todos os produtos ativos
+    // Query 1: Buscar todos os produtos ativos com dias de produção
     const productsQuery = `
-      SELECT id, nome, setor, unidade, status
+      SELECT id, nome, setor, unidade, status, dias_producao
       FROM produtos
       WHERE status = 'ativo'
       ORDER BY setor, nome
