@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Pencil, Search, Package, X, Trash2, Filter } from "lucide-react";
+import { Plus, Pencil, Search, X, Trash2, Filter } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { base44 } from "@/api/base44Client";
 import SectorBadge, { SECTORS } from "../common/SectorBadge";
@@ -80,48 +79,59 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
       return;
     }
 
-    // Verificar produto duplicado por nome
-    const duplicateByName = products.find(p => 
-      p.name.toLowerCase() === formData.name.toLowerCase() && 
-      (!editingProduct || p.id !== editingProduct.id)
-    );
-
-    if (duplicateByName) {
-      toast.error(`Já existe um produto com o nome "${formData.name}". Use um código único para diferenciar.`);
-      return;
-    }
-
-    // Verificar produto duplicado por código (se informado)
-    if (formData.code && formData.code.trim()) {
-      const duplicateByCode = products.find(p => 
-        p.code && p.code.toLowerCase() === formData.code.toLowerCase() && 
-        (!editingProduct || p.id !== editingProduct.id)
-      );
-
-      if (duplicateByCode) {
-        toast.error(`Já existe um produto com o código "${formData.code}"`);
-        return;
-      }
-    }
-
     try {
       if (editingProduct) {
-        await base44.entities.Product.update(editingProduct.id, formData);
+        const response = await base44.functions.invoke('Updateproduct', {
+          id: editingProduct.id,
+          name: formData.name,
+          code: formData.code || '',
+          sector: formData.sector,
+          unit: formData.unit,
+          recipe_yield: formData.recipe_yield,
+          production_days: formData.production_days,
+          active: formData.active
+        });
+
+        if (response.error || response.data?.error) {
+          toast.error(response.data?.error || response.error || "Erro ao atualizar produto");
+          return;
+        }
         toast.success("Produto atualizado");
       } else {
-        await base44.entities.Product.create(formData);
+        const response = await base44.functions.invoke('Createproduct', {
+          name: formData.name,
+          code: formData.code || '',
+          sector: formData.sector,
+          unit: formData.unit,
+          recipe_yield: formData.recipe_yield,
+          production_days: formData.production_days,
+          active: formData.active
+        });
+
+        if (response.error || response.data?.error) {
+          toast.error(response.data?.error || response.error || "Erro ao criar produto");
+          return;
+        }
         toast.success("Produto criado");
       }
       setDialogOpen(false);
       onRefresh?.();
     } catch (error) {
+      console.error("Erro ao salvar produto:", error);
       toast.error("Erro ao salvar produto");
     }
   };
 
   const toggleActive = async (product) => {
     try {
-      await base44.entities.Product.update(product.id, { active: !product.active });
+      const response = await base44.functions.invoke('Updateproduct', {
+        id: product.id,
+        active: !product.active
+      });
+      if (response.error || response.data?.error) {
+        toast.error(response.data?.error || response.error || "Erro ao atualizar produto");
+        return;
+      }
       onRefresh?.();
     } catch (error) {
       toast.error("Erro ao atualizar produto");
@@ -132,22 +142,23 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
     const dayNames = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
     const dayName = dayNames[dayIndex];
     const currentDays = product.production_days || [];
-    
+
     const newDays = currentDays.includes(dayName)
       ? currentDays.filter(d => d !== dayName)
       : [...currentDays, dayName];
-    
-    // Atualização otimista - atualiza UI imediatamente
-    const optimisticProducts = products.map(p => 
-      p.id === product.id ? { ...p, production_days: newDays } : p
-    );
-    
+
     try {
-      await base44.entities.Product.update(product.id, { production_days: newDays });
+      const response = await base44.functions.invoke('Updateproduct', {
+        id: product.id,
+        production_days: newDays
+      });
+      if (response.error || response.data?.error) {
+        toast.error(response.data?.error || response.error || "Erro ao atualizar dias de produção");
+      }
       onRefresh?.();
     } catch (error) {
       toast.error("Erro ao atualizar dias de produção");
-      onRefresh?.(); // Reverte para o estado correto
+      onRefresh?.();
     }
   };
 
@@ -158,28 +169,20 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
 
   const handleDeleteConfirm = async () => {
     if (!productToDelete) return;
-    
+
     try {
-      // Primeiro, deletar todos os registros relacionados
-      const [sales, losses, plans, production] = await Promise.all([
-        base44.entities.SalesRecord.filter({ product_id: productToDelete.id }),
-        base44.entities.LossRecord.filter({ product_id: productToDelete.id }),
-        base44.entities.ProductionPlan.filter({ product_id: productToDelete.id }),
-        base44.entities.ProductionRecord.filter({ product_id: productToDelete.id })
-      ]);
+      const response = await base44.functions.invoke('deleteproduct', {
+        id: productToDelete.id,
+        soft: false
+      });
 
-      // Deletar registros relacionados
-      await Promise.all([
-        ...sales.map(s => base44.entities.SalesRecord.delete(s.id)),
-        ...losses.map(l => base44.entities.LossRecord.delete(l.id)),
-        ...plans.map(p => base44.entities.ProductionPlan.delete(p.id)),
-        ...production.map(p => base44.entities.ProductionRecord.delete(p.id))
-      ]);
+      if (response.error || response.data?.error) {
+        const errorMsg = response.data?.error || response.error;
+        toast.error(errorMsg || "Erro ao excluir produto");
+        return;
+      }
 
-      // Depois deletar o produto
-      await base44.entities.Product.delete(productToDelete.id);
-      
-      toast.success("Produto e registros relacionados excluídos");
+      toast.success("Produto excluído com sucesso");
       setDeleteDialog(false);
       setProductToDelete(null);
       onRefresh?.();
