@@ -82,6 +82,8 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
     setCreating(prev => new Set(prev).add(key));
     
     try {
+      console.log('📤 Enviando produto para criar:', product);
+      
       const response = await base44.functions.invoke('Createproduct', {
         code: product.code || '',
         name: product.name,
@@ -92,7 +94,12 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
         active: true
       });
 
+      console.log('📥 Resposta do servidor:', response);
+
+      // Verificar se houve erro na resposta
       if (response.error) {
+        console.error('❌ Erro na resposta:', response.error);
+        
         // Produto já existe
         if (response.error.includes('já existe')) {
           toast.info(`Produto "${product.name}" já está cadastrado`);
@@ -100,23 +107,42 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
           setDismissed(prev => new Set(prev).add(key));
           // Atualiza lista de produtos para mostrar
           onProductCreated?.();
-        } else {
-          toast.error(response.error);
+        } 
+        // Erro de conexão com banco
+        else if (response.error.includes('conexão') || response.error.includes('POSTGRES_CONNECTION_URL')) {
+          toast.error('Erro: Banco de dados não configurado. Verifique as variáveis de ambiente.');
         }
-      } else {
+        // Tabela não existe
+        else if (response.error.includes('Tabela') || response.error.includes('não existe')) {
+          toast.error('Erro: Tabela de produtos não existe no banco. Execute o script SQL.');
+        }
+        // Outros erros
+        else {
+          toast.error(`Erro: ${response.error}`);
+        }
+      } else if (response.data?.success) {
+        console.log('✅ Produto criado com sucesso:', response.data.product);
         toast.success(`Produto "${product.name}" cadastrado`);
         onProductCreated?.();
+      } else {
+        console.error('⚠️ Resposta inesperada:', response);
+        toast.error('Erro: Resposta inesperada do servidor');
       }
     } catch (error) {
-      console.error('Erro ao cadastrar:', error);
+      console.error('❌ Erro ao cadastrar:', error);
       
       if (error.response?.status === 409) {
         toast.info(`Produto "${product.name}" já está cadastrado`);
         setDismissed(prev => new Set(prev).add(key));
-        // Atualiza lista de produtos para mostrar
         onProductCreated?.();
+      } else if (error.response?.status === 500) {
+        toast.error('Erro interno do servidor (500). Verifique os logs do console.');
+      } else if (error.response?.status === 400) {
+        toast.error('Erro: Dados inválidos enviados ao servidor');
+      } else if (error.message) {
+        toast.error(`Erro: ${error.message}`);
       } else {
-        toast.error('Erro ao cadastrar produto');
+        toast.error('Erro desconhecido ao cadastrar produto');
       }
     } finally {
       setCreating(prev => {
