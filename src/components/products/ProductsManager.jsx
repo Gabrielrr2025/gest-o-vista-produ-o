@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -6,13 +8,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Pencil, Search, X, Trash2, Filter } from "lucide-react";
+import { Plus, Pencil, Search, Package, X, Trash2, Filter } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { base44 } from "@/api/base44Client";
 import SectorBadge, { SECTORS } from "../common/SectorBadge";
 import { toast } from "sonner";
 
-export default function ProductsManager({ products, onRefresh, showAddButton = false }) {
+export default function ProductsManager({ products, onRefresh, showAddButton = false, isLoading = false }) {
+  const queryClient = useQueryClient();
+  
   const [search, setSearch] = useState("");
   const [filterSector, setFilterSector] = useState("all");
   const [sortBy, setSortBy] = useState("name");
@@ -25,11 +29,66 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
     name: "",
     sector: "Padaria",
     recipe_yield: 1,
-    unit: "unidade",
+    unit: "UN",
     production_days: ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"],
-    manufacturing_time: "",
-    sale_time: "",
     active: true
+  });
+
+  // Mutation para criar produto
+  const createMutation = useMutation({
+    mutationFn: async (data) => {
+      const response = await base44.functions.invoke('createProduct', data);
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success("Produto criado");
+      setDialogOpen(false);
+      onRefresh?.();
+    },
+    onError: (error) => {
+      const message = error?.response?.data?.error || error.message || "Erro ao criar produto";
+      toast.error(message);
+    }
+  });
+
+  // Mutation para atualizar produto
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, ...data }) => {
+      const response = await base44.functions.invoke('updateProduct', { id, ...data });
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success("Produto atualizado");
+      setDialogOpen(false);
+      onRefresh?.();
+    },
+    onError: (error) => {
+      const message = error?.response?.data?.error || error.message || "Erro ao atualizar produto";
+      toast.error(message);
+    }
+  });
+
+  // Mutation para deletar produto
+  const deleteMutation = useMutation({
+    mutationFn: async ({ id, soft }) => {
+      const response = await base44.functions.invoke('deleteProduct', { id, soft });
+      return response.data;
+    },
+    onSuccess: (data) => {
+      toast.success(data.message || "Produto removido");
+      setDeleteDialog(false);
+      setProductToDelete(null);
+      
+      // Invalidar cache do react-query para forçar refetch
+      queryClient.invalidateQueries(['products']);
+      queryClient.invalidateQueries(['sqlData']);
+      
+      onRefresh?.();
+    },
+    onError: (error) => {
+      const message = error?.response?.data?.error || error.message || "Erro ao remover produto";
+      toast.error(message);
+    }
   });
 
   const filteredProducts = products.filter(p => {
@@ -56,10 +115,8 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
         name: product.name,
         sector: product.sector,
         recipe_yield: product.recipe_yield || 1,
-        unit: product.unit || "unidade",
+        unit: product.unit || "UN",
         production_days: product.production_days || ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"],
-        manufacturing_time: product.manufacturing_time || "",
-        sale_time: product.sale_time || "",
         active: product.active !== false
       });
     } else {
@@ -69,10 +126,8 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
         name: "",
         sector: "Padaria",
         recipe_yield: 1,
-        unit: "unidade",
+        unit: "UN",
         production_days: ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"],
-        manufacturing_time: "",
-        sale_time: "",
         active: true
       });
     }
@@ -85,91 +140,33 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
       return;
     }
 
-    try {
-      if (editingProduct) {
-        const response = await base44.functions.invoke('Updateproduct', {
-          id: editingProduct.id,
-          name: formData.name,
-          code: formData.code || '',
-          sector: formData.sector,
-          unit: formData.unit,
-          recipe_yield: formData.recipe_yield,
-          production_days: formData.production_days,
-          manufacturing_time: formData.manufacturing_time || '',
-          sale_time: formData.sale_time || '',
-          active: formData.active
-        });
-
-        if (response.error || response.data?.error) {
-          toast.error(response.data?.error || response.error || "Erro ao atualizar produto");
-          return;
-        }
-        toast.success("Produto atualizado");
-      } else {
-        const response = await base44.functions.invoke('Createproduct', {
-          name: formData.name,
-          code: formData.code || '',
-          sector: formData.sector,
-          unit: formData.unit,
-          recipe_yield: formData.recipe_yield,
-          production_days: formData.production_days,
-          manufacturing_time: formData.manufacturing_time || '',
-          sale_time: formData.sale_time || '',
-          active: formData.active
-        });
-
-        if (response.error || response.data?.error) {
-          toast.error(response.data?.error || response.error || "Erro ao criar produto");
-          return;
-        }
-        toast.success("Produto criado");
-      }
-      setDialogOpen(false);
-      onRefresh?.();
-    } catch (error) {
-      console.error("Erro ao salvar produto:", error);
-      toast.error("Erro ao salvar produto");
+    if (editingProduct) {
+      updateMutation.mutate({ id: editingProduct.id, ...formData });
+    } else {
+      createMutation.mutate(formData);
     }
   };
 
   const toggleActive = async (product) => {
-    try {
-      const response = await base44.functions.invoke('Updateproduct', {
-        id: product.id,
-        active: !product.active
-      });
-      if (response.error || response.data?.error) {
-        toast.error(response.data?.error || response.error || "Erro ao atualizar produto");
-        return;
-      }
-      onRefresh?.();
-    } catch (error) {
-      toast.error("Erro ao atualizar produto");
-    }
+    updateMutation.mutate({ 
+      id: product.id, 
+      active: !product.active 
+    });
   };
 
   const toggleProductionDay = async (product, dayIndex) => {
     const dayNames = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
     const dayName = dayNames[dayIndex];
     const currentDays = product.production_days || [];
-
+    
     const newDays = currentDays.includes(dayName)
       ? currentDays.filter(d => d !== dayName)
       : [...currentDays, dayName];
-
-    try {
-      const response = await base44.functions.invoke('Updateproduct', {
-        id: product.id,
-        production_days: newDays
-      });
-      if (response.error || response.data?.error) {
-        toast.error(response.data?.error || response.error || "Erro ao atualizar dias de produção");
-      }
-      onRefresh?.();
-    } catch (error) {
-      toast.error("Erro ao atualizar dias de produção");
-      onRefresh?.();
-    }
+    
+    updateMutation.mutate({
+      id: product.id,
+      production_days: newDays
+    });
   };
 
   const handleDeleteClick = (product) => {
@@ -179,27 +176,12 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
 
   const handleDeleteConfirm = async () => {
     if (!productToDelete) return;
-
-    try {
-      const response = await base44.functions.invoke('deleteproduct', {
-        id: productToDelete.id,
-        soft: false
-      });
-
-      if (response.error || response.data?.error) {
-        const errorMsg = response.data?.error || response.error;
-        toast.error(errorMsg || "Erro ao excluir produto");
-        return;
-      }
-
-      toast.success("Produto excluído com sucesso");
-      setDeleteDialog(false);
-      setProductToDelete(null);
-      onRefresh?.();
-    } catch (error) {
-      console.error(error);
-      toast.error("Erro ao excluir produto. Tente novamente.");
-    }
+    
+    // Soft delete (desativa o produto)
+    deleteMutation.mutate({ 
+      id: productToDelete.id, 
+      soft: true 
+    });
   };
 
   const WEEK_DAYS_SHORT = ["D", "S", "T", "Q", "Q", "S", "S"];
@@ -211,6 +193,14 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
     "Quinta": 4,
     "Sexta": 5,
     "Sábado": 6
+  };
+
+  const toggleDayInForm = (day) => {
+    const currentDays = formData.production_days || [];
+    const newDays = currentDays.includes(day)
+      ? currentDays.filter(d => d !== day)
+      : [...currentDays, day];
+    setFormData({ ...formData, production_days: newDays });
   };
 
   return (
@@ -253,258 +243,224 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
                 <TableHead className="text-xs font-semibold text-slate-700">Produto</TableHead>
                 <TableHead className="text-xs font-semibold text-slate-700">Setor</TableHead>
                 <TableHead className="text-xs font-semibold text-slate-700 text-center">Rendimento</TableHead>
-                <TableHead className="text-xs font-semibold text-slate-700 text-center">Unidade Venda</TableHead>
+                <TableHead className="text-xs font-semibold text-slate-700 text-center">Unidade</TableHead>
                 <TableHead className="text-xs font-semibold text-slate-700 text-center">Dias de Produção</TableHead>
-                <TableHead className="text-xs font-semibold text-slate-700 text-center">Fabricação</TableHead>
-                <TableHead className="text-xs font-semibold text-slate-700 text-center">Venda</TableHead>
+                <TableHead className="text-xs font-semibold text-slate-700 text-center">Status</TableHead>
                 <TableHead className="text-xs font-semibold text-slate-700 text-center">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredProducts.map(product => {
-                const productionDaysIndices = (product.production_days || []).map(day => WEEK_DAYS_MAP[day]);
-                
-                return (
-                  <TableRow key={product.id} className="hover:bg-slate-50">
-                    <TableCell className="font-medium text-sm">{product.name}</TableCell>
-                    <TableCell><SectorBadge sector={product.sector} /></TableCell>
-                    <TableCell className="text-center text-sm">{product.recipe_yield || 1} Kg</TableCell>
-                    <TableCell className="text-center text-sm">{product.unit || "unidade"}</TableCell>
-                    <TableCell className="text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        {WEEK_DAYS_SHORT.map((day, idx) => (
-                          <button
-                            key={idx}
-                            onClick={() => toggleProductionDay(product, idx)}
-                            className={`w-6 h-6 rounded flex items-center justify-center text-xs font-medium cursor-pointer transition-all hover:scale-110 ${
-                              productionDaysIndices.includes(idx)
-                                ? "bg-slate-700 text-white hover:bg-slate-600"
-                                : "bg-slate-200 text-slate-400 hover:bg-slate-300"
-                            }`}
-                          >
-                            {day}
-                          </button>
-                        ))}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center text-sm text-slate-600">{product.manufacturing_time || "—"}</TableCell>
-                    <TableCell className="text-center text-sm text-slate-600">{product.sale_time || "—"}</TableCell>
-                    <TableCell className="text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleOpenDialog(product)}
-                          className="h-8 w-8 p-0"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => handleDeleteClick(product)}
-                          className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-              {filteredProducts.length === 0 && (
+              {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-slate-500 py-8">
+                  <TableCell colSpan={7} className="text-center text-slate-500 py-8">
+                    Carregando produtos...
+                  </TableCell>
+                </TableRow>
+              ) : filteredProducts.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center text-slate-500 py-8">
                     Nenhum produto encontrado
                   </TableCell>
                 </TableRow>
+              ) : (
+                filteredProducts.map(product => {
+                  const productionDaysIndices = (product.production_days || []).map(day => WEEK_DAYS_MAP[day]);
+                  
+                  return (
+                    <TableRow key={product.id} className={`hover:bg-slate-50 ${!product.active ? 'opacity-50' : ''}`}>
+                      <TableCell className="font-medium text-sm">{product.name}</TableCell>
+                      <TableCell><SectorBadge sector={product.sector} /></TableCell>
+                      <TableCell className="text-center text-sm">{product.recipe_yield || 1}</TableCell>
+                      <TableCell className="text-center text-sm">{product.unit || "UN"}</TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          {WEEK_DAYS_SHORT.map((day, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => toggleProductionDay(product, idx)}
+                              disabled={!product.active}
+                              className={`w-6 h-6 rounded flex items-center justify-center text-xs font-medium transition-all ${
+                                product.active ? 'cursor-pointer hover:scale-110' : 'cursor-not-allowed'
+                              } ${
+                                productionDaysIndices.includes(idx)
+                                  ? "bg-slate-700 text-white hover:bg-slate-600"
+                                  : "bg-slate-200 text-slate-400 hover:bg-slate-300"
+                              }`}
+                            >
+                              {day}
+                            </button>
+                          ))}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Switch
+                          checked={product.active}
+                          onCheckedChange={() => toggleActive(product)}
+                        />
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => handleOpenDialog(product)}
+                            className="h-8 w-8 p-0"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => handleDeleteClick(product)}
+                            className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
         </div>
       </div>
 
-      {dialogOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="modal-container" style={{ maxWidth: "500px", maxHeight: "85vh", background: "white", borderRadius: "16px", overflow: "hidden", display: "flex", flexDirection: "column" }}>
-            
-            <div className="modal-header" style={{ padding: "20px 24px", borderBottom: "1px solid #E5E7EB", flexShrink: 0 }}>
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-lg text-slate-900">
-                  {editingProduct ? "Editar Produto" : "Novo Produto"}
-                </h3>
-                <button
-                  onClick={() => setDialogOpen(false)}
-                  className="text-slate-500 hover:text-slate-700 transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+      {/* Dialog de Criar/Editar */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{editingProduct ? "Editar Produto" : "Novo Produto"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Nome *</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="Ex: Pão Francês"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="code">Código</Label>
+                <Input
+                  id="code"
+                  value={formData.code}
+                  onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                  placeholder="Ex: PF001"
+                />
               </div>
             </div>
-            
-            <div className="modal-body" style={{ padding: "24px", maxHeight: "calc(85vh - 140px)", overflowY: "auto", flex: 1 }}>
-              <div className="space-y-4">
-                <div>
-                  <Label>Código do Produto (opcional)</Label>
-                  <Input
-                    value={formData.code || ""}
-                    onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                    placeholder="Ex: PFRANCES01"
-                  />
-                  <p className="text-xs text-slate-500 mt-1">Código único para identificação</p>
-                </div>
 
-                <div>
-                  <Label>Nome do Produto</Label>
-                  <Input
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Ex: Pão Francês"
-                  />
-                </div>
-
-                <div>
-                  <Label>Setor</Label>
-                  <Select 
-                    value={formData.sector} 
-                    onValueChange={(value) => setFormData({ ...formData, sector: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SECTORS.map(sector => (
-                        <SelectItem key={sector} value={sector}>{sector}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Rendimento da Receita</Label>
-                    <Input
-                      type="number"
-                      min="0.1"
-                      step="0.1"
-                      value={formData.recipe_yield}
-                      onChange={(e) => setFormData({ ...formData, recipe_yield: parseFloat(e.target.value) || 1 })}
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label>Unidade</Label>
-                    <Select 
-                      value={formData.unit} 
-                      onValueChange={(value) => setFormData({ ...formData, unit: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="unidade">Unidade</SelectItem>
-                        <SelectItem value="pacotes">Pacotes</SelectItem>
-                        <SelectItem value="kilo">Kilo</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div>
-                  <Label>Dias de Produção</Label>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"].map(day => (
-                      <div key={day} className="flex items-center gap-1">
-                        <Checkbox
-                          checked={formData.production_days?.includes(day)}
-                          onCheckedChange={(checked) => {
-                            const days = formData.production_days || [];
-                            setFormData({
-                              ...formData,
-                              production_days: checked 
-                                ? [...days, day]
-                                : days.filter(d => d !== day)
-                            });
-                          }}
-                        />
-                        <span className="text-sm">{day.slice(0, 3)}</span>
-                      </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="sector">Setor</Label>
+                <Select value={formData.sector} onValueChange={(value) => setFormData({ ...formData, sector: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SECTORS.map(sector => (
+                      <SelectItem key={sector} value={sector}>{sector}</SelectItem>
                     ))}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Horário de Fabricação</Label>
-                    <Input
-                      type="time"
-                      value={formData.manufacturing_time || ""}
-                      onChange={(e) => setFormData({ ...formData, manufacturing_time: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label>Horário de Venda</Label>
-                    <Input
-                      type="time"
-                      value={formData.sale_time || ""}
-                      onChange={(e) => setFormData({ ...formData, sale_time: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Switch
-                    checked={formData.active}
-                    onCheckedChange={(checked) => setFormData({ ...formData, active: checked })}
-                  />
-                  <Label>Produto ativo</Label>
-                </div>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="unit">Unidade</Label>
+                <Select value={formData.unit} onValueChange={(value) => setFormData({ ...formData, unit: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="UN">Unidade</SelectItem>
+                    <SelectItem value="KG">Quilograma</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="yield">Rendimento</Label>
+                <Input
+                  id="yield"
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={formData.recipe_yield}
+                  onChange={(e) => setFormData({ ...formData, recipe_yield: parseFloat(e.target.value) || 1 })}
+                />
               </div>
             </div>
 
-            <div className="modal-footer" style={{ padding: "16px 24px", borderTop: "1px solid #E5E7EB", display: "flex", justifyContent: "flex-end", gap: "12px", flexShrink: 0 }}>
-              <button
-                onClick={() => setDialogOpen(false)}
-                className="btn-secondary"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleSave}
-                className="btn-primary"
-                style={{
-                  backgroundColor: "#10B981 !important",
-                  color: "#FFFFFF !important",
-                  border: "none !important",
-                  padding: "10px 20px !important",
-                  borderRadius: "8px !important",
-                  fontWeight: "500 !important"
-                }}
-              >
-                {editingProduct ? "Salvar" : "Criar"}
-              </button>
+            <div className="space-y-2">
+              <Label>Dias de Produção</Label>
+              <div className="flex gap-2 flex-wrap">
+                {["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"].map(day => (
+                  <div key={day} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`day-${day}`}
+                      checked={formData.production_days?.includes(day)}
+                      onCheckedChange={() => toggleDayInForm(day)}
+                    />
+                    <Label htmlFor={`day-${day}`} className="cursor-pointer text-sm">
+                      {day}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="active"
+                checked={formData.active}
+                onCheckedChange={(checked) => setFormData({ ...formData, active: checked })}
+              />
+              <Label htmlFor="active">Produto ativo</Label>
             </div>
           </div>
-        </div>
-      )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleSave} 
+              disabled={createMutation.isLoading || updateMutation.isLoading}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {editingProduct ? "Atualizar" : "Criar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
+      {/* Dialog de Confirmação de Exclusão */}
       <Dialog open={deleteDialog} onOpenChange={setDeleteDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="text-red-900">Excluir Produto</DialogTitle>
+            <DialogTitle>Confirmar Remoção</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-slate-600">
-            Tem certeza que deseja excluir <strong>"{productToDelete?.name}"</strong>?
-          </p>
-          <p className="text-sm text-slate-600">
-            Todos os registros relacionados (vendas, perdas, planos) também serão excluídos. Esta ação não pode ser desfeita.
+            Tem certeza que deseja remover o produto <strong>{productToDelete?.name}</strong>?
+            <br /><br />
+            Se houver histórico de vendas, perdas ou planejamento, o produto será apenas desativado.
+            Caso contrário, será removido permanentemente.
           </p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialog(false)}>
+            <Button variant="outline" onClick={() => {
+              setDeleteDialog(false);
+              setProductToDelete(null);
+            }}>
               Cancelar
             </Button>
-            <Button variant="destructive" onClick={handleDeleteConfirm}>
-              Excluir
+            <Button 
+              onClick={handleDeleteConfirm}
+              disabled={deleteMutation.isLoading}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleteMutation.isLoading ? 'Removendo...' : 'Remover'}
             </Button>
           </DialogFooter>
         </DialogContent>

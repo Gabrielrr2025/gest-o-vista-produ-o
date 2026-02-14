@@ -39,25 +39,58 @@ Deno.serve(async (req) => {
     }
 
     if (soft) {
-      // Soft delete: apenas desativa
-      const result = await sql`
-        UPDATE produtos 
-        SET status = 'inativo', updated_at = NOW()
-        WHERE id = ${id}
-        RETURNING *
+      // Verificar se há dependências antes de decidir
+      const hasVendas = await sql`
+        SELECT COUNT(*) as count FROM vendas WHERE produto_id = ${id}
       `;
 
-      console.log(`✅ Produto desativado: ${existing[0].nome}`);
+      const hasPerdas = await sql`
+        SELECT COUNT(*) as count FROM perdas WHERE produto_id = ${id}
+      `;
 
-      return Response.json({
-        success: true,
-        message: 'Produto desativado com sucesso',
-        product: {
-          id: result[0].id,
-          name: result[0].nome,
-          active: false
-        }
-      });
+      const hasPlanejamento = await sql`
+        SELECT COUNT(*) as count FROM planejamento WHERE produto_id = ${id}
+      `;
+
+      const totalDependencies = 
+        parseInt(hasVendas[0].count) + 
+        parseInt(hasPerdas[0].count) + 
+        parseInt(hasPlanejamento[0].count);
+
+      if (totalDependencies > 0) {
+        // Se tem dependências, apenas desativa
+        const result = await sql`
+          UPDATE produtos 
+          SET status = 'inativo', updated_at = NOW()
+          WHERE id = ${id}
+          RETURNING *
+        `;
+
+        console.log(`✅ Produto desativado (tem dependências): ${existing[0].nome}`);
+
+        return Response.json({
+          success: true,
+          message: `Produto desativado (${totalDependencies} registros vinculados)`,
+          product: {
+            id: result[0].id,
+            name: result[0].nome,
+            active: false
+          }
+        });
+      } else {
+        // Se não tem dependências, deleta permanentemente
+        await sql`
+          DELETE FROM produtos WHERE id = ${id}
+        `;
+
+        console.log(`✅ Produto deletado (sem dependências): ${existing[0].nome}`);
+
+        return Response.json({
+          success: true,
+          message: 'Produto removido com sucesso',
+          deleted: true
+        });
+      }
     } else {
       // Hard delete: deleta permanentemente
       // ATENÇÃO: Verificar se há dependências (vendas, perdas, planejamento)
