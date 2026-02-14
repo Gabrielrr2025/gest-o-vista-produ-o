@@ -1,64 +1,181 @@
 import React from 'react';
-import { Card } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, Minus } from "lucide-react";
-import { motion } from "framer-motion";
+import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
-export default function KPICard({ title, value, subtitle, icon: Icon, trend, trendValue, color = "blue" }) {
-  const colorMap = {
-    blue: "from-blue-500 to-blue-600",
-    green: "from-emerald-500 to-emerald-600",
-    orange: "from-orange-500 to-orange-600",
-    red: "from-red-500 to-red-600",
-    purple: "from-purple-500 to-purple-600",
-    cyan: "from-cyan-500 to-cyan-600"
+/**
+ * Card KPI Futurista
+ * Componente para exibir métricas importantes com design cyberpunk/futurista
+ * 
+ * @param {string} title - Título do KPI
+ * @param {string|number} value - Valor principal a ser exibido
+ * @param {string} subtitle - Subtítulo ou descrição adicional
+ * @param {object} icon - Ícone Lucide React (ex: <TrendingUp />)
+ * @param {number} trend - Valor de tendência em porcentagem (positivo ou negativo)
+ * @param {string} trendLabel - Label da tendência (ex: "vs semana anterior")
+ * @param {string} variant - Variante de cor: 'cyan', 'purple', 'success', 'warning', 'error'
+ * @param {boolean} loading - Estado de carregamento
+ */
+export default function KPICardFuturistic({
+  title,
+  value,
+  subtitle,
+  icon: Icon,
+  trend,
+  trendLabel,
+  variant = 'cyan',
+  loading = false
+}) {
+  // Definir cores baseadas na variante
+  const variantStyles = {
+    cyan: {
+      bg: 'from-[hsl(var(--accent-neon))]/10 to-[hsl(var(--accent-neon))]/5',
+      border: 'border-[hsl(var(--accent-neon))]/30',
+      glow: 'glow-cyan',
+      iconBg: 'bg-[hsl(var(--accent-neon))]/20',
+      iconColor: 'text-[hsl(var(--accent-neon))]',
+      valueColor: 'text-[hsl(var(--accent-neon))]'
+    },
+    purple: {
+      bg: 'from-[hsl(var(--accent-purple))]/10 to-[hsl(var(--accent-purple))]/5',
+      border: 'border-[hsl(var(--accent-purple))]/30',
+      glow: 'glow-purple',
+      iconBg: 'bg-[hsl(var(--accent-purple))]/20',
+      iconColor: 'text-[hsl(var(--accent-purple))]',
+      valueColor: 'text-[hsl(var(--accent-purple))]'
+    },
+    success: {
+      bg: 'from-[hsl(var(--success-neon))]/10 to-[hsl(var(--success-neon))]/5',
+      border: 'border-[hsl(var(--success-neon))]/30',
+      glow: 'shadow-[0_0_20px_rgba(0,255,100,0.3)]',
+      iconBg: 'bg-[hsl(var(--success-neon))]/20',
+      iconColor: 'text-[hsl(var(--success-neon))]',
+      valueColor: 'text-[hsl(var(--success-neon))]'
+    },
+    warning: {
+      bg: 'from-[hsl(var(--warning-neon))]/10 to-[hsl(var(--warning-neon))]/5',
+      border: 'border-[hsl(var(--warning-neon))]/30',
+      glow: 'shadow-[0_0_20px_rgba(255,215,0,0.3)]',
+      iconBg: 'bg-[hsl(var(--warning-neon))]/20',
+      iconColor: 'text-[hsl(var(--warning-neon))]',
+      valueColor: 'text-[hsl(var(--warning-neon))]'
+    },
+    error: {
+      bg: 'from-[hsl(var(--error-neon))]/10 to-[hsl(var(--error-neon))]/5',
+      border: 'border-[hsl(var(--error-neon))]/30',
+      glow: 'shadow-[0_0_20px_rgba(255,0,100,0.3)]',
+      iconBg: 'bg-[hsl(var(--error-neon))]/20',
+      iconColor: 'text-[hsl(var(--error-neon))]',
+      valueColor: 'text-[hsl(var(--error-neon))]'
+    }
   };
 
-  const iconBgMap = {
-    blue: "bg-blue-100 text-blue-600",
-    green: "bg-emerald-100 text-emerald-600",
-    orange: "bg-orange-100 text-orange-600",
-    red: "bg-red-100 text-red-600",
-    purple: "bg-purple-100 text-purple-600",
-    cyan: "bg-cyan-100 text-cyan-600"
+  const styles = variantStyles[variant] || variantStyles.cyan;
+
+  // Renderizar ícone de tendência
+  const renderTrendIcon = () => {
+    if (trend === undefined || trend === null) return null;
+    
+    if (trend > 0) {
+      return <TrendingUp className="w-3.5 h-3.5 text-[hsl(var(--success-neon))]" strokeWidth={2.5} />;
+    } else if (trend < 0) {
+      return <TrendingDown className="w-3.5 h-3.5 text-[hsl(var(--error-neon))]" strokeWidth={2.5} />;
+    } else {
+      return <Minus className="w-3.5 h-3.5 text-[hsl(var(--text-tertiary))]" strokeWidth={2.5} />;
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="card-futuristic p-6 relative overflow-hidden">
+        <div className="flex items-start justify-between mb-4">
+          <div className="skeleton h-10 w-10 rounded-xl"></div>
+          <div className="skeleton h-4 w-16 rounded"></div>
+        </div>
+        <div className="skeleton h-8 w-24 rounded mb-2"></div>
+        <div className="skeleton h-3 w-32 rounded"></div>
+      </div>
+    );
+  }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
+    <div 
+      className={`
+        group relative overflow-hidden
+        bg-gradient-to-br ${styles.bg}
+        backdrop-filter backdrop-blur-md
+        border ${styles.border}
+        rounded-2xl p-6
+        transition-all duration-300
+        hover:scale-[1.02]
+        ${styles.glow}
+      `}
     >
-      <Card className="relative overflow-hidden p-5 bg-white border-0 shadow-sm hover:shadow-md transition-shadow">
-        <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${colorMap[color]} opacity-5 rounded-full -translate-y-10 translate-x-10`} />
-        
-        <div className="flex items-start justify-between">
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-slate-500">{title}</p>
-            <p className="text-2xl font-bold text-slate-900">{value}</p>
-            {subtitle && <p className="text-xs text-slate-400">{subtitle}</p>}
-          </div>
-          
-          {Icon && (
-            <div className={`p-2.5 rounded-xl ${iconBgMap[color]}`}>
-              <Icon className="w-5 h-5" />
-            </div>
-          )}
-        </div>
-
-        {trendValue !== undefined && (
-          <div className="flex items-center gap-1 mt-3">
-            {trend === "up" && <TrendingUp className="w-4 h-4 text-emerald-500" />}
-            {trend === "down" && <TrendingDown className="w-4 h-4 text-red-500" />}
-            {trend === "neutral" && <Minus className="w-4 h-4 text-slate-400" />}
-            <span className={`text-xs font-medium ${
-              trend === "up" ? "text-emerald-600" : 
-              trend === "down" ? "text-red-600" : "text-slate-500"
-            }`}>
-              {trendValue}
-            </span>
+      {/* Top Gradient Line */}
+      <div className={`absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r ${styles.border} opacity-50`}></div>
+      
+      {/* Header */}
+      <div className="flex items-start justify-between mb-4">
+        {/* Icon */}
+        {Icon && (
+          <div className={`
+            ${styles.iconBg} 
+            p-3 rounded-xl 
+            transition-all duration-300
+            group-hover:scale-110
+            group-hover:rotate-3
+          `}>
+            <Icon className={`w-6 h-6 ${styles.iconColor}`} strokeWidth={2} />
           </div>
         )}
-      </Card>
-    </motion.div>
+        
+        {/* Trend Badge */}
+        {trend !== undefined && trend !== null && (
+          <div className={`
+            flex items-center gap-1.5 px-2.5 py-1 rounded-lg
+            text-xs font-semibold
+            ${trend > 0 
+              ? 'bg-[hsl(var(--success-neon))]/10 text-[hsl(var(--success-neon))] border border-[hsl(var(--success-neon))]/30' 
+              : trend < 0 
+              ? 'bg-[hsl(var(--error-neon))]/10 text-[hsl(var(--error-neon))] border border-[hsl(var(--error-neon))]/30'
+              : 'bg-[hsl(var(--text-muted))]/10 text-[hsl(var(--text-tertiary))] border border-[hsl(var(--text-muted))]/30'
+            }
+          `}>
+            {renderTrendIcon()}
+            <span>{Math.abs(trend)}%</span>
+          </div>
+        )}
+      </div>
+
+      {/* Title */}
+      <h3 className="text-sm font-medium text-[hsl(var(--text-secondary))] uppercase tracking-wide mb-2">
+        {title}
+      </h3>
+
+      {/* Value */}
+      <div className={`text-3xl font-bold ${styles.valueColor} mb-1 tracking-tight`}>
+        {value}
+      </div>
+
+      {/* Subtitle / Description */}
+      {subtitle && (
+        <p className="text-xs text-[hsl(var(--text-tertiary))]">
+          {subtitle}
+        </p>
+      )}
+
+      {/* Trend Label */}
+      {trendLabel && (
+        <p className="text-xs text-[hsl(var(--text-muted))] mt-2 flex items-center gap-1.5">
+          {trendLabel}
+        </p>
+      )}
+
+      {/* Bottom Decorative Line */}
+      <div className={`
+        absolute bottom-0 left-0 right-0 h-1 
+        bg-gradient-to-r ${styles.border}
+        opacity-0 group-hover:opacity-100
+        transition-opacity duration-300
+      `}></div>
+    </div>
   );
 }
