@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { FileSpreadsheet, TrendingUp, TrendingDown, AlertCircle } from "lucide-react";
+import { FileSpreadsheet, TrendingUp, TrendingDown, AlertCircle, AlertTriangle } from "lucide-react";
 import { format, subYears, subMonths, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
@@ -120,14 +120,29 @@ export default function Reports() {
     enabled: hasAccess && !!apiParams
   });
 
-  // Buscar dados de PERDAS (período selecionado)
+  // Buscar dados de PERDAS (período selecionado) - COM TRATAMENTO DE ERRO
   const lossesQuery = useQuery({
     queryKey: ['lossesReport', apiParams],
     queryFn: async () => {
-      const response = await base44.functions.invoke('getLossesReport', apiParams);
-      return response.data;
+      try {
+        const response = await base44.functions.invoke('getLossesReport', apiParams);
+        return response.data;
+      } catch (error) {
+        console.warn('⚠️ Erro ao buscar perdas (período):', error);
+        // Retorna estrutura vazia em caso de erro
+        return {
+          data: {
+            lossesBySector: [],
+            lossesByProduct: [],
+            lossesBySectorProduct: [],
+            rawData: [],
+            totalGeral: 0
+          }
+        };
+      }
     },
-    enabled: hasAccess && !!apiParams
+    enabled: hasAccess && !!apiParams,
+    retry: false // Não tentar novamente em caso de erro
   });
 
   // Buscar dados do ano anterior (para comparação automática)
@@ -156,15 +171,33 @@ export default function Reports() {
   const yearLossesQuery = useQuery({
     queryKey: ['lossesReportYear', yearParams],
     queryFn: async () => {
-      const response = await base44.functions.invoke('getLossesReport', yearParams);
-      return response.data;
+      try {
+        const response = await base44.functions.invoke('getLossesReport', yearParams);
+        return response.data;
+      } catch (error) {
+        console.warn('⚠️ Erro ao buscar perdas (ano):', error);
+        // Retorna estrutura vazia em caso de erro
+        return {
+          data: {
+            lossesBySector: [],
+            lossesByProduct: [],
+            lossesBySectorProduct: [],
+            rawData: [],
+            totalGeral: 0
+          }
+        };
+      }
     },
-    enabled: hasAccess && !!yearParams
+    enabled: hasAccess && !!yearParams,
+    retry: false
   });
 
   const salesData = salesQuery.data?.data;
   const lossesData = lossesQuery.data?.data;
   const lastYearSalesData = lastYearSalesQuery.data?.data;
+  
+  // Verificar se há dados de perdas disponíveis
+  const hasLossesData = lossesData && lossesData.totalGeral > 0;
 
   // Calcular % de crescimento vs ano anterior (do período selecionado)
   const yearOverYearGrowth = useMemo(() => {
@@ -177,22 +210,15 @@ export default function Reports() {
 
   // Calcular taxa média de perda (do período selecionado)
   const averageLossRate = useMemo(() => {
-    if (!salesData || !lossesData) return null;
+    if (!salesData || !lossesData || !hasLossesData) return null;
     if (salesData.totalGeral === 0) return 0;
     return (lossesData.totalGeral / salesData.totalGeral) * 100;
-  }, [salesData, lossesData]);
+  }, [salesData, lossesData, hasLossesData]);
 
   // Processar dados para o GRÁFICO MENSAL (ano completo - independente)
   const monthlyChartData = useMemo(() => {
     const yearSales = yearSalesQuery.data?.data?.rawData || [];
     const yearLosses = yearLossesQuery.data?.data?.rawData || [];
-
-    console.log('📊 Dados anuais:', {
-      vendas: yearSales.length,
-      perdas: yearLosses.length,
-      amostraVendas: yearSales.slice(0, 3),
-      amostraPerdas: yearLosses.slice(0, 3)
-    });
 
     if (yearSales.length === 0) return [];
 
@@ -225,17 +251,15 @@ export default function Reports() {
       lossRate: item.sales > 0 ? (item.losses / item.sales) * 100 : 0
     }));
 
-    console.log('📈 Dados mensais processados:', result);
-
     return result;
   }, [yearSalesQuery.data, yearLossesQuery.data]);
 
   // Combinar dados de setores (vendas + perdas do PERÍODO SELECIONADO)
   const sectorsWithLosses = useMemo(() => {
-    if (!salesData?.salesBySector || !lossesData?.lossesBySector) return [];
+    if (!salesData?.salesBySector) return [];
 
     return salesData.salesBySector.map(sector => {
-      const lossSector = lossesData.lossesBySector.find(l => l.setor === sector.setor);
+      const lossSector = lossesData?.lossesBySector?.find(l => l.setor === sector.setor);
       return {
         ...sector,
         total_losses: lossSector ? parseFloat(lossSector.total_valor) : 0
@@ -259,7 +283,7 @@ export default function Reports() {
 
   // Processar dados para evolução diária (vendas + perdas do PERÍODO SELECIONADO)
   const dailyEvolutionData = useMemo(() => {
-    if (!salesData?.rawData || !lossesData?.rawData) return [];
+    if (!salesData?.rawData) return [];
 
     // Agrupar vendas por data
     const salesByDate = new Map();
@@ -269,13 +293,15 @@ export default function Reports() {
       salesByDate.set(date, current + parseFloat(row.valor_reais || 0));
     });
 
-    // Agrupar perdas por data
+    // Agrupar perdas por data (se disponível)
     const lossesByDate = new Map();
-    lossesData.rawData.forEach(row => {
-      const date = format(new Date(row.data), 'dd/MM');
-      const current = lossesByDate.get(date) || 0;
-      lossesByDate.set(date, current + parseFloat(row.valor_reais || 0));
-    });
+    if (lossesData?.rawData) {
+      lossesData.rawData.forEach(row => {
+        const date = format(new Date(row.data), 'dd/MM');
+        const current = lossesByDate.get(date) || 0;
+        lossesByDate.set(date, current + parseFloat(row.valor_reais || 0));
+      });
+    }
 
     // Combinar
     const allDates = new Set([...salesByDate.keys(), ...lossesByDate.keys()]);
@@ -363,6 +389,31 @@ export default function Reports() {
         )}
       </div>
 
+      {/* Aviso se não há dados de perdas */}
+      {!hasLossesData && salesData && (
+        <Card className="bg-amber-50 border-2 border-amber-300">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-6 h-6 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-amber-900">Dados de perdas não encontrados</p>
+                <p className="text-sm text-amber-800 mt-1">
+                  O sistema não conseguiu carregar os dados de perdas. Possíveis causas:
+                </p>
+                <ul className="text-sm text-amber-800 mt-2 ml-4 list-disc space-y-1">
+                  <li>A tabela "perdas" não existe no banco de dados</li>
+                  <li>Não há registros de perdas cadastrados</li>
+                  <li>Erro na função getLossesReport (verifique o console)</li>
+                </ul>
+                <p className="text-sm text-amber-800 mt-2">
+                  Os relatórios continuam funcionando apenas com dados de vendas.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* ========================================
           SEÇÃO 1: VISÃO ANUAL (INDEPENDENTE)
           ======================================== */}
@@ -433,14 +484,16 @@ export default function Reports() {
                   tick={{ fontSize: 13, fill: '#64748b' }}
                   tickLine={{ stroke: '#cbd5e1' }}
                 />
-                <YAxis 
-                  yAxisId="right"
-                  orientation="right"
-                  tickFormatter={(value) => `${value.toFixed(0)}%`}
-                  domain={[0, 20]}
-                  tick={{ fontSize: 13, fill: '#64748b' }}
-                  tickLine={{ stroke: '#cbd5e1' }}
-                />
+                {hasLossesData && (
+                  <YAxis 
+                    yAxisId="right"
+                    orientation="right"
+                    tickFormatter={(value) => `${value.toFixed(0)}%`}
+                    domain={[0, 20]}
+                    tick={{ fontSize: 13, fill: '#64748b' }}
+                    tickLine={{ stroke: '#cbd5e1' }}
+                  />
+                )}
                 <Tooltip 
                   contentStyle={{ 
                     backgroundColor: 'white', 
@@ -467,38 +520,29 @@ export default function Reports() {
                   radius={[8, 8, 0, 0]}
                   maxBarSize={60}
                 />
-                <Bar 
-                  yAxisId="left"
-                  dataKey="losses" 
-                  name="Perdas" 
-                  fill="url(#colorLosses)"
-                  radius={[8, 8, 0, 0]}
-                  maxBarSize={60}
-                />
-                <Line 
-                  yAxisId="right"
-                  type="monotone" 
-                  dataKey="lossRate" 
-                  name="% Perda" 
-                  stroke="#f59e0b" 
-                  strokeWidth={3}
-                  dot={{ fill: '#f59e0b', r: 5, strokeWidth: 2, stroke: '#fff' }}
-                />
+                {hasLossesData && (
+                  <>
+                    <Bar 
+                      yAxisId="left"
+                      dataKey="losses" 
+                      name="Perdas" 
+                      fill="url(#colorLosses)"
+                      radius={[8, 8, 0, 0]}
+                      maxBarSize={60}
+                    />
+                    <Line 
+                      yAxisId="right"
+                      type="monotone" 
+                      dataKey="lossRate" 
+                      name="% Perda" 
+                      stroke="#f59e0b" 
+                      strokeWidth={3}
+                      dot={{ fill: '#f59e0b', r: 5, strokeWidth: 2, stroke: '#fff' }}
+                    />
+                  </>
+                )}
               </ComposedChart>
             </ResponsiveContainer>
-
-            {/* Avisos sobre dados */}
-            {monthlyChartData.every(m => m.losses === 0) && (
-              <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-amber-900">Dados de perdas não encontrados</p>
-                  <p className="text-sm text-amber-700 mt-1">
-                    Não há registros de perdas para o ano de {selectedYear}. Verifique se os dados estão sendo importados corretamente.
-                  </p>
-                </div>
-              </div>
-            )}
           </CardContent>
         </Card>
       ) : (
@@ -569,7 +613,7 @@ export default function Reports() {
             </div>
           </CardContent>
         </Card>
-      ) : salesData && lossesData ? (
+      ) : salesData ? (
         <>
           {/* CARDS DE RESUMO - FATURAMENTO E PERDAS (DO PERÍODO) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -614,32 +658,52 @@ export default function Reports() {
             </Card>
 
             {/* Card Perdas Total */}
-            <Card className="bg-gradient-to-br from-red-50 via-red-100 to-rose-100 border-2 border-red-300 shadow-xl">
-              <CardContent className="pt-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <p className="text-sm text-red-700 font-semibold mb-2 uppercase tracking-wide">
-                      Perdas Totais
-                    </p>
-                    <p className="text-5xl font-bold text-red-900 mb-3">
-                      R$ {(lossesData.totalGeral / 1000).toFixed(1)}k
-                    </p>
-                    <p className="text-sm text-red-700 font-medium">
-                      {format(dateRange.from, 'dd/MM/yyyy')} - {format(dateRange.to, 'dd/MM/yyyy')}
-                    </p>
-                    {/* Taxa Média de Perda */}
-                    {averageLossRate !== null && (
-                      <div className="flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-full inline-flex text-xs font-bold bg-red-200 text-red-800">
-                        <span>Taxa média: {averageLossRate.toFixed(1)}%</span>
-                      </div>
-                    )}
+            {hasLossesData ? (
+              <Card className="bg-gradient-to-br from-red-50 via-red-100 to-rose-100 border-2 border-red-300 shadow-xl">
+                <CardContent className="pt-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <p className="text-sm text-red-700 font-semibold mb-2 uppercase tracking-wide">
+                        Perdas Totais
+                      </p>
+                      <p className="text-5xl font-bold text-red-900 mb-3">
+                        R$ {(lossesData.totalGeral / 1000).toFixed(1)}k
+                      </p>
+                      <p className="text-sm text-red-700 font-medium">
+                        {format(dateRange.from, 'dd/MM/yyyy')} - {format(dateRange.to, 'dd/MM/yyyy')}
+                      </p>
+                      {/* Taxa Média de Perda */}
+                      {averageLossRate !== null && (
+                        <div className="flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-full inline-flex text-xs font-bold bg-red-200 text-red-800">
+                          <span>Taxa média: {averageLossRate.toFixed(1)}%</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="bg-red-200 p-3 rounded-xl">
+                      <TrendingDown className="w-10 h-10 text-red-700" />
+                    </div>
                   </div>
-                  <div className="bg-red-200 p-3 rounded-xl">
-                    <TrendingDown className="w-10 h-10 text-red-700" />
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="bg-gradient-to-br from-slate-50 via-slate-100 to-slate-100 border-2 border-slate-300 shadow-xl">
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-slate-200 p-3 rounded-xl">
+                      <AlertCircle className="w-10 h-10 text-slate-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-slate-700 font-semibold uppercase tracking-wide">
+                        Perdas
+                      </p>
+                      <p className="text-lg font-semibold text-slate-700 mt-1">
+                        Dados não disponíveis
+                      </p>
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* CARDS DE SETORES COM PERDAS (DO PERÍODO) */}
@@ -659,7 +723,7 @@ export default function Reports() {
               selectedSector={selectedSector}
               onSectorClick={handleSectorClick}
               totalGeral={salesData.totalGeral}
-              showLosses={true}
+              showLosses={hasLossesData}
             />
           </div>
 
@@ -699,14 +763,16 @@ export default function Reports() {
                         strokeWidth={3}
                         dot={false}
                       />
-                      <Line 
-                        type="monotone" 
-                        dataKey="perdas" 
-                        name="Perdas" 
-                        stroke="#ef4444" 
-                        strokeWidth={3}
-                        dot={false}
-                      />
+                      {hasLossesData && (
+                        <Line 
+                          type="monotone" 
+                          dataKey="perdas" 
+                          name="Perdas" 
+                          stroke="#ef4444" 
+                          strokeWidth={3}
+                          dot={false}
+                        />
+                      )}
                     </ComposedChart>
                   </ResponsiveContainer>
                 </CardContent>
