@@ -65,17 +65,49 @@ export default function ProductComparisonModal({
     const salesData = salesEvolutionQuery.data?.evolution || [];
     const lossesData = lossesEvolutionQuery.data?.evolution || [];
 
-    if (salesData.length === 0) return [];
+    if (salesData.length === 0 && lossesData.length === 0) return [];
 
-    return salesData.map((salePoint, idx) => {
-      const lossPoint = lossesData[idx];
-      return {
-        data: format(new Date(salePoint.data), 'dd/MM'),
-        vendas: parseFloat(salePoint.total_valor || 0),
-        perdas: lossPoint ? parseFloat(lossPoint.total_valor || 0) : 0
-      };
+    // Criar mapa de todas as datas únicas
+    const dateMap = new Map();
+    
+    salesData.forEach(item => {
+      const dateKey = format(new Date(item.data), 'yyyy-MM-dd');
+      dateMap.set(dateKey, {
+        data: format(new Date(item.data), 'dd/MM'),
+        vendas: parseFloat(item.total_valor || 0),
+        perdas: 0
+      });
+    });
+
+    lossesData.forEach(item => {
+      const dateKey = format(new Date(item.data), 'yyyy-MM-dd');
+      if (dateMap.has(dateKey)) {
+        dateMap.get(dateKey).perdas = parseFloat(item.total_valor || 0);
+      } else {
+        dateMap.set(dateKey, {
+          data: format(new Date(item.data), 'dd/MM'),
+          vendas: 0,
+          perdas: parseFloat(item.total_valor || 0)
+        });
+      }
+    });
+
+    return Array.from(dateMap.values()).sort((a, b) => {
+      const [dayA, monthA] = a.data.split('/');
+      const [dayB, monthB] = b.data.split('/');
+      return new Date(2024, parseInt(monthA) - 1, parseInt(dayA)) - 
+             new Date(2024, parseInt(monthB) - 1, parseInt(dayB));
     });
   }, [salesEvolutionQuery.data, lossesEvolutionQuery.data]);
+
+  // Calcular totais de perdas
+  const totalLosses = useMemo(() => {
+    return lossesEvolutionQuery.data?.totalValue || 0;
+  }, [lossesEvolutionQuery.data]);
+
+  const totalLossesQty = useMemo(() => {
+    return lossesEvolutionQuery.data?.totalQty || 0;
+  }, [lossesEvolutionQuery.data]);
 
   const isLoading = salesEvolutionQuery.isLoading || lossesEvolutionQuery.isLoading;
 
@@ -121,17 +153,15 @@ export default function ProductComparisonModal({
               </p>
             </div>
 
-            {salesEvolutionQuery.data?.totalLosses !== undefined && (
-              <div className="bg-red-50 p-4 rounded-lg border border-red-200">
-                <p className="text-sm text-red-700 font-medium">Perdas Totais</p>
-                <p className="text-2xl font-bold text-red-900 mt-1">
-                  R$ {(salesEvolutionQuery.data.totalLosses / 1000).toFixed(1)}k
-                </p>
-                <p className="text-xs text-red-600 mt-1">
-                  {salesEvolutionQuery.data.totalLossesQty?.toFixed(1) || '0'} {initialProduct.unidade}
-                </p>
-              </div>
-            )}
+            <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+              <p className="text-sm text-red-700 font-medium">Perdas Totais</p>
+              <p className="text-2xl font-bold text-red-900 mt-1">
+                R$ {(totalLosses / 1000).toFixed(1)}k
+              </p>
+              <p className="text-xs text-red-600 mt-1">
+                {totalLossesQty.toFixed(1)} {initialProduct.unidade}
+              </p>
+            </div>
           </div>
 
           {/* Gráfico de Barras + Linha */}
