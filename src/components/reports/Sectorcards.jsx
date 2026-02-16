@@ -16,7 +16,8 @@ export default function SectorCards({
   compareSectors = null, 
   selectedSector, 
   onSectorClick,
-  totalGeral 
+  totalGeral,
+  showLosses = false
 }) {
   const calculateChange = (current, previous) => {
     if (!previous || previous === 0) return null;
@@ -36,6 +37,9 @@ export default function SectorCards({
           null;
 
         const sectorColor = SECTOR_COLORS[sector.setor] || 'bg-slate-500';
+
+        // Perdas (se disponível)
+        const losses = sector.total_losses || 0;
 
         return (
           <Card 
@@ -78,7 +82,14 @@ export default function SectorCards({
                 </div>
               )}
 
-              {/* Info Complementar */}
+              {/* Perdas (se habilitado) */}
+              {showLosses && losses > 0 && (
+                <div className="text-xs mt-2 text-red-600 font-medium">
+                  Perdas: R$ {(losses / 1000).toFixed(1)}k
+                </div>
+              )}
+
+              {/* Taxa de Perda (se disponível) */}
               {sector.taxa_perda !== undefined && (
                 <div className={`text-xs mt-2 ${
                   sector.taxa_perda > 10 ? 'text-red-600' : 
