@@ -5,8 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { FileSpreadsheet, TrendingUp, TrendingDown } from "lucide-react";
+import { FileSpreadsheet, TrendingUp, TrendingDown, AlertCircle } from "lucide-react";
 import { format, subYears, subMonths, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
@@ -43,9 +42,6 @@ export default function Reports() {
 
   // Ano selecionado para o gráfico anual (INDEPENDENTE do período)
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-
-  // Comparação ano anterior
-  const [compareYearEnabled, setCompareYearEnabled] = useState(true);
 
   // Controles
   const [topN, setTopN] = useState(10);
@@ -89,7 +85,7 @@ export default function Reports() {
 
   // Parâmetros do ano anterior (para comparação do período)
   const lastYearParams = useMemo(() => {
-    if (!dateRange?.from || !dateRange?.to || !compareYearEnabled) return null;
+    if (!dateRange?.from || !dateRange?.to) return null;
 
     const lastYearFrom = subYears(dateRange.from, 1);
     const lastYearTo = subYears(dateRange.to, 1);
@@ -99,7 +95,7 @@ export default function Reports() {
       endDate: format(lastYearTo, 'yyyy-MM-dd'),
       topN
     };
-  }, [dateRange, topN, compareYearEnabled]);
+  }, [dateRange, topN]);
 
   // Parâmetros para ano completo (GRÁFICO ANUAL - independente do período)
   const yearParams = useMemo(() => {
@@ -134,14 +130,14 @@ export default function Reports() {
     enabled: hasAccess && !!apiParams
   });
 
-  // Buscar dados do ano anterior (para comparação)
+  // Buscar dados do ano anterior (para comparação automática)
   const lastYearSalesQuery = useQuery({
     queryKey: ['salesReportLastYear', lastYearParams],
     queryFn: async () => {
       const response = await base44.functions.invoke('getSalesReport', lastYearParams);
       return response.data;
     },
-    enabled: hasAccess && !!lastYearParams && compareYearEnabled
+    enabled: hasAccess && !!lastYearParams
   });
 
   // ========================================
@@ -191,6 +187,13 @@ export default function Reports() {
     const yearSales = yearSalesQuery.data?.data?.rawData || [];
     const yearLosses = yearLossesQuery.data?.data?.rawData || [];
 
+    console.log('📊 Dados anuais:', {
+      vendas: yearSales.length,
+      perdas: yearLosses.length,
+      amostraVendas: yearSales.slice(0, 3),
+      amostraPerdas: yearLosses.slice(0, 3)
+    });
+
     if (yearSales.length === 0) return [];
 
     // Agrupar por mês
@@ -221,6 +224,8 @@ export default function Reports() {
       ...item,
       lossRate: item.sales > 0 ? (item.losses / item.sales) * 100 : 0
     }));
+
+    console.log('📈 Dados mensais processados:', result);
 
     return result;
   }, [yearSalesQuery.data, yearLossesQuery.data]);
@@ -343,16 +348,16 @@ export default function Reports() {
   const isLoadingYear = yearSalesQuery.isLoading || yearLossesQuery.isLoading;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Cabeçalho */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Relatórios de Vendas</h1>
-          <p className="text-slate-600">Análise integrada de vendas e perdas</p>
+          <h1 className="text-3xl font-bold text-slate-900">Relatórios de Vendas</h1>
+          <p className="text-slate-600 mt-1">Análise integrada de vendas e perdas</p>
         </div>
         {salesData && (
-          <Button onClick={handleExportExcel} variant="outline">
-            <FileSpreadsheet className="w-4 h-4 mr-2" />
+          <Button onClick={handleExportExcel} size="lg" className="shadow-md">
+            <FileSpreadsheet className="w-5 h-5 mr-2" />
             Exportar Excel
           </Button>
         )}
@@ -363,19 +368,19 @@ export default function Reports() {
           ======================================== */}
       
       {/* Controle do Ano */}
-      <Card>
+      <Card className="shadow-lg border-slate-200">
         <CardContent className="pt-6">
           <div className="flex items-center gap-4">
-            <Label className="font-semibold">Visão Anual:</Label>
+            <Label className="text-base font-semibold text-slate-700">Visão Anual:</Label>
             <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
-              <SelectTrigger className="w-32">
+              <SelectTrigger className="w-40 h-11 text-base shadow-sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="2026">2026</SelectItem>
                 <SelectItem value="2025">2025</SelectItem>
                 <SelectItem value="2024">2024</SelectItem>
                 <SelectItem value="2023">2023</SelectItem>
-                <SelectItem value="2022">2022</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -384,53 +389,91 @@ export default function Reports() {
 
       {/* GRÁFICO MENSAL - FATURAMENTO VS PERDAS (ANO COMPLETO) */}
       {isLoadingYear ? (
-        <Card>
-          <CardContent className="py-12 text-center text-slate-500">
-            Carregando dados do ano...
+        <Card className="shadow-lg">
+          <CardContent className="py-16 text-center">
+            <div className="flex flex-col items-center gap-3">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+              <p className="text-slate-600">Carregando dados do ano...</p>
+            </div>
           </CardContent>
         </Card>
       ) : monthlyChartData.length > 0 ? (
-        <Card>
+        <Card className="shadow-lg border-slate-200">
           <CardContent className="pt-6">
-            <h3 className="text-lg font-semibold mb-4">Faturamento Mensal vs Perdas - Ano {selectedYear}</h3>
-            <p className="text-sm text-slate-600 mb-4">
-              Visão completa do ano - Clique nos meses para detalhar
-            </p>
-            <ResponsiveContainer width="100%" height={350}>
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-slate-900 mb-2">
+                Faturamento Mensal vs Perdas - Ano {selectedYear}
+              </h2>
+              <p className="text-sm text-slate-600">
+                Visão completa do ano • Clique nos meses para detalhar
+              </p>
+            </div>
+            
+            <ResponsiveContainer width="100%" height={400}>
               <ComposedChart data={monthlyChartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
+                <defs>
+                  <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.3}/>
+                  </linearGradient>
+                  <linearGradient id="colorLosses" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0.3}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis 
+                  dataKey="month" 
+                  tick={{ fontSize: 13, fill: '#64748b' }}
+                  tickLine={{ stroke: '#cbd5e1' }}
+                />
                 <YAxis 
                   yAxisId="left"
                   tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
+                  tick={{ fontSize: 13, fill: '#64748b' }}
+                  tickLine={{ stroke: '#cbd5e1' }}
                 />
                 <YAxis 
                   yAxisId="right"
                   orientation="right"
                   tickFormatter={(value) => `${value.toFixed(0)}%`}
                   domain={[0, 20]}
+                  tick={{ fontSize: 13, fill: '#64748b' }}
+                  tickLine={{ stroke: '#cbd5e1' }}
                 />
                 <Tooltip 
-                  formatter={(value, name) => {
-                    if (name === 'lossRate') return `${value.toFixed(1)}%`;
-                    return `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+                  contentStyle={{ 
+                    backgroundColor: 'white', 
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                   }}
-                  labelFormatter={(label) => `Mês: ${label}`}
+                  formatter={(value, name) => {
+                    if (name === 'lossRate') return [`${value.toFixed(1)}%`, '% Perda'];
+                    const formatted = `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+                    return [formatted, name === 'sales' ? 'Faturamento' : 'Perdas'];
+                  }}
+                  labelStyle={{ fontWeight: 'bold', marginBottom: '8px' }}
                 />
-                <Legend />
+                <Legend 
+                  wrapperStyle={{ paddingTop: '20px' }}
+                  iconType="circle"
+                />
                 <Bar 
                   yAxisId="left"
                   dataKey="sales" 
                   name="Faturamento" 
-                  fill="#10b981" 
-                  radius={[4, 4, 0, 0]}
+                  fill="url(#colorSales)"
+                  radius={[8, 8, 0, 0]}
+                  maxBarSize={60}
                 />
                 <Bar 
                   yAxisId="left"
                   dataKey="losses" 
                   name="Perdas" 
-                  fill="#ef4444" 
-                  radius={[4, 4, 0, 0]}
+                  fill="url(#colorLosses)"
+                  radius={[8, 8, 0, 0]}
+                  maxBarSize={60}
                 />
                 <Line 
                   yAxisId="right"
@@ -438,30 +481,59 @@ export default function Reports() {
                   dataKey="lossRate" 
                   name="% Perda" 
                   stroke="#f59e0b" 
-                  strokeWidth={2}
-                  dot={{ fill: '#f59e0b', r: 4 }}
+                  strokeWidth={3}
+                  dot={{ fill: '#f59e0b', r: 5, strokeWidth: 2, stroke: '#fff' }}
                 />
               </ComposedChart>
             </ResponsiveContainer>
+
+            {/* Avisos sobre dados */}
+            {monthlyChartData.every(m => m.losses === 0) && (
+              <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-amber-900">Dados de perdas não encontrados</p>
+                  <p className="text-sm text-amber-700 mt-1">
+                    Não há registros de perdas para o ano de {selectedYear}. Verifique se os dados estão sendo importados corretamente.
+                  </p>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
-      ) : null}
+      ) : (
+        <Card className="shadow-lg">
+          <CardContent className="py-16 text-center">
+            <AlertCircle className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+            <p className="text-slate-600">Nenhum dado disponível para o ano {selectedYear}</p>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* Divisor Visual */}
-      <div className="border-t-4 border-slate-300 my-8"></div>
+      {/* Divisor Visual Elegante */}
+      <div className="relative py-8">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t-2 border-slate-300"></div>
+        </div>
+        <div className="relative flex justify-center">
+          <span className="px-6 py-2 bg-slate-100 text-sm font-semibold text-slate-700 rounded-full shadow-sm">
+            Análise Detalhada
+          </span>
+        </div>
+      </div>
 
       {/* ========================================
           SEÇÃO 2: ANÁLISE DO PERÍODO SELECIONADO
           ======================================== */}
 
       {/* Controles do Período */}
-      <Card>
-        <CardContent className="pt-6 space-y-4">
-          <h3 className="font-semibold text-lg mb-4">Análise Detalhada por Período</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <Card className="shadow-lg border-slate-200">
+        <CardContent className="pt-6">
+          <h3 className="text-xl font-bold text-slate-900 mb-6">Análise por Período Personalizado</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Período Principal */}
             <div className="space-y-2">
-              <Label>Período de Análise</Label>
+              <Label className="text-base font-medium text-slate-700">Período de Análise</Label>
               <DateRangePicker 
                 value={dateRange}
                 onChange={setDateRange}
@@ -470,9 +542,9 @@ export default function Reports() {
 
             {/* Top N */}
             <div className="space-y-2">
-              <Label>Produtos a Exibir</Label>
+              <Label className="text-base font-medium text-slate-700">Produtos a Exibir</Label>
               <Select value={topN.toString()} onValueChange={(v) => setTopN(parseInt(v))}>
-                <SelectTrigger>
+                <SelectTrigger className="h-11 shadow-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -484,53 +556,48 @@ export default function Reports() {
                 </SelectContent>
               </Select>
             </div>
-
-            {/* Comparação Ano Anterior */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Switch
-                  id="compareYear"
-                  checked={compareYearEnabled}
-                  onCheckedChange={setCompareYearEnabled}
-                />
-                <Label htmlFor="compareYear">Comparar com ano anterior</Label>
-              </div>
-            </div>
           </div>
         </CardContent>
       </Card>
 
       {isLoadingPeriod ? (
-        <div className="text-center py-12 text-slate-500">
-          Carregando dados do período...
-        </div>
+        <Card className="shadow-lg">
+          <CardContent className="py-16 text-center">
+            <div className="flex flex-col items-center gap-3">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+              <p className="text-slate-600">Carregando dados do período...</p>
+            </div>
+          </CardContent>
+        </Card>
       ) : salesData && lossesData ? (
         <>
           {/* CARDS DE RESUMO - FATURAMENTO E PERDAS (DO PERÍODO) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Card Faturamento Total */}
-            <Card className="bg-gradient-to-r from-green-50 to-green-100 border-2 border-green-300">
+            <Card className="bg-gradient-to-br from-green-50 via-green-100 to-emerald-100 border-2 border-green-300 shadow-xl">
               <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-green-700 font-medium mb-1">
-                      FATURAMENTO TOTAL
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <p className="text-sm text-green-700 font-semibold mb-2 uppercase tracking-wide">
+                      Faturamento Total
                     </p>
-                    <p className="text-4xl font-bold text-green-900">
+                    <p className="text-5xl font-bold text-green-900 mb-3">
                       R$ {(salesData.totalGeral / 1000).toFixed(1)}k
                     </p>
-                    <p className="text-sm text-green-600 mt-1">
+                    <p className="text-sm text-green-700 font-medium">
                       {format(dateRange.from, 'dd/MM/yyyy')} - {format(dateRange.to, 'dd/MM/yyyy')}
                     </p>
                     {/* Variação vs Ano Anterior */}
                     {yearOverYearGrowth !== null && (
-                      <div className={`flex items-center gap-1 mt-2 text-xs font-semibold ${
-                        yearOverYearGrowth > 0 ? 'text-green-700' : 'text-red-700'
+                      <div className={`flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-full inline-flex text-xs font-bold ${
+                        yearOverYearGrowth > 0 
+                          ? 'bg-green-200 text-green-800' 
+                          : 'bg-red-200 text-red-800'
                       }`}>
                         {yearOverYearGrowth > 0 ? (
-                          <TrendingUp className="w-3 h-3" />
+                          <TrendingUp className="w-4 h-4" />
                         ) : (
-                          <TrendingDown className="w-3 h-3" />
+                          <TrendingDown className="w-4 h-4" />
                         )}
                         <span>
                           {yearOverYearGrowth > 0 ? '+' : ''}
@@ -539,33 +606,37 @@ export default function Reports() {
                       </div>
                     )}
                   </div>
-                  <TrendingUp className="w-12 h-12 text-green-600 opacity-50" />
+                  <div className="bg-green-200 p-3 rounded-xl">
+                    <TrendingUp className="w-10 h-10 text-green-700" />
+                  </div>
                 </div>
               </CardContent>
             </Card>
 
             {/* Card Perdas Total */}
-            <Card className="bg-gradient-to-r from-red-50 to-red-100 border-2 border-red-300">
+            <Card className="bg-gradient-to-br from-red-50 via-red-100 to-rose-100 border-2 border-red-300 shadow-xl">
               <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-red-700 font-medium mb-1">
-                      PERDAS TOTAIS
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <p className="text-sm text-red-700 font-semibold mb-2 uppercase tracking-wide">
+                      Perdas Totais
                     </p>
-                    <p className="text-4xl font-bold text-red-900">
+                    <p className="text-5xl font-bold text-red-900 mb-3">
                       R$ {(lossesData.totalGeral / 1000).toFixed(1)}k
                     </p>
-                    <p className="text-sm text-red-600 mt-1">
+                    <p className="text-sm text-red-700 font-medium">
                       {format(dateRange.from, 'dd/MM/yyyy')} - {format(dateRange.to, 'dd/MM/yyyy')}
                     </p>
                     {/* Taxa Média de Perda */}
                     {averageLossRate !== null && (
-                      <div className="flex items-center gap-1 mt-2 text-xs font-semibold text-red-700">
+                      <div className="flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-full inline-flex text-xs font-bold bg-red-200 text-red-800">
                         <span>Taxa média: {averageLossRate.toFixed(1)}%</span>
                       </div>
                     )}
                   </div>
-                  <TrendingDown className="w-12 h-12 text-red-600 opacity-50" />
+                  <div className="bg-red-200 p-3 rounded-xl">
+                    <TrendingDown className="w-10 h-10 text-red-700" />
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -573,11 +644,11 @@ export default function Reports() {
 
           {/* CARDS DE SETORES COM PERDAS (DO PERÍODO) */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">
+            <h3 className="text-xl font-bold text-slate-900 mb-4">
               Vendas por Setor
               {selectedSector && (
-                <span className="ml-2 text-sm font-normal text-slate-500">
-                  (Clique novamente no setor para ver todos os produtos)
+                <span className="ml-3 text-sm font-normal text-slate-600">
+                  • Clique novamente no setor para ver todos os produtos
                 </span>
               )}
             </h3>
@@ -596,24 +667,36 @@ export default function Reports() {
           {!selectedSector && dailyEvolutionData.length > 0 && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Gráfico de Linha - Evolução com Perdas */}
-              <Card>
+              <Card className="shadow-lg">
                 <CardContent className="pt-6">
-                  <h3 className="text-lg font-semibold mb-4">Evolução Diária</h3>
-                  <ResponsiveContainer width="100%" height={300}>
+                  <h3 className="text-lg font-semibold mb-4 text-slate-900">Evolução Diária</h3>
+                  <ResponsiveContainer width="100%" height={320}>
                     <ComposedChart data={dailyEvolutionData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="data" />
-                      <YAxis tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                      <XAxis 
+                        dataKey="data" 
+                        tick={{ fontSize: 12, fill: '#64748b' }}
+                      />
+                      <YAxis 
+                        tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
+                        tick={{ fontSize: 12, fill: '#64748b' }}
+                      />
                       <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'white', 
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '8px',
+                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                        }}
                         formatter={(value) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                       />
-                      <Legend />
+                      <Legend iconType="circle" />
                       <Line 
                         type="monotone" 
                         dataKey="vendas" 
                         name="Vendas" 
                         stroke="#10b981" 
-                        strokeWidth={2}
+                        strokeWidth={3}
                         dot={false}
                       />
                       <Line 
@@ -621,7 +704,7 @@ export default function Reports() {
                         dataKey="perdas" 
                         name="Perdas" 
                         stroke="#ef4444" 
-                        strokeWidth={2}
+                        strokeWidth={3}
                         dot={false}
                       />
                     </ComposedChart>
@@ -669,9 +752,12 @@ export default function Reports() {
           )}
         </>
       ) : (
-        <div className="text-center py-12 text-slate-500">
-          Selecione um período para visualizar os dados
-        </div>
+        <Card className="shadow-lg">
+          <CardContent className="py-16 text-center">
+            <AlertCircle className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+            <p className="text-slate-600 text-lg">Selecione um período para visualizar os dados</p>
+          </CardContent>
+        </Card>
       )}
 
       {/* Modal de Comparação de Produtos */}
