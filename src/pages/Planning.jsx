@@ -719,8 +719,11 @@ export default function Planning() {
                                    value={qty || ''}
                                    onChange={(e) => handleQuantityChange(product.produto_id, idx, e.target.value)}
                                    className={`w-20 text-center h-9 ${!isProductionDay ? 'bg-slate-100 text-slate-400' : ''}`}
-                                   disabled={!isProductionDay}
-                                   title={!isProductionDay ? 'Produto não é produzido neste dia' : ''}
+                                   disabled={!isProductionDay || isWeekLocked}
+                                   title={
+                                     isWeekLocked ? 'Semana bloqueada - clique em um campo para desbloquear' :
+                                     !isProductionDay ? 'Produto não é produzido neste dia' : ''
+                                   }
                                  />
                                </TableCell>
                              );
