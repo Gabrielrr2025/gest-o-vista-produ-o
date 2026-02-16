@@ -80,11 +80,23 @@ export default function Calendar() {
 
       const holidays = response.holidays || [];
       
+      // Filtrar feriados duplicados na resposta da LLM
+      const uniqueHolidays = [];
+      const seenKeys = new Set();
+      
+      for (const holiday of holidays) {
+        const key = `${holiday.date}-${holiday.name.toLowerCase().trim()}`;
+        if (!seenKeys.has(key)) {
+          seenKeys.add(key);
+          uniqueHolidays.push(holiday);
+        }
+      }
+      
       // Filtrar feriados que já existem no banco (por nome E data)
-      const newHolidays = holidays.filter(holiday => {
+      const newHolidays = uniqueHolidays.filter(holiday => {
         const exists = events.some(event => 
           event.date === holiday.date && 
-          event.name.toLowerCase() === holiday.name.toLowerCase()
+          event.name.toLowerCase().trim() === holiday.name.toLowerCase().trim()
         );
         return !exists;
       });
