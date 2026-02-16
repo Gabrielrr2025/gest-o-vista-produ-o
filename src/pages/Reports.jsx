@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { FileSpreadsheet, TrendingUp, TrendingDown } from "lucide-react";
-import { format, subYears, startOfYear, endOfYear, subMonths, startOfMonth, endOfMonth } from "date-fns";
+import { format, subYears, subMonths, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
 import {
@@ -32,7 +32,7 @@ import ProductComparisonModal from "../components/reports/ProductComparisonModal
 export default function Reports() {
   const [hasAccess, setHasAccess] = useState(false);
   
-  // Período principal - PADRÃO: Mês passado
+  // Período principal - PADRÃO: Mês passado (para cards e detalhes)
   const [dateRange, setDateRange] = useState(() => {
     const lastMonth = subMonths(new Date(), 1);
     return {
@@ -40,6 +40,9 @@ export default function Reports() {
       to: endOfMonth(lastMonth)
     };
   });
+
+  // Ano selecionado para o gráfico anual (INDEPENDENTE do período)
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   // Comparação ano anterior
   const [compareYearEnabled, setCompareYearEnabled] = useState(true);
@@ -73,7 +76,7 @@ export default function Reports() {
     checkAuth();
   }, []);
 
-  // Preparar parâmetros para API
+  // Preparar parâmetros para API (PERÍODO SELECIONADO - para cards e detalhes)
   const apiParams = useMemo(() => {
     if (!dateRange?.from || !dateRange?.to) return null;
 
@@ -84,7 +87,7 @@ export default function Reports() {
     };
   }, [dateRange, topN]);
 
-  // Parâmetros do ano anterior (para comparação)
+  // Parâmetros do ano anterior (para comparação do período)
   const lastYearParams = useMemo(() => {
     if (!dateRange?.from || !dateRange?.to || !compareYearEnabled) return null;
 
@@ -98,7 +101,20 @@ export default function Reports() {
     };
   }, [dateRange, topN, compareYearEnabled]);
 
-  // Buscar dados de VENDAS
+  // Parâmetros para ano completo (GRÁFICO ANUAL - independente do período)
+  const yearParams = useMemo(() => {
+    return {
+      startDate: format(startOfYear(new Date(selectedYear, 0, 1)), 'yyyy-MM-dd'),
+      endDate: format(endOfYear(new Date(selectedYear, 11, 31)), 'yyyy-MM-dd'),
+      topN: 100
+    };
+  }, [selectedYear]);
+
+  // ========================================
+  // QUERIES PARA O PERÍODO SELECIONADO
+  // ========================================
+
+  // Buscar dados de VENDAS (período selecionado)
   const salesQuery = useQuery({
     queryKey: ['salesReport', apiParams],
     queryFn: async () => {
@@ -108,7 +124,7 @@ export default function Reports() {
     enabled: hasAccess && !!apiParams
   });
 
-  // Buscar dados de PERDAS
+  // Buscar dados de PERDAS (período selecionado)
   const lossesQuery = useQuery({
     queryKey: ['lossesReport', apiParams],
     queryFn: async () => {
@@ -128,11 +144,33 @@ export default function Reports() {
     enabled: hasAccess && !!lastYearParams && compareYearEnabled
   });
 
+  // ========================================
+  // QUERIES PARA O ANO COMPLETO (gráfico anual)
+  // ========================================
+
+  const yearSalesQuery = useQuery({
+    queryKey: ['salesReportYear', yearParams],
+    queryFn: async () => {
+      const response = await base44.functions.invoke('getSalesReport', yearParams);
+      return response.data;
+    },
+    enabled: hasAccess && !!yearParams
+  });
+
+  const yearLossesQuery = useQuery({
+    queryKey: ['lossesReportYear', yearParams],
+    queryFn: async () => {
+      const response = await base44.functions.invoke('getLossesReport', yearParams);
+      return response.data;
+    },
+    enabled: hasAccess && !!yearParams
+  });
+
   const salesData = salesQuery.data?.data;
   const lossesData = lossesQuery.data?.data;
   const lastYearSalesData = lastYearSalesQuery.data?.data;
 
-  // Calcular % de crescimento vs ano anterior
+  // Calcular % de crescimento vs ano anterior (do período selecionado)
   const yearOverYearGrowth = useMemo(() => {
     if (!salesData || !lastYearSalesData) return null;
     const current = salesData.totalGeral;
@@ -141,34 +179,41 @@ export default function Reports() {
     return ((current - previous) / previous) * 100;
   }, [salesData, lastYearSalesData]);
 
-  // Calcular taxa média de perda
+  // Calcular taxa média de perda (do período selecionado)
   const averageLossRate = useMemo(() => {
     if (!salesData || !lossesData) return null;
     if (salesData.totalGeral === 0) return 0;
     return (lossesData.totalGeral / salesData.totalGeral) * 100;
   }, [salesData, lossesData]);
 
-  // Processar dados para o gráfico mensal (ano completo)
+  // Processar dados para o GRÁFICO MENSAL (ano completo - independente)
   const monthlyChartData = useMemo(() => {
-    if (!salesData?.rawData || !lossesData?.rawData) return [];
+    const yearSales = yearSalesQuery.data?.data?.rawData || [];
+    const yearLosses = yearLossesQuery.data?.data?.rawData || [];
+
+    if (yearSales.length === 0) return [];
 
     // Agrupar por mês
     const monthlyData = new Map();
+    const monthOrder = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
-    salesData.rawData.forEach(row => {
-      const month = format(new Date(row.data), 'MMM');
-      if (!monthlyData.has(month)) {
-        monthlyData.set(month, { month, sales: 0, losses: 0 });
-      }
-      monthlyData.get(month).sales += parseFloat(row.total_valor || 0);
+    // Inicializar todos os meses
+    monthOrder.forEach(month => {
+      monthlyData.set(month, { month, sales: 0, losses: 0 });
     });
 
-    lossesData.rawData.forEach(row => {
-      const month = format(new Date(row.data), 'MMM');
-      if (!monthlyData.has(month)) {
-        monthlyData.set(month, { month, sales: 0, losses: 0 });
-      }
-      monthlyData.get(month).losses += parseFloat(row.total_valor || 0);
+    yearSales.forEach(row => {
+      const date = new Date(row.data);
+      const monthIndex = date.getMonth();
+      const month = monthOrder[monthIndex];
+      monthlyData.get(month).sales += parseFloat(row.valor_reais || 0);
+    });
+
+    yearLosses.forEach(row => {
+      const date = new Date(row.data);
+      const monthIndex = date.getMonth();
+      const month = monthOrder[monthIndex];
+      monthlyData.get(month).losses += parseFloat(row.valor_reais || 0);
     });
 
     // Calcular % de perda
@@ -178,9 +223,9 @@ export default function Reports() {
     }));
 
     return result;
-  }, [salesData, lossesData]);
+  }, [yearSalesQuery.data, yearLossesQuery.data]);
 
-  // Combinar dados de setores (vendas + perdas)
+  // Combinar dados de setores (vendas + perdas do PERÍODO SELECIONADO)
   const sectorsWithLosses = useMemo(() => {
     if (!salesData?.salesBySector || !lossesData?.lossesBySector) return [];
 
@@ -193,7 +238,7 @@ export default function Reports() {
     });
   }, [salesData, lossesData]);
 
-  // Produtos filtrados por setor selecionado
+  // Produtos filtrados por setor selecionado (do PERÍODO SELECIONADO)
   const filteredProducts = useMemo(() => {
     if (!salesData) return [];
     
@@ -206,6 +251,39 @@ export default function Reports() {
       .filter(p => p.setor === selectedSector)
       .slice(0, topN);
   }, [salesData, selectedSector, topN]);
+
+  // Processar dados para evolução diária (vendas + perdas do PERÍODO SELECIONADO)
+  const dailyEvolutionData = useMemo(() => {
+    if (!salesData?.rawData || !lossesData?.rawData) return [];
+
+    // Agrupar vendas por data
+    const salesByDate = new Map();
+    salesData.rawData.forEach(row => {
+      const date = format(new Date(row.data), 'dd/MM');
+      const current = salesByDate.get(date) || 0;
+      salesByDate.set(date, current + parseFloat(row.valor_reais || 0));
+    });
+
+    // Agrupar perdas por data
+    const lossesByDate = new Map();
+    lossesData.rawData.forEach(row => {
+      const date = format(new Date(row.data), 'dd/MM');
+      const current = lossesByDate.get(date) || 0;
+      lossesByDate.set(date, current + parseFloat(row.valor_reais || 0));
+    });
+
+    // Combinar
+    const allDates = new Set([...salesByDate.keys(), ...lossesByDate.keys()]);
+    return Array.from(allDates).map(date => ({
+      data: date,
+      vendas: salesByDate.get(date) || 0,
+      perdas: lossesByDate.get(date) || 0
+    })).sort((a, b) => {
+      const [dayA, monthA] = a.data.split('/').map(Number);
+      const [dayB, monthB] = b.data.split('/').map(Number);
+      return monthA - monthB || dayA - dayB;
+    });
+  }, [salesData, lossesData]);
 
   // Handlers
   const handleSectorClick = (sector) => {
@@ -261,7 +339,8 @@ export default function Reports() {
     );
   }
 
-  const isLoading = salesQuery.isLoading || lossesQuery.isLoading;
+  const isLoadingPeriod = salesQuery.isLoading || lossesQuery.isLoading;
+  const isLoadingYear = yearSalesQuery.isLoading || yearLossesQuery.isLoading;
 
   return (
     <div className="space-y-6">
@@ -279,9 +358,106 @@ export default function Reports() {
         )}
       </div>
 
-      {/* Controles */}
+      {/* ========================================
+          SEÇÃO 1: VISÃO ANUAL (INDEPENDENTE)
+          ======================================== */}
+      
+      {/* Controle do Ano */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex items-center gap-4">
+            <Label className="font-semibold">Visão Anual:</Label>
+            <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="2025">2025</SelectItem>
+                <SelectItem value="2024">2024</SelectItem>
+                <SelectItem value="2023">2023</SelectItem>
+                <SelectItem value="2022">2022</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* GRÁFICO MENSAL - FATURAMENTO VS PERDAS (ANO COMPLETO) */}
+      {isLoadingYear ? (
+        <Card>
+          <CardContent className="py-12 text-center text-slate-500">
+            Carregando dados do ano...
+          </CardContent>
+        </Card>
+      ) : monthlyChartData.length > 0 ? (
+        <Card>
+          <CardContent className="pt-6">
+            <h3 className="text-lg font-semibold mb-4">Faturamento Mensal vs Perdas - Ano {selectedYear}</h3>
+            <p className="text-sm text-slate-600 mb-4">
+              Visão completa do ano - Clique nos meses para detalhar
+            </p>
+            <ResponsiveContainer width="100%" height={350}>
+              <ComposedChart data={monthlyChartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis 
+                  yAxisId="left"
+                  tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
+                />
+                <YAxis 
+                  yAxisId="right"
+                  orientation="right"
+                  tickFormatter={(value) => `${value.toFixed(0)}%`}
+                  domain={[0, 20]}
+                />
+                <Tooltip 
+                  formatter={(value, name) => {
+                    if (name === 'lossRate') return `${value.toFixed(1)}%`;
+                    return `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+                  }}
+                  labelFormatter={(label) => `Mês: ${label}`}
+                />
+                <Legend />
+                <Bar 
+                  yAxisId="left"
+                  dataKey="sales" 
+                  name="Faturamento" 
+                  fill="#10b981" 
+                  radius={[4, 4, 0, 0]}
+                />
+                <Bar 
+                  yAxisId="left"
+                  dataKey="losses" 
+                  name="Perdas" 
+                  fill="#ef4444" 
+                  radius={[4, 4, 0, 0]}
+                />
+                <Line 
+                  yAxisId="right"
+                  type="monotone" 
+                  dataKey="lossRate" 
+                  name="% Perda" 
+                  stroke="#f59e0b" 
+                  strokeWidth={2}
+                  dot={{ fill: '#f59e0b', r: 4 }}
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {/* Divisor Visual */}
+      <div className="border-t-4 border-slate-300 my-8"></div>
+
+      {/* ========================================
+          SEÇÃO 2: ANÁLISE DO PERÍODO SELECIONADO
+          ======================================== */}
+
+      {/* Controles do Período */}
       <Card>
         <CardContent className="pt-6 space-y-4">
+          <h3 className="font-semibold text-lg mb-4">Análise Detalhada por Período</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Período Principal */}
             <div className="space-y-2">
@@ -324,72 +500,13 @@ export default function Reports() {
         </CardContent>
       </Card>
 
-      {isLoading ? (
+      {isLoadingPeriod ? (
         <div className="text-center py-12 text-slate-500">
-          Carregando dados...
+          Carregando dados do período...
         </div>
       ) : salesData && lossesData ? (
         <>
-          {/* GRÁFICO MENSAL - FATURAMENTO VS PERDAS */}
-          {monthlyChartData.length > 0 && (
-            <Card>
-              <CardContent className="pt-6">
-                <h3 className="text-lg font-semibold mb-4">Faturamento Mensal vs Perdas</h3>
-                <p className="text-sm text-slate-600 mb-4">
-                  Ano {format(dateRange.from, 'yyyy')} - Clique para detalhar
-                </p>
-                <ResponsiveContainer width="100%" height={350}>
-                  <ComposedChart data={monthlyChartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis 
-                      yAxisId="left"
-                      tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
-                    />
-                    <YAxis 
-                      yAxisId="right"
-                      orientation="right"
-                      tickFormatter={(value) => `${value.toFixed(0)}%`}
-                      domain={[0, 20]}
-                    />
-                    <Tooltip 
-                      formatter={(value, name) => {
-                        if (name === 'lossRate') return `${value.toFixed(1)}%`;
-                        return `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-                      }}
-                      labelFormatter={(label) => `Mês: ${label}`}
-                    />
-                    <Legend />
-                    <Bar 
-                      yAxisId="left"
-                      dataKey="sales" 
-                      name="Faturamento" 
-                      fill="#10b981" 
-                      radius={[4, 4, 0, 0]}
-                    />
-                    <Bar 
-                      yAxisId="left"
-                      dataKey="losses" 
-                      name="Perdas" 
-                      fill="#ef4444" 
-                      radius={[4, 4, 0, 0]}
-                    />
-                    <Line 
-                      yAxisId="right"
-                      type="monotone" 
-                      dataKey="lossRate" 
-                      name="% Perda" 
-                      stroke="#f59e0b" 
-                      strokeWidth={2}
-                      dot={{ fill: '#f59e0b', r: 4 }}
-                    />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* CARDS DE RESUMO - FATURAMENTO E PERDAS */}
+          {/* CARDS DE RESUMO - FATURAMENTO E PERDAS (DO PERÍODO) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Card Faturamento Total */}
             <Card className="bg-gradient-to-r from-green-50 to-green-100 border-2 border-green-300">
@@ -454,7 +571,7 @@ export default function Reports() {
             </Card>
           </div>
 
-          {/* CARDS DE SETORES COM PERDAS */}
+          {/* CARDS DE SETORES COM PERDAS (DO PERÍODO) */}
           <div>
             <h3 className="text-lg font-semibold mb-4">
               Vendas por Setor
@@ -475,24 +592,15 @@ export default function Reports() {
             />
           </div>
 
-          {/* GRÁFICOS GERAIS (antes de selecionar setor) */}
-          {!selectedSector && salesData.rawData && lossesData.rawData && (
+          {/* GRÁFICOS GERAIS (DO PERÍODO) */}
+          {!selectedSector && dailyEvolutionData.length > 0 && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Gráfico de Linha - Evolução com Perdas */}
               <Card>
                 <CardContent className="pt-6">
                   <h3 className="text-lg font-semibold mb-4">Evolução Diária</h3>
                   <ResponsiveContainer width="100%" height={300}>
-                    <ComposedChart
-                      data={salesData.rawData.map((sRow, idx) => {
-                        const lRow = lossesData.rawData[idx];
-                        return {
-                          data: format(new Date(sRow.data), 'dd/MM'),
-                          vendas: parseFloat(sRow.total_valor || 0),
-                          perdas: lRow ? parseFloat(lRow.total_valor || 0) : 0
-                        };
-                      })}
-                    >
+                    <ComposedChart data={dailyEvolutionData}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="data" />
                       <YAxis tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`} />
@@ -529,7 +637,7 @@ export default function Reports() {
             </div>
           )}
 
-          {/* GRÁFICOS DO SETOR (quando setor está selecionado) */}
+          {/* GRÁFICOS DO SETOR (DO PERÍODO) */}
           {selectedSector && salesData.rawData && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Gráfico de Linha - Evolução do Setor */}
@@ -549,7 +657,7 @@ export default function Reports() {
             </div>
           )}
 
-          {/* RANKING DE PRODUTOS */}
+          {/* RANKING DE PRODUTOS (DO PERÍODO) */}
           {filteredProducts.length > 0 && (
             <Productranking
               products={filteredProducts}
@@ -573,7 +681,6 @@ export default function Reports() {
           onClose={() => setComparisonModalOpen(false)}
           initialProduct={comparisonInitialProduct}
           initialDateRange={dateRange}
-          allProducts={salesData.salesBySectorProduct || []}
           type="sales"
         />
       )}
