@@ -139,13 +139,16 @@ Deno.serve(async (req) => {
       ORDER BY p.setor, total_valor DESC
     `;
 
-    // Dados brutos (para gráficos)
+    // Dados brutos (para gráficos) - CORRIGIDO: agregando por data
     const rawLossesData = await sql`
       SELECT 
         pe.data,
-        pe.valor_reais
+        SUM(pe.valor_reais) as valor_reais,
+        SUM(pe.quantidade) as quantidade
       FROM perdas pe
       WHERE pe.data BETWEEN ${startDate} AND ${endDate}
+      GROUP BY pe.data
+      ORDER BY pe.data
     `;
 
     const totalGeral = lossesBySector.reduce((sum, s) => sum + parseFloat(s.total_valor), 0);
