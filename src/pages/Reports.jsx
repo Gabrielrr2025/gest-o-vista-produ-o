@@ -5,7 +5,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileSpreadsheet, TrendingUp, TrendingDown } from "lucide-react";
 import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
@@ -14,12 +13,12 @@ import * as XLSX from 'xlsx';
 import DateRangePicker from "../components/reports/DateRangePicker";
 import Sectorcards from "../components/reports/Sectorcards";
 import Productranking from "../components/reports/Productranking";
-import Productevolution from "../components/reports/Productevolution";
 import GeneralEvolutionChart from "../components/reports/GeneralEvolutionChart";
 import SectorDistributionChart from "../components/reports/SectorDistributionChart";
 import SectorEvolutionChart from "../components/reports/SectorEvolutionChart";
 import ProductsPieChart from "../components/reports/ProductsPieChart";
 import ProductComparisonModal from "../components/reports/ProductComparisonModal";
+import SalesComparison from "../components/reports/SalesComparison";
 
 export default function Reports() {
   const [hasAccess, setHasAccess] = useState(false);
@@ -33,12 +32,8 @@ export default function Reports() {
     };
   });
 
-  // Comparação
-  const [compareEnabled, setCompareEnabled] = useState(false);
-  const [compareDateRange, setCompareDateRange] = useState(null);
-
   // Controles
-  const [activeTab, setActiveTab] = useState('sales'); // 'sales' ou 'losses'
+  const [activeTab, setActiveTab] = useState('sales'); // 'sales', 'losses', ou 'comparison'
   const [topN, setTopN] = useState(10);
 
   // Estados de seleção (drill-down)
@@ -68,20 +63,16 @@ export default function Reports() {
     checkAuth();
   }, []);
 
-  // Preparar parâmetros para API
+  // Preparar parâmetros para API (sem comparação)
   const apiParams = useMemo(() => {
     if (!dateRange?.from || !dateRange?.to) return null;
 
     return {
       startDate: format(dateRange.from, 'yyyy-MM-dd'),
       endDate: format(dateRange.to, 'yyyy-MM-dd'),
-      compareStartDate: compareEnabled && compareDateRange?.from ? 
-        format(compareDateRange.from, 'yyyy-MM-dd') : null,
-      compareEndDate: compareEnabled && compareDateRange?.to ? 
-        format(compareDateRange.to, 'yyyy-MM-dd') : null,
       topN
     };
-  }, [dateRange, compareEnabled, compareDateRange, topN]);
+  }, [dateRange, topN]);
 
   // Buscar dados de VENDAS
   const salesQuery = useQuery({
@@ -103,24 +94,9 @@ export default function Reports() {
     enabled: hasAccess && !!apiParams && activeTab === 'losses'
   });
 
-  // Buscar evolução do produto selecionado
-  const evolutionQuery = useQuery({
-    queryKey: ['productEvolution', selectedProduct, apiParams, activeTab],
-    queryFn: async () => {
-      const response = await base44.functions.invoke('getProductEvolution', {
-        produtoId: selectedProduct,
-        ...apiParams,
-        type: activeTab
-      });
-      return response.data;
-    },
-    enabled: !!selectedProduct && !!apiParams
-  });
-
   // Dados ativos baseado na aba
   const activeQuery = activeTab === 'sales' ? salesQuery : lossesQuery;
   const reportData = activeQuery.data?.data;
-  const compareData = activeQuery.data?.compareData;
 
   // Produtos filtrados por setor selecionado
   const filteredProducts = useMemo(() => {
@@ -144,19 +120,12 @@ export default function Reports() {
   };
 
   const handleProductClick = (produtoId, produtoNome) => {
-    console.log('🖱️ Clicou no produto:', { produtoId, produtoNome });
-    console.log('📋 Produtos disponíveis:', filteredProducts);
-    
-    // Buscar dados completos do produto
     const productData = filteredProducts.find(p => p.produto_id === produtoId);
-    
-    console.log('📦 Produto encontrado:', productData);
     
     if (productData) {
       setComparisonInitialProduct(productData);
       setComparisonModalOpen(true);
     } else {
-      console.error('❌ Produto não encontrado no filteredProducts!');
       toast.error('Erro ao abrir comparação');
     }
   };
@@ -211,70 +180,54 @@ export default function Reports() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Relatórios Interativos</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Análise detalhada com drill-down por setor e produto
-          </p>
+          <p className="text-slate-600">Análise detalhada com drill-down por setor e produto</p>
         </div>
-        <Button onClick={handleExportExcel} disabled={!reportData}>
-          <FileSpreadsheet className="w-4 h-4 mr-2" />
-          Exportar Excel
-        </Button>
+        {reportData && activeTab !== 'comparison' && (
+          <Button onClick={handleExportExcel} variant="outline">
+            <FileSpreadsheet className="w-4 h-4 mr-2" />
+            Exportar Excel
+          </Button>
+        )}
       </div>
 
-      {/* Controles */}
-      <Card>
-        <CardContent className="pt-6 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Período Principal */}
-            <div className="space-y-2">
-              <Label>Período de Análise</Label>
-              <DateRangePicker 
-                value={dateRange}
-                onChange={setDateRange}
-              />
-            </div>
-
-            {/* Top N */}
-            <div className="space-y-2">
-              <Label>Produtos a Exibir</Label>
-              <Select value={topN.toString()} onValueChange={(v) => setTopN(parseInt(v))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="10">Top 10</SelectItem>
-                  <SelectItem value="20">Top 20</SelectItem>
-                  <SelectItem value="30">Top 30</SelectItem>
-                  <SelectItem value="50">Top 50</SelectItem>
-                  <SelectItem value="100">Todos</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Comparação */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Switch
-                  id="compare"
-                  checked={compareEnabled}
-                  onCheckedChange={setCompareEnabled}
-                />
-                <Label htmlFor="compare">Comparar com outro período</Label>
-              </div>
-              {compareEnabled && (
+      {/* Controles - Apenas para abas Vendas/Perdas */}
+      {activeTab !== 'comparison' && (
+        <Card>
+          <CardContent className="pt-6 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Período Principal */}
+              <div className="space-y-2">
+                <Label>Período de Análise</Label>
                 <DateRangePicker 
-                  value={compareDateRange}
-                  onChange={setCompareDateRange}
+                  value={dateRange}
+                  onChange={setDateRange}
                 />
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+              </div>
 
-      {/* Tabs: Vendas vs Perdas */}
+              {/* Top N */}
+              <div className="space-y-2">
+                <Label>Produtos a Exibir</Label>
+                <Select value={topN.toString()} onValueChange={(v) => setTopN(parseInt(v))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">Top 10</SelectItem>
+                    <SelectItem value="20">Top 20</SelectItem>
+                    <SelectItem value="30">Top 30</SelectItem>
+                    <SelectItem value="50">Top 50</SelectItem>
+                    <SelectItem value="100">Todos</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Tabs: Vendas vs Perdas vs Comparação */}
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="grid w-full max-w-md grid-cols-2">
+        <TabsList className="grid w-full max-w-2xl grid-cols-3">
           <TabsTrigger value="sales" className="flex items-center gap-2">
             <TrendingUp className="w-4 h-4" />
             Vendas
@@ -283,11 +236,17 @@ export default function Reports() {
             <TrendingDown className="w-4 h-4" />
             Perdas
           </TabsTrigger>
+          <TabsTrigger value="comparison" className="flex items-center gap-2">
+            <FileSpreadsheet className="w-4 h-4" />
+            Comparação de Períodos
+          </TabsTrigger>
         </TabsList>
 
         {/* Conteúdo */}
         <TabsContent value={activeTab} className="space-y-6 mt-6">
-          {activeQuery.isLoading ? (
+          {activeTab === 'comparison' ? (
+            <SalesComparison />
+          ) : activeQuery.isLoading ? (
             <div className="text-center py-12 text-slate-500">
               Carregando dados...
             </div>
@@ -319,17 +278,6 @@ export default function Reports() {
                           {format(dateRange.from, 'dd/MM/yyyy')} - {format(dateRange.to, 'dd/MM/yyyy')}
                         </p>
                       </div>
-                      {compareData && (() => {
-                        const change = ((reportData.totalGeral - compareData.totalGeral) / compareData.totalGeral) * 100;
-                        return (
-                          <div className={`flex items-center gap-2 text-2xl font-bold ${
-                            change > 0 ? 'text-green-600' : 'text-red-600'
-                          }`}>
-                            {change > 0 ? <TrendingUp className="w-8 h-8" /> : <TrendingDown className="w-8 h-8" />}
-                            {Math.abs(change).toFixed(1)}%
-                          </div>
-                        );
-                      })()}
                     </div>
                   </CardContent>
                 </Card>
@@ -339,11 +287,7 @@ export default function Reports() {
                     reportData.salesBySector : 
                     reportData.lossesBySector
                   }
-                  compareSectors={compareData ? (
-                    activeTab === 'sales' ? 
-                      compareData.salesBySector : 
-                      compareData.lossesBySector
-                  ) : null}
+                  compareSectors={null}
                   selectedSector={selectedSector}
                   onSectorClick={handleSectorClick}
                   totalGeral={reportData.totalGeral}
@@ -356,9 +300,9 @@ export default function Reports() {
                   {/* Gráfico de Linha - Evolução Geral */}
                   <GeneralEvolutionChart
                     rawData={reportData.rawData}
-                    compareRawData={compareData?.rawData}
+                    compareRawData={null}
                     dateRange={dateRange}
-                    compareDateRange={compareDateRange}
+                    compareDateRange={null}
                     type={activeTab}
                   />
 
@@ -416,7 +360,7 @@ export default function Reports() {
       </Tabs>
 
       {/* Modal de Comparação de Produtos */}
-      {reportData && (
+      {reportData && activeTab !== 'comparison' && (
         <ProductComparisonModal
           isOpen={comparisonModalOpen}
           onClose={() => setComparisonModalOpen(false)}
