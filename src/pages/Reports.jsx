@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { FileSpreadsheet, TrendingUp, TrendingDown, AlertCircle, AlertTriangle } from "lucide-react";
+import { FileSpreadsheet, TrendingUp, TrendingDown, AlertCircle, AlertTriangle, FileText } from "lucide-react";
 import { format, subYears, subMonths, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
@@ -33,24 +33,27 @@ export default function Reports() {
   
   // Período principal - PADRÃO: Janeiro 2026 (onde tem dados)
   const [dateRange, setDateRange] = useState(() => {
-    // Usar janeiro de 2026 como padrão
     return {
-      from: new Date(2026, 0, 1), // 01/01/2026
-      to: new Date(2026, 0, 31)    // 31/01/2026
+      from: new Date(2026, 0, 1),
+      to: new Date(2026, 0, 31)
     };
   });
 
-  // Ano selecionado para o gráfico anual (INDEPENDENTE do período)
+  // Ano selecionado para o gráfico anual
   const [selectedYear, setSelectedYear] = useState(2026);
 
   // Controles
   const [topN, setTopN] = useState(10);
 
-  // Estados de seleção (drill-down)
+  // Filtros de tempo
+  const [timeFilter, setTimeFilter] = useState('all');
+  const [selectedWeekday, setSelectedWeekday] = useState(null);
+
+  // Estados de seleção
   const [selectedSector, setSelectedSector] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
 
-  // Modal de comparação
+  // Modal
   const [comparisonModalOpen, setComparisonModalOpen] = useState(false);
   const [comparisonInitialProduct, setComparisonInitialProduct] = useState(null);
 
@@ -72,27 +75,20 @@ export default function Reports() {
     checkAuth();
   }, []);
 
-  // Preparar parâmetros para API (PERÍODO SELECIONADO - para cards e detalhes)
+  // Parâmetros API
   const apiParams = useMemo(() => {
     if (!dateRange?.from || !dateRange?.to) return null;
-
-    const params = {
+    return {
       startDate: format(dateRange.from, 'yyyy-MM-dd'),
       endDate: format(dateRange.to, 'yyyy-MM-dd'),
       topN
     };
-
-    console.log('📅 Parâmetros da query:', params);
-    return params;
   }, [dateRange, topN]);
 
-  // Parâmetros do ano anterior (para comparação do período)
   const lastYearParams = useMemo(() => {
     if (!dateRange?.from || !dateRange?.to) return null;
-
     const lastYearFrom = subYears(dateRange.from, 1);
     const lastYearTo = subYears(dateRange.to, 1);
-
     return {
       startDate: format(lastYearFrom, 'yyyy-MM-dd'),
       endDate: format(lastYearTo, 'yyyy-MM-dd'),
@@ -100,7 +96,6 @@ export default function Reports() {
     };
   }, [dateRange, topN]);
 
-  // Parâmetros para ano completo (GRÁFICO ANUAL - independente do período)
   const yearParams = useMemo(() => {
     return {
       startDate: format(startOfYear(new Date(selectedYear, 0, 1)), 'yyyy-MM-dd'),
@@ -109,43 +104,25 @@ export default function Reports() {
     };
   }, [selectedYear]);
 
-  // ========================================
-  // QUERIES PARA O PERÍODO SELECIONADO
-  // ========================================
-
-  // Buscar dados de VENDAS (período selecionado)
+  // QUERIES
   const salesQuery = useQuery({
     queryKey: ['salesReport', apiParams],
     queryFn: async () => {
-      console.log('🔵 Buscando vendas...');
       const response = await base44.functions.invoke('getSalesReport', apiParams);
-      console.log('✅ Vendas recebidas:', response.data?.data?.totalGeral);
       return response.data;
     },
     enabled: hasAccess && !!apiParams
   });
 
-  // Buscar dados de PERDAS (período selecionado) - COM TRATAMENTO DE ERRO
   const lossesQuery = useQuery({
     queryKey: ['lossesReport', apiParams],
     queryFn: async () => {
       try {
-        console.log('🔴 Buscando perdas...');
         const response = await base44.functions.invoke('Getlossesreport', apiParams);
-        console.log('✅ Perdas recebidas:', response.data?.data?.totalGeral);
-        console.log('📦 Dados de perdas:', response.data?.data);
         return response.data;
       } catch (error) {
-        console.warn('⚠️ Erro ao buscar perdas (período):', error);
-        // Retorna estrutura vazia em caso de erro
         return {
-          data: {
-            lossesBySector: [],
-            lossesByProduct: [],
-            lossesBySectorProduct: [],
-            rawData: [],
-            totalGeral: 0
-          }
+          data: { lossesBySector: [], lossesByProduct: [], lossesBySectorProduct: [], rawData: [], totalGeral: 0 }
         };
       }
     },
@@ -153,7 +130,6 @@ export default function Reports() {
     retry: false
   });
 
-  // Buscar dados do ano anterior (para comparação automática)
   const lastYearSalesQuery = useQuery({
     queryKey: ['salesReportLastYear', lastYearParams],
     queryFn: async () => {
@@ -162,10 +138,6 @@ export default function Reports() {
     },
     enabled: hasAccess && !!lastYearParams
   });
-
-  // ========================================
-  // QUERIES PARA O ANO COMPLETO (gráfico anual)
-  // ========================================
 
   const yearSalesQuery = useQuery({
     queryKey: ['salesReportYear', yearParams],
@@ -183,15 +155,8 @@ export default function Reports() {
         const response = await base44.functions.invoke('Getlossesreport', yearParams);
         return response.data;
       } catch (error) {
-        console.warn('⚠️ Erro ao buscar perdas (ano):', error);
         return {
-          data: {
-            lossesBySector: [],
-            lossesByProduct: [],
-            lossesBySectorProduct: [],
-            rawData: [],
-            totalGeral: 0
-          }
+          data: { lossesBySector: [], lossesByProduct: [], lossesBySectorProduct: [], rawData: [], totalGeral: 0 }
         };
       }
     },
@@ -202,23 +167,8 @@ export default function Reports() {
   const salesData = salesQuery.data?.data;
   const lossesData = lossesQuery.data?.data;
   const lastYearSalesData = lastYearSalesQuery.data?.data;
-  
-  // Verificar se há dados de perdas disponíveis
   const hasLossesData = lossesData && lossesData.totalGeral > 0;
 
-  // Log para debug
-  useEffect(() => {
-    if (salesData || lossesData) {
-      console.log('📊 Dados carregados:', {
-        vendas: salesData?.totalGeral || 0,
-        perdas: lossesData?.totalGeral || 0,
-        hasLossesData,
-        perdasRawData: lossesData?.rawData?.length || 0
-      });
-    }
-  }, [salesData, lossesData, hasLossesData]);
-
-  // Calcular % de crescimento vs ano anterior (do período selecionado)
   const yearOverYearGrowth = useMemo(() => {
     if (!salesData || !lastYearSalesData) return null;
     const current = salesData.totalGeral;
@@ -227,25 +177,20 @@ export default function Reports() {
     return ((current - previous) / previous) * 100;
   }, [salesData, lastYearSalesData]);
 
-  // Calcular taxa média de perda (do período selecionado)
   const averageLossRate = useMemo(() => {
     if (!salesData || !lossesData || !hasLossesData) return null;
     if (salesData.totalGeral === 0) return 0;
     return (lossesData.totalGeral / salesData.totalGeral) * 100;
   }, [salesData, lossesData, hasLossesData]);
 
-  // Processar dados para o GRÁFICO MENSAL (ano completo - independente)
   const monthlyChartData = useMemo(() => {
     const yearSales = yearSalesQuery.data?.data?.rawData || [];
     const yearLosses = yearLossesQuery.data?.data?.rawData || [];
-
     if (yearSales.length === 0) return [];
 
-    // Agrupar por mês
     const monthlyData = new Map();
     const monthOrder = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
-    // Inicializar todos os meses
     monthOrder.forEach(month => {
       monthlyData.set(month, { month, sales: 0, losses: 0 });
     });
@@ -264,7 +209,6 @@ export default function Reports() {
       monthlyData.get(month).losses += parseFloat(row.valor_reais || 0);
     });
 
-    // Calcular % de perda
     const result = Array.from(monthlyData.values()).map(item => ({
       ...item,
       lossRate: item.sales > 0 ? (item.losses / item.sales) * 100 : 0
@@ -273,10 +217,8 @@ export default function Reports() {
     return result;
   }, [yearSalesQuery.data, yearLossesQuery.data]);
 
-  // Combinar dados de setores (vendas + perdas do PERÍODO SELECIONADO)
   const sectorsWithLosses = useMemo(() => {
     if (!salesData?.salesBySector) return [];
-
     return salesData.salesBySector.map(sector => {
       const lossSector = lossesData?.lossesBySector?.find(l => l.setor === sector.setor);
       return {
@@ -286,43 +228,65 @@ export default function Reports() {
     });
   }, [salesData, lossesData]);
 
-  // Produtos filtrados por setor selecionado (do PERÍODO SELECIONADO)
   const filteredProducts = useMemo(() => {
     if (!salesData) return [];
-    
     if (!selectedSector) {
       return salesData.salesByProduct || [];
     }
-
     const allProducts = salesData.salesBySectorProduct || [];
-    return allProducts
-      .filter(p => p.setor === selectedSector)
-      .slice(0, topN);
+    return allProducts.filter(p => p.setor === selectedSector).slice(0, topN);
   }, [salesData, selectedSector, topN]);
 
-  // Processar dados para evolução diária (vendas + perdas do PERÍODO SELECIONADO)
   const dailyEvolutionData = useMemo(() => {
     if (!salesData?.rawData) return [];
 
-    // Agrupar vendas por data
+    let filteredSalesData = salesData.rawData;
+    let filteredLossesData = lossesData?.rawData || [];
+
+    // Aplicar filtros de tempo
+    if (timeFilter === 'weekday') {
+      filteredSalesData = filteredSalesData.filter(row => {
+        const day = new Date(row.data).getDay();
+        return day >= 1 && day <= 5;
+      });
+      filteredLossesData = filteredLossesData.filter(row => {
+        const day = new Date(row.data).getDay();
+        return day >= 1 && day <= 5;
+      });
+    } else if (timeFilter === 'weekend') {
+      filteredSalesData = filteredSalesData.filter(row => {
+        const day = new Date(row.data).getDay();
+        return day === 0 || day === 6;
+      });
+      filteredLossesData = filteredLossesData.filter(row => {
+        const day = new Date(row.data).getDay();
+        return day === 0 || day === 6;
+      });
+    } else if (timeFilter === 'specific' && selectedWeekday !== null) {
+      filteredSalesData = filteredSalesData.filter(row => {
+        const day = new Date(row.data).getDay();
+        return day === selectedWeekday;
+      });
+      filteredLossesData = filteredLossesData.filter(row => {
+        const day = new Date(row.data).getDay();
+        return day === selectedWeekday;
+      });
+    }
+
     const salesByDate = new Map();
-    salesData.rawData.forEach(row => {
+    filteredSalesData.forEach(row => {
       const date = format(new Date(row.data), 'dd/MM');
       const current = salesByDate.get(date) || 0;
       salesByDate.set(date, current + parseFloat(row.valor_reais || 0));
     });
 
-    // Agrupar perdas por data (se disponível)
     const lossesByDate = new Map();
-    if (lossesData?.rawData) {
-      lossesData.rawData.forEach(row => {
-        const date = format(new Date(row.data), 'dd/MM');
-        const current = lossesByDate.get(date) || 0;
-        lossesByDate.set(date, current + parseFloat(row.valor_reais || 0));
-      });
-    }
+    filteredLossesData.forEach(row => {
+      const date = format(new Date(row.data), 'dd/MM');
+      const current = lossesByDate.get(date) || 0;
+      lossesByDate.set(date, current + parseFloat(row.valor_reais || 0));
+    });
 
-    // Combinar
     const allDates = new Set([...salesByDate.keys(), ...lossesByDate.keys()]);
     return Array.from(allDates).map(date => ({
       data: date,
@@ -333,7 +297,7 @@ export default function Reports() {
       const [dayB, monthB] = b.data.split('/').map(Number);
       return monthA - monthB || dayA - dayB;
     });
-  }, [salesData, lossesData]);
+  }, [salesData, lossesData, timeFilter, selectedWeekday]);
 
   // Handlers
   const handleSectorClick = (sector) => {
@@ -343,7 +307,6 @@ export default function Reports() {
 
   const handleProductClick = (produtoId, produtoNome) => {
     const productData = filteredProducts.find(p => p.produto_id === produtoId);
-    
     if (productData) {
       setComparisonInitialProduct(productData);
       setComparisonModalOpen(true);
@@ -352,10 +315,8 @@ export default function Reports() {
     }
   };
 
-  // Exportar Excel
   const handleExportExcel = () => {
     if (!salesData) return;
-
     try {
       const products = salesData.salesByProduct || [];
       const excelData = products.map((p, idx) => ({
@@ -369,15 +330,62 @@ export default function Reports() {
 
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(excelData);
-
       XLSX.utils.book_append_sheet(wb, ws, 'Vendas');
-
       const fileName = `Relatorio_Vendas_${format(new Date(), 'dd-MM-yyyy')}.xlsx`;
       XLSX.writeFile(wb, fileName);
-
       toast.success("Excel exportado!");
     } catch (error) {
       toast.error("Erro ao exportar Excel");
+    }
+  };
+
+  const handleExportPDF = async () => {
+    if (!salesData || !lossesData) return;
+    
+    try {
+      const { default: jsPDF } = await import('jspdf');
+      await import('jspdf-autotable');
+      
+      const doc = new jsPDF();
+      
+      doc.setFontSize(20);
+      doc.text('Relatório de Vendas e Perdas', 14, 20);
+      
+      doc.setFontSize(12);
+      doc.text(`Período: ${format(dateRange.from, 'dd/MM/yyyy')} - ${format(dateRange.to, 'dd/MM/yyyy')}`, 14, 30);
+      
+      doc.setFontSize(14);
+      doc.text('Resumo', 14, 45);
+      doc.autoTable({
+        startY: 50,
+        head: [['Métrica', 'Valor']],
+        body: [
+          ['Faturamento Total', `R$ ${salesData.totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`],
+          ['Perdas Totais', `R$ ${lossesData.totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`],
+          ['Taxa de Perda', `${averageLossRate ? averageLossRate.toFixed(1) : '0'}%`]
+        ]
+      });
+      
+      const finalY = doc.lastAutoTable.finalY || 80;
+      doc.text('Top 10 Produtos', 14, finalY + 15);
+      
+      const products = salesData.salesByProduct.slice(0, 10);
+      doc.autoTable({
+        startY: finalY + 20,
+        head: [['#', 'Produto', 'Setor', 'Vendas (R$)']],
+        body: products.map((p, idx) => [
+          idx + 1,
+          p.produto_nome,
+          p.setor,
+          parseFloat(p.total_valor).toFixed(2)
+        ])
+      });
+      
+      doc.save(`Relatorio_Vendas_${format(new Date(), 'dd-MM-yyyy')}.pdf`);
+      toast.success("PDF exportado!");
+    } catch (error) {
+      console.error('Erro ao exportar PDF:', error);
+      toast.error("Erro ao exportar PDF. Instale: npm install jspdf jspdf-autotable");
     }
   };
 
@@ -401,14 +409,30 @@ export default function Reports() {
           <p className="text-slate-600 mt-1">Análise integrada de vendas e perdas</p>
         </div>
         {salesData && (
-          <Button onClick={handleExportExcel} size="lg" className="shadow-md">
-            <FileSpreadsheet className="w-5 h-5 mr-2" />
-            Exportar Excel
-          </Button>
+          <div className="flex gap-3">
+            <Button 
+              onClick={handleExportExcel} 
+              size="lg" 
+              variant="outline"
+              className="shadow-md"
+            >
+              <FileSpreadsheet className="w-5 h-5 mr-2" />
+              Exportar Excel
+            </Button>
+            
+            <Button 
+              onClick={handleExportPDF} 
+              size="lg" 
+              className="shadow-md bg-red-600 hover:bg-red-700 text-white"
+            >
+              <FileText className="w-5 h-5 mr-2" />
+              Exportar PDF
+            </Button>
+          </div>
         )}
       </div>
 
-      {/* Aviso se não há dados de perdas */}
+      {/* Aviso perdas */}
       {!hasLossesData && salesData && (
         <Card className="bg-amber-50 border-2 border-amber-300">
           <CardContent className="pt-6">
@@ -419,24 +443,12 @@ export default function Reports() {
                 <p className="text-sm text-amber-800 mt-1">
                   O sistema não conseguiu carregar dados de perdas para o período selecionado.
                 </p>
-                <p className="text-sm text-amber-800 mt-2">
-                  <strong>Período atual:</strong> {format(dateRange.from, 'dd/MM/yyyy')} - {format(dateRange.to, 'dd/MM/yyyy')}
-                </p>
-                <p className="text-sm text-amber-800 mt-1">
-                  <strong>Total de perdas:</strong> R$ {(lossesData?.totalGeral || 0).toFixed(2)}
-                </p>
-                <p className="text-sm text-amber-800 mt-2">
-                  Abra o Console (F12) para ver os logs de debug e verificar se há registros de perdas neste período.
-                </p>
               </div>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Resto do componente continua igual... */}
-      {/* (Mantém todo o resto do código anterior) */}
-      
       {/* Controle do Ano */}
       <Card className="shadow-lg border-slate-200">
         <CardContent className="pt-6">
@@ -521,7 +533,9 @@ export default function Reports() {
                     boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                   }}
                   formatter={(value, name) => {
-                    if (name === 'lossRate') return [`${value.toFixed(1)}%`, '% Perda'];
+                    if (name === 'lossRate' || name === '% Perda') {
+                      return [`${value.toFixed(1)}%`, '% Perda'];
+                    }
                     const formatted = `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
                     return [formatted, name === 'sales' ? 'Faturamento' : 'Perdas'];
                   }}
@@ -573,7 +587,7 @@ export default function Reports() {
         </Card>
       )}
 
-      {/* Divisor Visual Elegante */}
+      {/* Divisor */}
       <div className="relative py-8">
         <div className="absolute inset-0 flex items-center">
           <div className="w-full border-t-2 border-slate-300"></div>
@@ -590,7 +604,6 @@ export default function Reports() {
         <CardContent className="pt-6">
           <h3 className="text-xl font-bold text-slate-900 mb-6">Análise por Período Personalizado</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Período Principal */}
             <div className="space-y-2">
               <Label className="text-base font-medium text-slate-700">Período de Análise</Label>
               <DateRangePicker 
@@ -599,7 +612,6 @@ export default function Reports() {
               />
             </div>
 
-            {/* Top N */}
             <div className="space-y-2">
               <Label className="text-base font-medium text-slate-700">Produtos a Exibir</Label>
               <Select value={topN.toString()} onValueChange={(v) => setTopN(parseInt(v))}>
@@ -632,7 +644,6 @@ export default function Reports() {
         <>
           {/* CARDS DE RESUMO */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Card Faturamento Total */}
             <Card className="bg-gradient-to-br from-green-50 via-green-100 to-emerald-100 border-2 border-green-300 shadow-xl">
               <CardContent className="pt-6">
                 <div className="flex items-start justify-between">
@@ -671,7 +682,6 @@ export default function Reports() {
               </CardContent>
             </Card>
 
-            {/* Card Perdas Total */}
             {hasLossesData ? (
               <Card className="bg-gradient-to-br from-red-50 via-red-100 to-rose-100 border-2 border-red-300 shadow-xl">
                 <CardContent className="pt-6">
@@ -719,7 +729,7 @@ export default function Reports() {
             )}
           </div>
 
-          {/* CARDS DE SETORES */}
+          {/* CARDS SETORES */}
           <div>
             <h3 className="text-xl font-bold text-slate-900 mb-4">
               Vendas por Setor
@@ -740,61 +750,103 @@ export default function Reports() {
             />
           </div>
 
-          {/* GRÁFICOS */}
+          {/* FILTROS + GRÁFICOS */}
           {!selectedSector && dailyEvolutionData.length > 0 && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <>
+              {/* Filtros de Tempo */}
               <Card className="shadow-lg">
                 <CardContent className="pt-6">
-                  <h3 className="text-lg font-semibold mb-4 text-slate-900">Evolução Diária</h3>
-                  <ResponsiveContainer width="100%" height={320}>
-                    <ComposedChart data={dailyEvolutionData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                      <XAxis 
-                        dataKey="data" 
-                        tick={{ fontSize: 12, fill: '#64748b' }}
-                      />
-                      <YAxis 
-                        tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
-                        tick={{ fontSize: 12, fill: '#64748b' }}
-                      />
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: 'white', 
-                          border: '1px solid #e2e8f0',
-                          borderRadius: '8px',
-                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                        }}
-                        formatter={(value) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-                      />
-                      <Legend iconType="circle" />
-                      <Line 
-                        type="monotone" 
-                        dataKey="vendas" 
-                        name="Vendas" 
-                        stroke="#10b981" 
-                        strokeWidth={3}
-                        dot={false}
-                      />
-                      {hasLossesData && (
-                        <Line 
-                          type="monotone" 
-                          dataKey="perdas" 
-                          name="Perdas" 
-                          stroke="#ef4444" 
-                          strokeWidth={3}
-                          dot={false}
-                        />
-                      )}
-                    </ComposedChart>
-                  </ResponsiveContainer>
+                  <div className="flex items-center gap-4 flex-wrap">
+                    <Label className="font-semibold">Filtrar evolução por:</Label>
+                    <Select value={timeFilter} onValueChange={setTimeFilter}>
+                      <SelectTrigger className="w-52">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos os dias</SelectItem>
+                        <SelectItem value="weekday">Dias úteis (Seg-Sex)</SelectItem>
+                        <SelectItem value="weekend">Fim de semana</SelectItem>
+                        <SelectItem value="specific">Dia específico</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    
+                    {timeFilter === 'specific' && (
+                      <Select 
+                        value={selectedWeekday?.toString()} 
+                        onValueChange={(v) => setSelectedWeekday(parseInt(v))}
+                      >
+                        <SelectTrigger className="w-44">
+                          <SelectValue placeholder="Escolha o dia" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="0">Domingo</SelectItem>
+                          <SelectItem value="1">Segunda</SelectItem>
+                          <SelectItem value="2">Terça</SelectItem>
+                          <SelectItem value="3">Quarta</SelectItem>
+                          <SelectItem value="4">Quinta</SelectItem>
+                          <SelectItem value="5">Sexta</SelectItem>
+                          <SelectItem value="6">Sábado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
 
-              <SectorDistributionChart
-                sectors={salesData.salesBySector}
-                type="sales"
-              />
-            </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card className="shadow-lg">
+                  <CardContent className="pt-6">
+                    <h3 className="text-lg font-semibold mb-4 text-slate-900">Evolução Diária</h3>
+                    <ResponsiveContainer width="100%" height={320}>
+                      <ComposedChart data={dailyEvolutionData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                        <XAxis 
+                          dataKey="data" 
+                          tick={{ fontSize: 12, fill: '#64748b' }}
+                        />
+                        <YAxis 
+                          tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
+                          tick={{ fontSize: 12, fill: '#64748b' }}
+                        />
+                        <Tooltip 
+                          contentStyle={{ 
+                            backgroundColor: 'white', 
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '8px',
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                          }}
+                          formatter={(value) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                        />
+                        <Legend iconType="circle" />
+                        <Line 
+                          type="monotone" 
+                          dataKey="vendas" 
+                          name="Vendas" 
+                          stroke="#10b981" 
+                          strokeWidth={3}
+                          dot={false}
+                        />
+                        {hasLossesData && (
+                          <Line 
+                            type="monotone" 
+                            dataKey="perdas" 
+                            name="Perdas" 
+                            stroke="#ef4444" 
+                            strokeWidth={3}
+                            dot={false}
+                          />
+                        )}
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+
+                <SectorDistributionChart
+                  sectors={salesData.salesBySector}
+                  type="sales"
+                />
+              </div>
+            </>
           )}
 
           {selectedSector && salesData.rawData && (
