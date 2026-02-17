@@ -5,8 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { FileSpreadsheet, TrendingUp, TrendingDown, AlertCircle, AlertTriangle } from "lucide-react";
-import { format, subYears, subMonths, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
+import { FileSpreadsheet, TrendingUp, TrendingDown, AlertCircle, AlertTriangle, FileText } from "lucide-react";
+import { format, subYears, subMonths, startOfMonth, endOfMonth, startOfYear, endOfYear, parseISO, getHours, getDay, getWeek } from "date-fns";
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
 import {
@@ -46,8 +46,7 @@ export default function Reports() {
   const [topN, setTopN] = useState(10);
 
   // Filtros de tempo
-  const [timeFilter, setTimeFilter] = useState('all');
-  const [selectedWeekday, setSelectedWeekday] = useState(null);
+  const [timeFilter, setTimeFilter] = useState('day');
 
   // Estados de seleção
   const [selectedSector, setSelectedSector] = useState(null);
@@ -240,64 +239,122 @@ export default function Reports() {
   const dailyEvolutionData = useMemo(() => {
     if (!salesData?.rawData) return [];
 
-    let filteredSalesData = salesData.rawData;
-    let filteredLossesData = lossesData?.rawData || [];
+    const WEEKDAY_NAMES = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    
+    const salesByGroup = {};
 
-    // Aplicar filtros de tempo
-    if (timeFilter === 'weekday') {
-      filteredSalesData = filteredSalesData.filter(row => {
-        const day = new Date(row.data).getDay();
-        return day >= 1 && day <= 5;
-      });
-      filteredLossesData = filteredLossesData.filter(row => {
-        const day = new Date(row.data).getDay();
-        return day >= 1 && day <= 5;
-      });
-    } else if (timeFilter === 'weekend') {
-      filteredSalesData = filteredSalesData.filter(row => {
-        const day = new Date(row.data).getDay();
-        return day === 0 || day === 6;
-      });
-      filteredLossesData = filteredLossesData.filter(row => {
-        const day = new Date(row.data).getDay();
-        return day === 0 || day === 6;
-      });
-    } else if (timeFilter === 'specific' && selectedWeekday !== null) {
-      filteredSalesData = filteredSalesData.filter(row => {
-        const day = new Date(row.data).getDay();
-        return day === selectedWeekday;
-      });
-      filteredLossesData = filteredLossesData.filter(row => {
-        const day = new Date(row.data).getDay();
-        return day === selectedWeekday;
+    // Processar VENDAS
+    salesData.rawData.forEach(row => {
+      try {
+        const dateStr = row.data.split('T')[0];
+        const fullDate = parseISO(row.data);
+        let groupKey;
+        let groupLabel;
+
+        switch (timeFilter) {
+          case 'hour':
+            const hour = getHours(fullDate);
+            groupKey = `${hour}`;
+            groupLabel = `${hour.toString().padStart(2, '0')}h`;
+            break;
+
+          case 'day':
+            groupKey = dateStr;
+            groupLabel = format(fullDate, 'dd/MM');
+            break;
+
+          case 'weekday':
+            const weekday = getDay(fullDate);
+            groupKey = `${weekday}`;
+            groupLabel = WEEKDAY_NAMES[weekday];
+            break;
+
+          case 'week':
+            const week = getWeek(fullDate, { weekStartsOn: 1 });
+            groupKey = `${week}`;
+            groupLabel = `Semana ${week}`;
+            break;
+
+          case 'month':
+            const month = format(fullDate, 'yyyy-MM');
+            groupKey = month;
+            groupLabel = format(fullDate, 'MMM/yy');
+            break;
+
+          default:
+            groupKey = dateStr;
+            groupLabel = format(fullDate, 'dd/MM');
+        }
+
+        if (!salesByGroup[groupKey]) {
+          salesByGroup[groupKey] = {
+            key: groupKey,
+            label: groupLabel,
+            vendas: 0,
+            perdas: 0
+          };
+        }
+
+        salesByGroup[groupKey].vendas += parseFloat(row.valor_reais || 0);
+      } catch (error) {
+        console.error('Erro ao processar vendas:', error);
+      }
+    });
+
+    // Processar PERDAS
+    if (lossesData?.rawData) {
+      lossesData.rawData.forEach(row => {
+        try {
+          const dateStr = row.data.split('T')[0];
+          const fullDate = parseISO(row.data);
+          let groupKey;
+
+          switch (timeFilter) {
+            case 'hour':
+              groupKey = `${getHours(fullDate)}`;
+              break;
+            case 'day':
+              groupKey = dateStr;
+              break;
+            case 'weekday':
+              groupKey = `${getDay(fullDate)}`;
+              break;
+            case 'week':
+              groupKey = `${getWeek(fullDate, { weekStartsOn: 1 })}`;
+              break;
+            case 'month':
+              groupKey = format(fullDate, 'yyyy-MM');
+              break;
+            default:
+              groupKey = dateStr;
+          }
+
+          if (salesByGroup[groupKey]) {
+            salesByGroup[groupKey].perdas += parseFloat(row.valor_reais || 0);
+          }
+        } catch (error) {
+          console.error('Erro ao processar perdas:', error);
+        }
       });
     }
 
-    const salesByDate = new Map();
-    filteredSalesData.forEach(row => {
-      const date = format(new Date(row.data), 'dd/MM');
-      const current = salesByDate.get(date) || 0;
-      salesByDate.set(date, current + parseFloat(row.valor_reais || 0));
-    });
+    // Converter para array e ordenar
+    const chartArray = Object.values(salesByGroup)
+      .map(group => ({
+        data: group.label,
+        sortKey: group.key,
+        vendas: group.vendas,
+        perdas: group.perdas
+      }))
+      .sort((a, b) => {
+        if (timeFilter === 'weekday' || timeFilter === 'hour') {
+          return parseInt(a.sortKey) - parseInt(b.sortKey);
+        }
+        return a.sortKey.localeCompare(b.sortKey);
+      });
 
-    const lossesByDate = new Map();
-    filteredLossesData.forEach(row => {
-      const date = format(new Date(row.data), 'dd/MM');
-      const current = lossesByDate.get(date) || 0;
-      lossesByDate.set(date, current + parseFloat(row.valor_reais || 0));
-    });
-
-    const allDates = new Set([...salesByDate.keys(), ...lossesByDate.keys()]);
-    return Array.from(allDates).map(date => ({
-      data: date,
-      vendas: salesByDate.get(date) || 0,
-      perdas: lossesByDate.get(date) || 0
-    })).sort((a, b) => {
-      const [dayA, monthA] = a.data.split('/').map(Number);
-      const [dayB, monthB] = b.data.split('/').map(Number);
-      return monthA - monthB || dayA - dayB;
-    });
-  }, [salesData, lossesData, timeFilter, selectedWeekday]);
+    return chartArray;
+  }, [salesData, lossesData, timeFilter]);
 
   // Handlers
   const handleSectorClick = (sector) => {
@@ -339,7 +396,55 @@ export default function Reports() {
     }
   };
 
-
+  const handleExportPDF = async () => {
+    if (!salesData || !lossesData) return;
+    
+    try {
+      const { default: jsPDF } = await import('jspdf');
+      await import('jspdf-autotable');
+      
+      const doc = new jsPDF();
+      
+      doc.setFontSize(20);
+      doc.text('Relatório de Vendas e Perdas', 14, 20);
+      
+      doc.setFontSize(12);
+      doc.text(`Período: ${format(dateRange.from, 'dd/MM/yyyy')} - ${format(dateRange.to, 'dd/MM/yyyy')}`, 14, 30);
+      
+      doc.setFontSize(14);
+      doc.text('Resumo', 14, 45);
+      doc.autoTable({
+        startY: 50,
+        head: [['Métrica', 'Valor']],
+        body: [
+          ['Faturamento Total', `R$ ${salesData.totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`],
+          ['Perdas Totais', `R$ ${lossesData.totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`],
+          ['Taxa de Perda', `${averageLossRate ? averageLossRate.toFixed(1) : '0'}%`]
+        ]
+      });
+      
+      const finalY = doc.lastAutoTable.finalY || 80;
+      doc.text('Top 10 Produtos', 14, finalY + 15);
+      
+      const products = salesData.salesByProduct.slice(0, 10);
+      doc.autoTable({
+        startY: finalY + 20,
+        head: [['#', 'Produto', 'Setor', 'Vendas (R$)']],
+        body: products.map((p, idx) => [
+          idx + 1,
+          p.produto_nome,
+          p.setor,
+          parseFloat(p.total_valor).toFixed(2)
+        ])
+      });
+      
+      doc.save(`Relatorio_Vendas_${format(new Date(), 'dd-MM-yyyy')}.pdf`);
+      toast.success("PDF exportado!");
+    } catch (error) {
+      console.error('Erro ao exportar PDF:', error);
+      toast.error("Erro ao exportar PDF. Instale: npm install jspdf jspdf-autotable");
+    }
+  };
 
   if (!hasAccess) {
     return (
@@ -361,10 +466,25 @@ export default function Reports() {
           <p className="text-slate-600 mt-1">Análise integrada de vendas e perdas</p>
         </div>
         {salesData && (
-          <Button onClick={handleExportExcel} size="lg" className="shadow-md">
-            <FileSpreadsheet className="w-5 h-5 mr-2" />
-            Exportar Excel
-          </Button>
+          <div className="flex gap-3">
+            <Button 
+              onClick={handleExportExcel} 
+              size="lg" 
+              className="shadow-md bg-green-600 hover:bg-green-700 text-white"
+            >
+              <FileSpreadsheet className="w-5 h-5 mr-2" />
+              Exportar Excel
+            </Button>
+            
+            <Button 
+              onClick={handleExportPDF} 
+              size="lg" 
+              className="shadow-md bg-red-600 hover:bg-red-700 text-white"
+            >
+              <FileText className="w-5 h-5 mr-2" />
+              Exportar PDF
+            </Button>
+          </div>
         )}
       </div>
 
@@ -695,90 +815,70 @@ export default function Reports() {
                     <h3 className="text-lg font-semibold text-slate-900">Evolução Diária</h3>
                     
                     {/* Filtro de tempo DENTRO do card */}
-                    <div className="flex items-center gap-2">
-                      <Select value={timeFilter} onValueChange={setTimeFilter}>
-                        <SelectTrigger className="w-44">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todos</SelectItem>
-                          <SelectItem value="weekday">Dias úteis</SelectItem>
-                          <SelectItem value="weekend">Fim de semana</SelectItem>
-                          <SelectItem value="specific">Dia específico</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      
-                      {timeFilter === 'specific' && (
-                        <Select 
-                          value={selectedWeekday?.toString()} 
-                          onValueChange={(v) => setSelectedWeekday(parseInt(v))}
-                        >
-                          <SelectTrigger className="w-32">
-                            <SelectValue placeholder="Dia" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="0">Dom</SelectItem>
-                            <SelectItem value="1">Seg</SelectItem>
-                            <SelectItem value="2">Ter</SelectItem>
-                            <SelectItem value="3">Qua</SelectItem>
-                            <SelectItem value="4">Qui</SelectItem>
-                            <SelectItem value="5">Sex</SelectItem>
-                            <SelectItem value="6">Sáb</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      )}
-                    </div>
+                    <Select value={timeFilter} onValueChange={setTimeFilter}>
+                      <SelectTrigger className="w-48">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="day">Por dia</SelectItem>
+                        <SelectItem value="hour">Por hora</SelectItem>
+                        <SelectItem value="weekday">Por dia da semana</SelectItem>
+                        <SelectItem value="week">Por semana</SelectItem>
+                        <SelectItem value="month">Por mês</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   
                   <ResponsiveContainer width="100%" height={320}>
-                    <ComposedChart data={dailyEvolutionData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                      <XAxis 
-                        dataKey="data" 
-                        tick={{ fontSize: 12, fill: '#64748b' }}
-                      />
-                      <YAxis 
-                        tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
-                        tick={{ fontSize: 12, fill: '#64748b' }}
-                      />
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: 'white', 
-                          border: '1px solid #e2e8f0',
-                          borderRadius: '8px',
-                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                        }}
-                        formatter={(value) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-                      />
-                      <Legend iconType="circle" />
-                      <Line 
-                        type="monotone" 
-                        dataKey="vendas" 
-                        name="Vendas" 
-                        stroke="#10b981" 
-                        strokeWidth={3}
-                        dot={false}
-                      />
-                      {hasLossesData && (
+                      <ComposedChart data={dailyEvolutionData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                        <XAxis 
+                          dataKey="data" 
+                          tick={{ fontSize: 12, fill: '#64748b' }}
+                        />
+                        <YAxis 
+                          tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
+                          tick={{ fontSize: 12, fill: '#64748b' }}
+                        />
+                        <Tooltip 
+                          contentStyle={{ 
+                            backgroundColor: 'white', 
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '8px',
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                          }}
+                          formatter={(value) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                        />
+                        <Legend iconType="circle" />
                         <Line 
                           type="monotone" 
-                          dataKey="perdas" 
-                          name="Perdas" 
-                          stroke="#ef4444" 
+                          dataKey="vendas" 
+                          name="Vendas" 
+                          stroke="#10b981" 
                           strokeWidth={3}
                           dot={false}
                         />
-                      )}
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
+                        {hasLossesData && (
+                          <Line 
+                            type="monotone" 
+                            dataKey="perdas" 
+                            name="Perdas" 
+                            stroke="#ef4444" 
+                            strokeWidth={3}
+                            dot={false}
+                          />
+                        )}
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
 
-              <SectorDistributionChart
-                sectors={salesData.salesBySector}
-                type="sales"
-              />
-            </div>
+                <SectorDistributionChart
+                  sectors={salesData.salesBySector}
+                  type="sales"
+                />
+              </div>
+            </>
           )}
 
           {selectedSector && salesData.rawData && (
