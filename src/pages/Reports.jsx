@@ -812,9 +812,9 @@ export default function Reports() {
               <Card className="shadow-lg">
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-slate-900">Evolução Diária</h3>
+                    <h3 className="text-lg font-semibold text-slate-900">Evolução Temporal</h3>
                     
-                    {/* Filtro de tempo DENTRO do card */}
+                    {/* Filtro de tempo */}
                     <Select value={timeFilter} onValueChange={setTimeFilter}>
                       <SelectTrigger className="w-48">
                         <SelectValue />
