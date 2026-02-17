@@ -5,7 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { FileSpreadsheet, TrendingUp, TrendingDown, AlertCircle, AlertTriangle } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { FileSpreadsheet, TrendingUp, TrendingDown, AlertCircle, AlertTriangle, FileText } from "lucide-react";
 import { format, subYears, subMonths, startOfMonth, endOfMonth, startOfYear, endOfYear, parseISO, getHours, getDay, getWeek } from "date-fns";
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
@@ -41,6 +42,10 @@ export default function Reports() {
 
   // Ano selecionado para o gráfico anual
   const [selectedYear, setSelectedYear] = useState(2026);
+
+  // Comparação de anos
+  const [compareYearsEnabled, setCompareYearsEnabled] = useState(false);
+  const [compareYear, setCompareYear] = useState(2025);
 
   // Controles
   const [topN, setTopN] = useState(10);
@@ -103,6 +108,16 @@ export default function Reports() {
     };
   }, [selectedYear]);
 
+  // Parâmetros para ano de comparação
+  const compareYearParams = useMemo(() => {
+    if (!compareYearsEnabled) return null;
+    return {
+      startDate: format(startOfYear(new Date(compareYear, 0, 1)), 'yyyy-MM-dd'),
+      endDate: format(endOfYear(new Date(compareYear, 11, 31)), 'yyyy-MM-dd'),
+      topN: 100
+    };
+  }, [compareYear, compareYearsEnabled]);
+
   // QUERIES
   const salesQuery = useQuery({
     queryKey: ['salesReport', apiParams],
@@ -163,10 +178,70 @@ export default function Reports() {
     retry: false
   });
 
+  // Queries para ano de comparação
+  const compareYearSalesQuery = useQuery({
+    queryKey: ['salesReportCompareYear', compareYearParams],
+    queryFn: async () => {
+      const response = await base44.functions.invoke('getSalesReport', compareYearParams);
+      return response.data;
+    },
+    enabled: hasAccess && !!compareYearParams && compareYearsEnabled
+  });
+
+  const compareYearLossesQuery = useQuery({
+    queryKey: ['lossesReportCompareYear', compareYearParams],
+    queryFn: async () => {
+      try {
+        const response = await base44.functions.invoke('Getlossesreport', compareYearParams);
+        return response.data;
+      } catch (error) {
+        return {
+          data: { lossesBySector: [], lossesByProduct: [], lossesBySectorProduct: [], rawData: [], totalGeral: 0 }
+        };
+      }
+    },
+    enabled: hasAccess && !!compareYearParams && compareYearsEnabled,
+    retry: false
+  });
+
   const salesData = salesQuery.data?.data;
   const lossesData = lossesQuery.data?.data;
   const lastYearSalesData = lastYearSalesQuery.data?.data;
   const hasLossesData = lossesData && lossesData.totalGeral > 0;
+
+  // Totais anuais
+  const yearSalesTotal = useMemo(() => {
+    const data = yearSalesQuery.data?.data;
+    return data?.totalGeral || 0;
+  }, [yearSalesQuery.data]);
+
+  const yearLossesTotal = useMemo(() => {
+    const data = yearLossesQuery.data?.data;
+    return data?.totalGeral || 0;
+  }, [yearLossesQuery.data]);
+
+  const yearAverageLossRate = useMemo(() => {
+    if (yearSalesTotal === 0) return 0;
+    return (yearLossesTotal / yearSalesTotal) * 100;
+  }, [yearSalesTotal, yearLossesTotal]);
+
+  // Comparação de anos
+  const compareYearSalesTotal = useMemo(() => {
+    if (!compareYearsEnabled) return 0;
+    const data = compareYearSalesQuery.data?.data;
+    return data?.totalGeral || 0;
+  }, [compareYearSalesQuery.data, compareYearsEnabled]);
+
+  const compareYearLossesTotal = useMemo(() => {
+    if (!compareYearsEnabled) return 0;
+    const data = compareYearLossesQuery.data?.data;
+    return data?.totalGeral || 0;
+  }, [compareYearLossesQuery.data, compareYearsEnabled]);
+
+  const yearOverYearChange = useMemo(() => {
+    if (!compareYearsEnabled || compareYearSalesTotal === 0) return null;
+    return ((yearSalesTotal - compareYearSalesTotal) / compareYearSalesTotal) * 100;
+  }, [yearSalesTotal, compareYearSalesTotal, compareYearsEnabled]);
 
   const yearOverYearGrowth = useMemo(() => {
     if (!salesData || !lastYearSalesData) return null;
@@ -396,7 +471,55 @@ export default function Reports() {
     }
   };
 
-
+  const handleExportPDF = async () => {
+    if (!salesData || !lossesData) return;
+    
+    try {
+      const { default: jsPDF } = await import('jspdf');
+      await import('jspdf-autotable');
+      
+      const doc = new jsPDF();
+      
+      doc.setFontSize(20);
+      doc.text('Relatório de Vendas e Perdas', 14, 20);
+      
+      doc.setFontSize(12);
+      doc.text(`Período: ${format(dateRange.from, 'dd/MM/yyyy')} - ${format(dateRange.to, 'dd/MM/yyyy')}`, 14, 30);
+      
+      doc.setFontSize(14);
+      doc.text('Resumo', 14, 45);
+      doc.autoTable({
+        startY: 50,
+        head: [['Métrica', 'Valor']],
+        body: [
+          ['Faturamento Total', `R$ ${salesData.totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`],
+          ['Perdas Totais', `R$ ${lossesData.totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`],
+          ['Taxa de Perda', `${averageLossRate ? averageLossRate.toFixed(1) : '0'}%`]
+        ]
+      });
+      
+      const finalY = doc.lastAutoTable.finalY || 80;
+      doc.text('Top 10 Produtos', 14, finalY + 15);
+      
+      const products = salesData.salesByProduct.slice(0, 10);
+      doc.autoTable({
+        startY: finalY + 20,
+        head: [['#', 'Produto', 'Setor', 'Vendas (R$)']],
+        body: products.map((p, idx) => [
+          idx + 1,
+          p.produto_nome,
+          p.setor,
+          parseFloat(p.total_valor).toFixed(2)
+        ])
+      });
+      
+      doc.save(`Relatorio_Vendas_${format(new Date(), 'dd-MM-yyyy')}.pdf`);
+      toast.success("PDF exportado!");
+    } catch (error) {
+      console.error('Erro ao exportar PDF:', error);
+      toast.error("Erro ao exportar PDF. Instale: npm install jspdf jspdf-autotable");
+    }
+  };
 
   if (!hasAccess) {
     return (
@@ -418,10 +541,25 @@ export default function Reports() {
           <p className="text-slate-600 mt-1">Análise integrada de vendas e perdas</p>
         </div>
         {salesData && (
-          <Button onClick={handleExportExcel} size="lg" className="shadow-md">
-            <FileSpreadsheet className="w-5 h-5 mr-2" />
-            Exportar Excel
-          </Button>
+          <div className="flex gap-3">
+            <Button 
+              onClick={handleExportExcel} 
+              size="lg" 
+              className="shadow-md bg-green-600 hover:bg-green-700 text-white"
+            >
+              <FileSpreadsheet className="w-5 h-5 mr-2" />
+              Exportar Excel
+            </Button>
+            
+            <Button 
+              onClick={handleExportPDF} 
+              size="lg" 
+              className="shadow-md bg-red-600 hover:bg-red-700 text-white"
+            >
+              <FileText className="w-5 h-5 mr-2" />
+              Exportar PDF
+            </Button>
+          </div>
         )}
       </div>
 
@@ -442,25 +580,141 @@ export default function Reports() {
         </Card>
       )}
 
-      {/* Controle do Ano */}
+      {/* Controle do Ano + Comparação */}
       <Card className="shadow-lg border-slate-200">
         <CardContent className="pt-6">
-          <div className="flex items-center gap-4">
-            <Label className="text-base font-semibold text-slate-700">Visão Anual:</Label>
-            <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
-              <SelectTrigger className="w-40 h-11 text-base shadow-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="2026">2026</SelectItem>
-                <SelectItem value="2025">2025</SelectItem>
-                <SelectItem value="2024">2024</SelectItem>
-                <SelectItem value="2023">2023</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="flex items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
+              <Label className="text-base font-semibold text-slate-700">Visão Anual:</Label>
+              <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
+                <SelectTrigger className="w-32 h-11 text-base shadow-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="2026">2026</SelectItem>
+                  <SelectItem value="2025">2025</SelectItem>
+                  <SelectItem value="2024">2024</SelectItem>
+                  <SelectItem value="2023">2023</SelectItem>
+                  <SelectItem value="2022">2022</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="compareYears"
+                  checked={compareYearsEnabled}
+                  onCheckedChange={setCompareYearsEnabled}
+                />
+                <Label htmlFor="compareYears" className="text-sm font-medium cursor-pointer">
+                  Comparar
+                </Label>
+              </div>
+
+              {compareYearsEnabled && (
+                <Select value={compareYear.toString()} onValueChange={(v) => setCompareYear(parseInt(v))}>
+                  <SelectTrigger className="w-32 h-11 text-base shadow-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="2025">2025</SelectItem>
+                    <SelectItem value="2024">2024</SelectItem>
+                    <SelectItem value="2023">2023</SelectItem>
+                    <SelectItem value="2022">2022</SelectItem>
+                    <SelectItem value="2021">2021</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* CARDS DE RESUMO ANUAL */}
+      {yearSalesTotal > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Card Faturamento Anual */}
+          <Card className="bg-gradient-to-br from-green-50 via-green-100 to-emerald-100 border-2 border-green-300 shadow-xl">
+            <CardContent className="pt-6">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <p className="text-xs text-green-700 font-semibold mb-1 uppercase tracking-wide">
+                    Faturamento
+                  </p>
+                  <p className="text-4xl font-bold text-green-900 mb-2">
+                    R$ {(yearSalesTotal / 1000).toFixed(0)}k
+                  </p>
+                  {yearOverYearChange !== null && (
+                    <div className={`flex items-center gap-1 mt-2 text-xs font-bold ${
+                      yearOverYearChange > 0 ? 'text-green-700' : 'text-red-700'
+                    }`}>
+                      {yearOverYearChange > 0 ? (
+                        <TrendingUp className="w-3 h-3" />
+                      ) : (
+                        <TrendingDown className="w-3 h-3" />
+                      )}
+                      <span>
+                        {yearOverYearChange > 0 ? '+' : ''}
+                        {yearOverYearChange.toFixed(1)}% vs {compareYear}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <div className="bg-green-200 p-2 rounded-lg">
+                  <TrendingUp className="w-8 h-8 text-green-700" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Card Perdas Anual */}
+          <Card className="bg-gradient-to-br from-red-50 via-red-100 to-rose-100 border-2 border-red-300 shadow-xl">
+            <CardContent className="pt-6">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <p className="text-xs text-red-700 font-semibold mb-1 uppercase tracking-wide">
+                    Perdas
+                  </p>
+                  <p className="text-4xl font-bold text-red-900 mb-2">
+                    R$ {(yearLossesTotal / 1000).toFixed(0)}k
+                  </p>
+                  <p className="text-xs text-red-600 mt-1">
+                    Taxa média: {yearAverageLossRate.toFixed(1)}%
+                  </p>
+                </div>
+                <div className="bg-red-200 p-2 rounded-lg">
+                  <TrendingDown className="w-8 h-8 text-red-700" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Card Média Mensal */}
+          <Card className="bg-gradient-to-br from-blue-50 via-blue-100 to-indigo-100 border-2 border-blue-300 shadow-xl">
+            <CardContent className="pt-6">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <p className="text-xs text-blue-700 font-semibold mb-1 uppercase tracking-wide">
+                    Média Mensal
+                  </p>
+                  <p className="text-4xl font-bold text-blue-900 mb-2">
+                    R$ {(yearSalesTotal / 12 / 1000).toFixed(0)}k
+                  </p>
+                  <p className="text-xs text-blue-600 mt-1">
+                    Melhor Dez
+                  </p>
+                </div>
+                <div className="bg-blue-200 p-2 rounded-lg">
+                  <svg className="w-8 h-8 text-blue-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* GRÁFICO MENSAL */}
       {isLoadingYear ? (
@@ -815,6 +1069,7 @@ export default function Reports() {
                   type="sales"
                 />
               </div>
+            </>
           )}
 
           {selectedSector && salesData.rawData && (
