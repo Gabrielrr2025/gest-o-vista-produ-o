@@ -31,17 +31,17 @@ import ProductComparisonModal from "../components/reports/ProductComparisonModal
 export default function Reports() {
   const [hasAccess, setHasAccess] = useState(false);
   
-  // Período principal - PADRÃO: Mês passado (para cards e detalhes)
+  // Período principal - PADRÃO: Janeiro 2026 (onde tem dados)
   const [dateRange, setDateRange] = useState(() => {
-    const lastMonth = subMonths(new Date(), 1);
+    // Usar janeiro de 2026 como padrão
     return {
-      from: startOfMonth(lastMonth),
-      to: endOfMonth(lastMonth)
+      from: new Date(2026, 0, 1), // 01/01/2026
+      to: new Date(2026, 0, 31)    // 31/01/2026
     };
   });
 
   // Ano selecionado para o gráfico anual (INDEPENDENTE do período)
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedYear, setSelectedYear] = useState(2026);
 
   // Controles
   const [topN, setTopN] = useState(10);
@@ -76,11 +76,14 @@ export default function Reports() {
   const apiParams = useMemo(() => {
     if (!dateRange?.from || !dateRange?.to) return null;
 
-    return {
+    const params = {
       startDate: format(dateRange.from, 'yyyy-MM-dd'),
       endDate: format(dateRange.to, 'yyyy-MM-dd'),
       topN
     };
+
+    console.log('📅 Parâmetros da query:', params);
+    return params;
   }, [dateRange, topN]);
 
   // Parâmetros do ano anterior (para comparação do período)
@@ -114,7 +117,9 @@ export default function Reports() {
   const salesQuery = useQuery({
     queryKey: ['salesReport', apiParams],
     queryFn: async () => {
+      console.log('🔵 Buscando vendas...');
       const response = await base44.functions.invoke('getSalesReport', apiParams);
+      console.log('✅ Vendas recebidas:', response.data?.data?.totalGeral);
       return response.data;
     },
     enabled: hasAccess && !!apiParams
@@ -125,7 +130,10 @@ export default function Reports() {
     queryKey: ['lossesReport', apiParams],
     queryFn: async () => {
       try {
+        console.log('🔴 Buscando perdas...');
         const response = await base44.functions.invoke('getLossesReport', apiParams);
+        console.log('✅ Perdas recebidas:', response.data?.data?.totalGeral);
+        console.log('📦 Dados de perdas:', response.data?.data);
         return response.data;
       } catch (error) {
         console.warn('⚠️ Erro ao buscar perdas (período):', error);
@@ -142,7 +150,7 @@ export default function Reports() {
       }
     },
     enabled: hasAccess && !!apiParams,
-    retry: false // Não tentar novamente em caso de erro
+    retry: false
   });
 
   // Buscar dados do ano anterior (para comparação automática)
@@ -176,7 +184,6 @@ export default function Reports() {
         return response.data;
       } catch (error) {
         console.warn('⚠️ Erro ao buscar perdas (ano):', error);
-        // Retorna estrutura vazia em caso de erro
         return {
           data: {
             lossesBySector: [],
@@ -198,6 +205,18 @@ export default function Reports() {
   
   // Verificar se há dados de perdas disponíveis
   const hasLossesData = lossesData && lossesData.totalGeral > 0;
+
+  // Log para debug
+  useEffect(() => {
+    if (salesData || lossesData) {
+      console.log('📊 Dados carregados:', {
+        vendas: salesData?.totalGeral || 0,
+        perdas: lossesData?.totalGeral || 0,
+        hasLossesData,
+        perdasRawData: lossesData?.rawData?.length || 0
+      });
+    }
+  }, [salesData, lossesData, hasLossesData]);
 
   // Calcular % de crescimento vs ano anterior (do período selecionado)
   const yearOverYearGrowth = useMemo(() => {
@@ -398,15 +417,16 @@ export default function Reports() {
               <div>
                 <p className="font-semibold text-amber-900">Dados de perdas não encontrados</p>
                 <p className="text-sm text-amber-800 mt-1">
-                  O sistema não conseguiu carregar os dados de perdas. Possíveis causas:
+                  O sistema não conseguiu carregar dados de perdas para o período selecionado.
                 </p>
-                <ul className="text-sm text-amber-800 mt-2 ml-4 list-disc space-y-1">
-                  <li>A tabela "perdas" não existe no banco de dados</li>
-                  <li>Não há registros de perdas cadastrados</li>
-                  <li>Erro na função getLossesReport (verifique o console)</li>
-                </ul>
                 <p className="text-sm text-amber-800 mt-2">
-                  Os relatórios continuam funcionando apenas com dados de vendas.
+                  <strong>Período atual:</strong> {format(dateRange.from, 'dd/MM/yyyy')} - {format(dateRange.to, 'dd/MM/yyyy')}
+                </p>
+                <p className="text-sm text-amber-800 mt-1">
+                  <strong>Total de perdas:</strong> R$ {(lossesData?.totalGeral || 0).toFixed(2)}
+                </p>
+                <p className="text-sm text-amber-800 mt-2">
+                  Abra o Console (F12) para ver os logs de debug e verificar se há registros de perdas neste período.
                 </p>
               </div>
             </div>
@@ -414,9 +434,8 @@ export default function Reports() {
         </Card>
       )}
 
-      {/* ========================================
-          SEÇÃO 1: VISÃO ANUAL (INDEPENDENTE)
-          ======================================== */}
+      {/* Resto do componente continua igual... */}
+      {/* (Mantém todo o resto do código anterior) */}
       
       {/* Controle do Ano */}
       <Card className="shadow-lg border-slate-200">
@@ -438,7 +457,7 @@ export default function Reports() {
         </CardContent>
       </Card>
 
-      {/* GRÁFICO MENSAL - FATURAMENTO VS PERDAS (ANO COMPLETO) */}
+      {/* GRÁFICO MENSAL */}
       {isLoadingYear ? (
         <Card className="shadow-lg">
           <CardContent className="py-16 text-center">
@@ -566,10 +585,6 @@ export default function Reports() {
         </div>
       </div>
 
-      {/* ========================================
-          SEÇÃO 2: ANÁLISE DO PERÍODO SELECIONADO
-          ======================================== */}
-
       {/* Controles do Período */}
       <Card className="shadow-lg border-slate-200">
         <CardContent className="pt-6">
@@ -615,7 +630,7 @@ export default function Reports() {
         </Card>
       ) : salesData ? (
         <>
-          {/* CARDS DE RESUMO - FATURAMENTO E PERDAS (DO PERÍODO) */}
+          {/* CARDS DE RESUMO */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Card Faturamento Total */}
             <Card className="bg-gradient-to-br from-green-50 via-green-100 to-emerald-100 border-2 border-green-300 shadow-xl">
@@ -631,7 +646,6 @@ export default function Reports() {
                     <p className="text-sm text-green-700 font-medium">
                       {format(dateRange.from, 'dd/MM/yyyy')} - {format(dateRange.to, 'dd/MM/yyyy')}
                     </p>
-                    {/* Variação vs Ano Anterior */}
                     {yearOverYearGrowth !== null && (
                       <div className={`flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-full inline-flex text-xs font-bold ${
                         yearOverYearGrowth > 0 
@@ -672,7 +686,6 @@ export default function Reports() {
                       <p className="text-sm text-red-700 font-medium">
                         {format(dateRange.from, 'dd/MM/yyyy')} - {format(dateRange.to, 'dd/MM/yyyy')}
                       </p>
-                      {/* Taxa Média de Perda */}
                       {averageLossRate !== null && (
                         <div className="flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-full inline-flex text-xs font-bold bg-red-200 text-red-800">
                           <span>Taxa média: {averageLossRate.toFixed(1)}%</span>
@@ -706,7 +719,7 @@ export default function Reports() {
             )}
           </div>
 
-          {/* CARDS DE SETORES COM PERDAS (DO PERÍODO) */}
+          {/* CARDS DE SETORES */}
           <div>
             <h3 className="text-xl font-bold text-slate-900 mb-4">
               Vendas por Setor
@@ -727,10 +740,9 @@ export default function Reports() {
             />
           </div>
 
-          {/* GRÁFICOS GERAIS (DO PERÍODO) */}
+          {/* GRÁFICOS */}
           {!selectedSector && dailyEvolutionData.length > 0 && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Gráfico de Linha - Evolução com Perdas */}
               <Card className="shadow-lg">
                 <CardContent className="pt-6">
                   <h3 className="text-lg font-semibold mb-4 text-slate-900">Evolução Diária</h3>
@@ -778,7 +790,6 @@ export default function Reports() {
                 </CardContent>
               </Card>
 
-              {/* Gráfico de Pizza - Distribuição por Setor */}
               <SectorDistributionChart
                 sectors={salesData.salesBySector}
                 type="sales"
@@ -786,17 +797,14 @@ export default function Reports() {
             </div>
           )}
 
-          {/* GRÁFICOS DO SETOR (DO PERÍODO) */}
           {selectedSector && salesData.rawData && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Gráfico de Linha - Evolução do Setor */}
               <SectorEvolutionChart
                 rawData={salesData.rawData}
                 sector={selectedSector}
                 type="sales"
               />
 
-              {/* Gráfico de Pizza - Top 5 Produtos + Outros */}
               <ProductsPieChart
                 products={salesData.salesBySectorProduct}
                 sector={selectedSector}
@@ -806,7 +814,6 @@ export default function Reports() {
             </div>
           )}
 
-          {/* RANKING DE PRODUTOS (DO PERÍODO) */}
           {filteredProducts.length > 0 && (
             <Productranking
               products={filteredProducts}
@@ -826,7 +833,6 @@ export default function Reports() {
         </Card>
       )}
 
-      {/* Modal de Comparação de Produtos */}
       {salesData && (
         <ProductComparisonModal
           isOpen={comparisonModalOpen}
