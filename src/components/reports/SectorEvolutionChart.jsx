@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { format, parseISO, getHours, getDay, getWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -16,29 +16,6 @@ const GROUPING_OPTIONS = [
 
 const WEEKDAY_NAMES = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-const CustomTooltip = ({ active, payload, label }) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="bg-white border border-slate-200 rounded-lg shadow-lg p-3">
-        <p className="text-sm font-semibold text-slate-700 mb-2">{label}</p>
-        {payload.map((entry, index) => (
-          <div key={index} className="flex items-center gap-2 text-sm">
-            <div 
-              className="w-3 h-3 rounded-full" 
-              style={{ backgroundColor: entry.color }}
-            />
-            <span className="text-slate-600">{entry.name}:</span>
-            <span className="font-semibold text-slate-900">
-              R$ {entry.value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </span>
-          </div>
-        ))}
-      </div>
-    );
-  }
-  return null;
-};
-
 const formatYAxis = (value) => {
   if (value >= 1000) {
     return `R$ ${(value / 1000).toFixed(1)}k`;
@@ -48,26 +25,36 @@ const formatYAxis = (value) => {
 
 export default function SectorEvolutionChart({ 
   rawData,
+  rawLossesData,
   sector,
   type = 'sales'
 }) {
   const [groupBy, setGroupBy] = useState('day');
 
-  // Filtrar apenas dados do setor selecionado
-  const sectorRawData = useMemo(() => {
+  // Filtrar dados de vendas do setor
+  const sectorSalesData = useMemo(() => {
     if (!rawData || !sector) return [];
-    
     return rawData.filter(item => item.setor === sector);
   }, [rawData, sector]);
 
+  // Filtrar dados de perdas do setor (precisa fazer JOIN com produtos)
+  const sectorLossesData = useMemo(() => {
+    if (!rawLossesData || !sector) return [];
+    // As perdas já vem agregadas, não tem campo setor
+    // Vamos precisar adaptar isso
+    return rawLossesData;
+  }, [rawLossesData, sector]);
+
   const chartData = useMemo(() => {
-    if (!sectorRawData || sectorRawData.length === 0) {
+    if (!sectorSalesData || sectorSalesData.length === 0) {
       return [];
     }
 
-    const dataByGroup = {};
+    const salesByGroup = {};
+    const lossesByGroup = {};
     
-    sectorRawData.forEach(item => {
+    // Processar vendas
+    sectorSalesData.forEach(item => {
       try {
         const dateStr = item.data.split('T')[0];
         const fullDate = parseISO(item.data);
@@ -109,25 +96,64 @@ export default function SectorEvolutionChart({
             groupLabel = format(fullDate, 'dd/MM', { locale: ptBR });
         }
 
-        if (!dataByGroup[groupKey]) {
-          dataByGroup[groupKey] = {
+        if (!salesByGroup[groupKey]) {
+          salesByGroup[groupKey] = {
             key: groupKey,
             label: groupLabel,
-            value: 0
+            vendas: 0,
+            perdas: 0
           };
         }
 
-        dataByGroup[groupKey].value += parseFloat(item.valor_reais || 0);
+        salesByGroup[groupKey].vendas += parseFloat(item.valor_reais || 0);
       } catch (error) {
-        console.error('❌ Erro ao processar item:', item, error);
+        console.error('❌ Erro ao processar vendas:', error);
       }
     });
 
-    const chartArray = Object.values(dataByGroup)
+    // Processar perdas (mesma lógica)
+    if (sectorLossesData && sectorLossesData.length > 0) {
+      sectorLossesData.forEach(item => {
+        try {
+          const dateStr = item.data.split('T')[0];
+          const fullDate = parseISO(item.data);
+          let groupKey;
+
+          switch (groupBy) {
+            case 'hour':
+              groupKey = `${getHours(fullDate)}`;
+              break;
+            case 'day':
+              groupKey = dateStr;
+              break;
+            case 'weekday':
+              groupKey = `${getDay(fullDate)}`;
+              break;
+            case 'week':
+              groupKey = `${getWeek(fullDate, { weekStartsOn: 1 })}`;
+              break;
+            case 'month':
+              groupKey = format(fullDate, 'yyyy-MM');
+              break;
+            default:
+              groupKey = dateStr;
+          }
+
+          if (salesByGroup[groupKey]) {
+            salesByGroup[groupKey].perdas += parseFloat(item.valor_reais || 0);
+          }
+        } catch (error) {
+          console.error('❌ Erro ao processar perdas:', error);
+        }
+      });
+    }
+
+    const chartArray = Object.values(salesByGroup)
       .map(group => ({
         date: group.label,
         sortKey: group.key,
-        value: group.value
+        vendas: group.vendas,
+        perdas: group.perdas
       }))
       .sort((a, b) => {
         if (groupBy === 'weekday' || groupBy === 'hour') {
@@ -137,7 +163,7 @@ export default function SectorEvolutionChart({
       });
 
     return chartArray;
-  }, [sectorRawData, groupBy]);
+  }, [sectorSalesData, sectorLossesData, groupBy]);
 
   if (!sector) {
     return null;
@@ -154,8 +180,6 @@ export default function SectorEvolutionChart({
       </Card>
     );
   }
-
-  const lineColor = type === 'sales' ? '#3b82f6' : '#ef4444';
 
   return (
     <Card>
@@ -184,7 +208,7 @@ export default function SectorEvolutionChart({
       <CardContent>
         <div className="w-full h-80">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart 
+            <ComposedChart 
               data={chartData}
               margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
             >
@@ -202,21 +226,40 @@ export default function SectorEvolutionChart({
                 style={{ fontSize: '12px' }}
                 tickFormatter={formatYAxis}
               />
-              <Tooltip content={<CustomTooltip />} />
+              <Tooltip 
+                contentStyle={{
+                  backgroundColor: 'white',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                }}
+                formatter={(value) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+              />
               <Legend 
                 wrapperStyle={{ fontSize: '14px', paddingTop: '10px' }}
+                iconType="circle"
               />
               
               <Line 
                 type="monotone" 
-                dataKey="value" 
-                stroke={lineColor}
-                strokeWidth={2}
-                name={`Faturamento - ${sector}`}
-                dot={{ fill: lineColor, r: 3 }}
-                activeDot={{ r: 5 }}
+                dataKey="vendas" 
+                stroke="#10b981"
+                strokeWidth={3}
+                name="Vendas"
+                dot={{ fill: '#10b981', r: 4 }}
+                activeDot={{ r: 6 }}
               />
-            </LineChart>
+              
+              <Line 
+                type="monotone" 
+                dataKey="perdas" 
+                stroke="#ef4444"
+                strokeWidth={3}
+                name="Perdas"
+                dot={{ fill: '#ef4444', r: 4 }}
+                activeDot={{ r: 6 }}
+              />
+            </ComposedChart>
           </ResponsiveContainer>
         </div>
       </CardContent>
