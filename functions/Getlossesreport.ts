@@ -32,156 +32,116 @@ Deno.serve(async (req) => {
     console.log(`💸 Relatório de Perdas: ${startDate} a ${endDate}`);
 
     // ========================================
-    // DETECTAR ESTRUTURA DA TABELA
-    // ========================================
-    
-    let tableStructure;
-    try {
-      tableStructure = await sql`
-        SELECT column_name, data_type
-        FROM information_schema.columns
-        WHERE table_name = 'perdas'
-        ORDER BY ordinal_position
-      `;
-      console.log('📋 Estrutura da tabela perdas:', tableStructure);
-    } catch (error) {
-      console.error('❌ Erro ao verificar estrutura:', error.message);
-    }
-
-    // ========================================
-    // TESTAR QUERY SIMPLES PRIMEIRO
-    // ========================================
-    
-    let testQuery;
-    try {
-      console.log('🧪 Testando query simples...');
-      testQuery = await sql`
-        SELECT * FROM perdas LIMIT 1
-      `;
-      console.log('✅ Query teste OK. Exemplo de registro:', testQuery[0]);
-    } catch (error) {
-      console.error('❌ Erro na query teste:', error.message);
-      return Response.json({ 
-        error: 'Erro ao acessar tabela perdas',
-        details: error.message
-      }, { status: 500 });
-    }
-
-    // ========================================
-    // DESCOBRIR NOMES DAS COLUNAS
-    // ========================================
-    
-    const sampleRow = testQuery[0];
-    const columns = sampleRow ? Object.keys(sampleRow) : [];
-    console.log('📊 Colunas disponíveis:', columns);
-
-    // Tentar descobrir qual coluna é qual
-    const dataColumn = columns.find(c => c.includes('data')) || 'data';
-    const valorColumn = columns.find(c => c.includes('valor')) || 'valor_reais';
-    const quantidadeColumn = columns.find(c => c.includes('quantidade')) || 'quantidade';
-    const produtoIdColumn = columns.find(c => c.includes('produto')) || 'produto_id';
-
-    console.log('🔍 Mapeamento de colunas:', {
-      data: dataColumn,
-      valor: valorColumn,
-      quantidade: quantidadeColumn,
-      produto_id: produtoIdColumn
-    });
-
-    // ========================================
-    // CONTAR REGISTROS NO PERÍODO
-    // ========================================
-    
-    let countResult;
-    try {
-      countResult = await sql`
-        SELECT COUNT(*) as total
-        FROM perdas
-        WHERE ${sql(dataColumn)} BETWEEN ${startDate} AND ${endDate}
-      `;
-      console.log(`📊 Registros no período: ${countResult[0].total}`);
-    } catch (error) {
-      console.error('❌ Erro ao contar registros:', error.message);
-    }
-
-    // ========================================
-    // QUERIES PRINCIPAIS (usando colunas detectadas)
+    // VERSÃO SUPER SIMPLES - SEM JOINS
     // ========================================
 
-    // 1. Total geral simples (SEM JOIN)
-    const totalGeral = await sql`
+    // 1. Total geral
+    console.log('🔵 Buscando total geral...');
+    const totalResult = await sql`
       SELECT 
-        SUM(${sql(valorColumn)}) as total_valor,
-        SUM(${sql(quantidadeColumn)}) as total_quantidade
+        SUM(valor_reais) as total_valor,
+        SUM(quantidade) as total_quantidade,
+        COUNT(*) as total_registros
       FROM perdas
-      WHERE ${sql(dataColumn)} BETWEEN ${startDate} AND ${endDate}
+      WHERE data >= ${startDate}::date 
+        AND data <= ${endDate}::date
     `;
-
-    console.log('💰 Total geral:', totalGeral[0]);
+    
+    console.log('✅ Total:', totalResult[0]);
+    const totalGeral = parseFloat(totalResult[0]?.total_valor || 0);
 
     // 2. Dados brutos por data
-    const rawLossesData = await sql`
+    console.log('🔵 Buscando dados por data...');
+    const rawData = await sql`
       SELECT 
-        ${sql(dataColumn)} as data,
-        SUM(${sql(valorColumn)}) as valor_reais,
-        SUM(${sql(quantidadeColumn)}) as quantidade
+        data,
+        SUM(valor_reais) as valor_reais,
+        SUM(quantidade) as quantidade
       FROM perdas
-      WHERE ${sql(dataColumn)} BETWEEN ${startDate} AND ${endDate}
-      GROUP BY ${sql(dataColumn)}
-      ORDER BY ${sql(dataColumn)}
+      WHERE data >= ${startDate}::date 
+        AND data <= ${endDate}::date
+      GROUP BY data
+      ORDER BY data
     `;
+    
+    console.log(`✅ Dados brutos: ${rawData.length} dias`);
 
-    console.log(`📈 Dados brutos: ${rawLossesData.length} dias com perdas`);
-
-    // 3. Perdas por setor (COM LEFT JOIN)
-    const lossesBySector = await sql`
+    // 3. Perdas por produto (SEM JOIN primeiro)
+    console.log('🔵 Buscando por produto...');
+    const byProduct = await sql`
       SELECT 
-        COALESCE(p.setor, 'Sem Setor') as setor,
-        SUM(pe.${sql(valorColumn)}) as total_valor,
-        SUM(pe.${sql(quantidadeColumn)}) as total_quantidade
-      FROM perdas pe
-      LEFT JOIN produtos p ON pe.${sql(produtoIdColumn)} = p.id
-      WHERE pe.${sql(dataColumn)} BETWEEN ${startDate} AND ${endDate}
-      GROUP BY p.setor
-      ORDER BY total_valor DESC
-    `;
-
-    // 4. Perdas por produto (TOP N)
-    const lossesByProduct = await sql`
-      SELECT 
-        p.id as produto_id,
-        COALESCE(p.nome, 'Produto #' || pe.${sql(produtoIdColumn)}::text) as produto_nome,
-        COALESCE(p.setor, 'Sem Setor') as setor,
-        COALESCE(p.unidade, 'un') as unidade,
-        SUM(pe.${sql(valorColumn)}) as total_valor,
-        SUM(pe.${sql(quantidadeColumn)}) as total_quantidade
-      FROM perdas pe
-      LEFT JOIN produtos p ON pe.${sql(produtoIdColumn)} = p.id
-      WHERE pe.${sql(dataColumn)} BETWEEN ${startDate} AND ${endDate}
-      GROUP BY p.id, p.nome, p.setor, p.unidade, pe.${sql(produtoIdColumn)}
+        produto_id,
+        SUM(valor_reais) as total_valor,
+        SUM(quantidade) as total_quantidade
+      FROM perdas
+      WHERE data >= ${startDate}::date 
+        AND data <= ${endDate}::date
+      GROUP BY produto_id
       ORDER BY total_valor DESC
       LIMIT ${topN}
     `;
+    
+    console.log(`✅ Por produto: ${byProduct.length} produtos`);
 
-    // 5. Perdas por setor E produto
-    const lossesBySectorProduct = await sql`
+    // 4. AGORA com JOIN para pegar nomes
+    console.log('🔵 Buscando detalhes dos produtos...');
+    const productDetails = await sql`
+      SELECT 
+        pe.produto_id,
+        p.nome as produto_nome,
+        p.setor,
+        p.unidade,
+        SUM(pe.valor_reais) as total_valor,
+        SUM(pe.quantidade) as total_quantidade
+      FROM perdas pe
+      LEFT JOIN produtos p ON pe.produto_id = p.id
+      WHERE pe.data >= ${startDate}::date 
+        AND pe.data <= ${endDate}::date
+      GROUP BY pe.produto_id, p.nome, p.setor, p.unidade
+      ORDER BY total_valor DESC
+      LIMIT ${topN}
+    `;
+    
+    console.log(`✅ Detalhes: ${productDetails.length} produtos com info`);
+
+    // 5. Por setor
+    console.log('🔵 Buscando por setor...');
+    const bySector = await sql`
       SELECT 
         COALESCE(p.setor, 'Sem Setor') as setor,
-        p.id as produto_id,
-        COALESCE(p.nome, 'Produto #' || pe.${sql(produtoIdColumn)}::text) as produto_nome,
-        COALESCE(p.unidade, 'un') as unidade,
-        SUM(pe.${sql(valorColumn)}) as total_valor,
-        SUM(pe.${sql(quantidadeColumn)}) as total_quantidade
+        SUM(pe.valor_reais) as total_valor,
+        SUM(pe.quantidade) as total_quantidade
       FROM perdas pe
-      LEFT JOIN produtos p ON pe.${sql(produtoIdColumn)} = p.id
-      WHERE pe.${sql(dataColumn)} BETWEEN ${startDate} AND ${endDate}
-      GROUP BY p.setor, p.id, p.nome, p.unidade, pe.${sql(produtoIdColumn)}
+      LEFT JOIN produtos p ON pe.produto_id = p.id
+      WHERE pe.data >= ${startDate}::date 
+        AND pe.data <= ${endDate}::date
+      GROUP BY p.setor
+      ORDER BY total_valor DESC
+    `;
+    
+    console.log(`✅ Por setor: ${bySector.length} setores`);
+
+    // 6. Por setor E produto
+    console.log('🔵 Buscando por setor e produto...');
+    const bySectorProduct = await sql`
+      SELECT 
+        COALESCE(p.setor, 'Sem Setor') as setor,
+        pe.produto_id,
+        p.nome as produto_nome,
+        p.unidade,
+        SUM(pe.valor_reais) as total_valor,
+        SUM(pe.quantidade) as total_quantidade
+      FROM perdas pe
+      LEFT JOIN produtos p ON pe.produto_id = p.id
+      WHERE pe.data >= ${startDate}::date 
+        AND pe.data <= ${endDate}::date
+      GROUP BY p.setor, pe.produto_id, p.nome, p.unidade
       ORDER BY p.setor, total_valor DESC
     `;
+    
+    console.log(`✅ Por setor+produto: ${bySectorProduct.length} items`);
 
-    const totalValue = totalGeral[0]?.total_valor ? parseFloat(totalGeral[0].total_valor) : 0;
-
-    console.log(`✅ Processado: ${lossesBySector.length} setores, ${lossesByProduct.length} produtos, Total: R$ ${totalValue.toFixed(2)}`);
+    console.log(`🎉 SUCESSO! Total: R$ ${totalGeral.toFixed(2)}`);
 
     // ========================================
     // RESPOSTA
@@ -193,55 +153,46 @@ Deno.serve(async (req) => {
         end: endDate
       },
       data: {
-        lossesBySector: lossesBySector.map(s => ({
+        lossesBySector: bySector.map(s => ({
           setor: s.setor,
           total_valor: parseFloat(s.total_valor || 0),
           total_quantidade: parseFloat(s.total_quantidade || 0)
         })),
-        lossesByProduct: lossesByProduct.map(p => ({
+        lossesByProduct: productDetails.map(p => ({
           produto_id: p.produto_id,
-          produto_nome: p.produto_nome,
-          setor: p.setor,
-          unidade: p.unidade,
+          produto_nome: p.produto_nome || `Produto #${p.produto_id}`,
+          setor: p.setor || 'Sem Setor',
+          unidade: p.unidade || 'un',
           total_valor: parseFloat(p.total_valor || 0),
           total_quantidade: parseFloat(p.total_quantidade || 0)
         })),
-        lossesBySectorProduct: lossesBySectorProduct.map(p => ({
+        lossesBySectorProduct: bySectorProduct.map(p => ({
           setor: p.setor,
           produto_id: p.produto_id,
-          produto_nome: p.produto_nome,
-          unidade: p.unidade,
+          produto_nome: p.produto_nome || `Produto #${p.produto_id}`,
+          unidade: p.unidade || 'un',
           total_valor: parseFloat(p.total_valor || 0),
           total_quantidade: parseFloat(p.total_quantidade || 0)
         })),
-        rawData: rawLossesData.map(r => ({
+        rawData: rawData.map(r => ({
           data: r.data,
           valor_reais: parseFloat(r.valor_reais || 0),
           quantidade: parseFloat(r.quantidade || 0)
         })),
-        totalGeral: totalValue
+        totalGeral: totalGeral
       },
-      compareData: null,
-      debug: {
-        columnMapping: {
-          data: dataColumn,
-          valor: valorColumn,
-          quantidade: quantidadeColumn,
-          produto_id: produtoIdColumn
-        },
-        recordsInPeriod: countResult?.[0]?.total || 0,
-        tableColumns: columns
-      }
+      compareData: null
     });
 
   } catch (error) {
-    console.error('❌ ERRO GERAL:', error.message);
+    console.error('❌ ERRO:', error.message);
     console.error('Stack:', error.stack);
+    console.error('Nome do erro:', error.name);
     
     return Response.json({ 
       error: error.message,
-      details: error.stack,
-      hint: 'Verifique os logs do console para mais detalhes sobre a estrutura da tabela'
+      errorName: error.name,
+      stack: error.stack
     }, { status: 500 });
   }
 });
