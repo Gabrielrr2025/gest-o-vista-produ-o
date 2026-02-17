@@ -131,7 +131,7 @@ export default function Reports() {
     queryFn: async () => {
       try {
         console.log('🔴 Buscando perdas...');
-        const response = await base44.functions.invoke('getLossesReport', apiParams);
+        const response = await base44.functions.invoke('Getlossesreport', apiParams);
         console.log('✅ Perdas recebidas:', response.data?.data?.totalGeral);
         console.log('📦 Dados de perdas:', response.data?.data);
         return response.data;
@@ -180,7 +180,7 @@ export default function Reports() {
     queryKey: ['lossesReportYear', yearParams],
     queryFn: async () => {
       try {
-        const response = await base44.functions.invoke('getLossesReport', yearParams);
+        const response = await base44.functions.invoke('Getlossesreport', yearParams);
         return response.data;
       } catch (error) {
         console.warn('⚠️ Erro ao buscar perdas (ano):', error);
