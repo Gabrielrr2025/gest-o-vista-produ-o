@@ -14,8 +14,6 @@ Deno.serve(async (req) => {
     const { 
       startDate, 
       endDate,
-      compareStartDate = null,
-      compareEndDate = null,
       topN = 10
     } = body;
 
@@ -33,113 +31,65 @@ Deno.serve(async (req) => {
 
     console.log(`💸 Relatório de Perdas: ${startDate} a ${endDate}`);
 
+    // DEBUG: Verificar se há dados no período
+    const debugCount = await sql`
+      SELECT COUNT(*) as total
+      FROM perdas
+      WHERE data BETWEEN ${startDate} AND ${endDate}
+    `;
+    console.log(`📊 Debug: ${debugCount[0].total} registros de perdas encontrados no período`);
+
     // ========================================
-    // PERÍODO PRINCIPAL
+    // QUERIES SIMPLIFICADAS
     // ========================================
 
-    // Perdas por setor (agregado)
+    // 1. Perdas por setor (com LEFT JOIN para evitar erro)
     const lossesBySector = await sql`
       SELECT 
-        p.setor,
+        COALESCE(p.setor, 'Sem Setor') as setor,
         SUM(pe.valor_reais) as total_valor,
         SUM(pe.quantidade) as total_quantidade
       FROM perdas pe
-      JOIN produtos p ON pe.produto_id = p.id
+      LEFT JOIN produtos p ON pe.produto_id = p.id
       WHERE pe.data BETWEEN ${startDate} AND ${endDate}
       GROUP BY p.setor
       ORDER BY total_valor DESC
     `;
 
-    // Vendas por setor (para calcular taxa de perda)
-    const salesBySector = await sql`
-      SELECT 
-        p.setor,
-        SUM(v.valor_reais) as total_valor
-      FROM vendas v
-      JOIN produtos p ON v.produto_id = p.id
-      WHERE v.data BETWEEN ${startDate} AND ${endDate}
-      GROUP BY p.setor
-    `;
-
-    // Enriquecer perdas com taxa
-    const lossesBySectorWithRate = lossesBySector.map(loss => {
-      const sales = salesBySector.find(s => s.setor === loss.setor);
-      const salesValue = sales ? parseFloat(sales.total_valor) : 0;
-      const lossValue = parseFloat(loss.total_valor);
-      const lossRate = salesValue > 0 ? (lossValue / salesValue) * 100 : 0;
-
-      return {
-        setor: loss.setor,
-        total_valor: lossValue,
-        total_quantidade: parseFloat(loss.total_quantidade),
-        total_vendas: salesValue,
-        taxa_perda: lossRate
-      };
-    });
-
-    // Perdas por produto (TOP N)
+    // 2. Perdas por produto (TOP N)
     const lossesByProduct = await sql`
       SELECT 
         p.id as produto_id,
-        p.nome as produto_nome,
-        p.setor,
-        p.unidade,
+        COALESCE(p.nome, 'Produto #' || pe.produto_id::text) as produto_nome,
+        COALESCE(p.setor, 'Sem Setor') as setor,
+        COALESCE(p.unidade, 'un') as unidade,
         SUM(pe.valor_reais) as total_valor,
         SUM(pe.quantidade) as total_quantidade
       FROM perdas pe
-      JOIN produtos p ON pe.produto_id = p.id
+      LEFT JOIN produtos p ON pe.produto_id = p.id
       WHERE pe.data BETWEEN ${startDate} AND ${endDate}
-      GROUP BY p.id, p.nome, p.setor, p.unidade
+      GROUP BY p.id, p.nome, p.setor, p.unidade, pe.produto_id
       ORDER BY total_valor DESC
       LIMIT ${topN}
     `;
 
-    // Vendas dos mesmos produtos (para taxa de perda)
-    const salesByProduct = await sql`
-      SELECT 
-        v.produto_id,
-        SUM(v.valor_reais) as total_valor
-      FROM vendas v
-      WHERE v.data BETWEEN ${startDate} AND ${endDate}
-      GROUP BY v.produto_id
-    `;
-
-    // Enriquecer produtos com taxa
-    const lossesByProductWithRate = lossesByProduct.map(loss => {
-      const sales = salesByProduct.find(s => s.produto_id === loss.produto_id);
-      const salesValue = sales ? parseFloat(sales.total_valor) : 0;
-      const lossValue = parseFloat(loss.total_valor);
-      const lossRate = salesValue > 0 ? (lossValue / salesValue) * 100 : 0;
-
-      return {
-        produto_id: loss.produto_id,
-        produto_nome: loss.produto_nome,
-        setor: loss.setor,
-        unidade: loss.unidade,
-        total_valor: lossValue,
-        total_quantidade: parseFloat(loss.total_quantidade),
-        total_vendas: salesValue,
-        taxa_perda: lossRate
-      };
-    });
-
-    // Perdas por setor E produto (para drill-down)
+    // 3. Perdas por setor E produto (para drill-down)
     const lossesBySectorProduct = await sql`
       SELECT 
-        p.setor,
+        COALESCE(p.setor, 'Sem Setor') as setor,
         p.id as produto_id,
-        p.nome as produto_nome,
-        p.unidade,
+        COALESCE(p.nome, 'Produto #' || pe.produto_id::text) as produto_nome,
+        COALESCE(p.unidade, 'un') as unidade,
         SUM(pe.valor_reais) as total_valor,
         SUM(pe.quantidade) as total_quantidade
       FROM perdas pe
-      JOIN produtos p ON pe.produto_id = p.id
+      LEFT JOIN produtos p ON pe.produto_id = p.id
       WHERE pe.data BETWEEN ${startDate} AND ${endDate}
-      GROUP BY p.setor, p.id, p.nome, p.unidade
+      GROUP BY p.setor, p.id, p.nome, p.unidade, pe.produto_id
       ORDER BY p.setor, total_valor DESC
     `;
 
-    // Dados brutos (para gráficos) - CORRIGIDO: agregando por data
+    // 4. Dados brutos agregados por data (CORRIGIDO)
     const rawLossesData = await sql`
       SELECT 
         pe.data,
@@ -151,71 +101,10 @@ Deno.serve(async (req) => {
       ORDER BY pe.data
     `;
 
-    const totalGeral = lossesBySector.reduce((sum, s) => sum + parseFloat(s.total_valor), 0);
+    // 5. Total geral
+    const totalGeral = lossesBySector.reduce((sum, s) => sum + parseFloat(s.total_valor || 0), 0);
 
-    console.log(`✅ ${lossesBySector.length} setores, ${lossesByProduct.length} produtos`);
-
-    // ========================================
-    // PERÍODO DE COMPARAÇÃO
-    // ========================================
-
-    let compareData = null;
-
-    if (compareStartDate && compareEndDate) {
-      console.log(`💸 Comparação: ${compareStartDate} a ${compareEndDate}`);
-
-      const compareLossesBySector = await sql`
-        SELECT 
-          p.setor,
-          SUM(pe.valor_reais) as total_valor
-        FROM perdas pe
-        JOIN produtos p ON pe.produto_id = p.id
-        WHERE pe.data BETWEEN ${compareStartDate} AND ${compareEndDate}
-        GROUP BY p.setor
-      `;
-
-      const compareSalesBySector = await sql`
-        SELECT 
-          p.setor,
-          SUM(v.valor_reais) as total_valor
-        FROM vendas v
-        JOIN produtos p ON v.produto_id = p.id
-        WHERE v.data BETWEEN ${compareStartDate} AND ${compareEndDate}
-        GROUP BY p.setor
-      `;
-
-      const compareLossesBySectorWithRate = compareLossesBySector.map(loss => {
-        const sales = compareSalesBySector.find(s => s.setor === loss.setor);
-        const salesValue = sales ? parseFloat(sales.total_valor) : 0;
-        const lossValue = parseFloat(loss.total_valor);
-        const lossRate = salesValue > 0 ? (lossValue / salesValue) * 100 : 0;
-
-        return {
-          setor: loss.setor,
-          total_valor: lossValue,
-          total_vendas: salesValue,
-          taxa_perda: lossRate
-        };
-      });
-
-      const compareLossesByProduct = await sql`
-        SELECT 
-          p.id as produto_id,
-          SUM(pe.valor_reais) as total_valor
-        FROM perdas pe
-        JOIN produtos p ON pe.produto_id = p.id
-        WHERE pe.data BETWEEN ${compareStartDate} AND ${compareEndDate}
-        GROUP BY p.id
-      `;
-
-      const compareTotalGeral = compareLossesBySector.reduce((sum, s) => sum + parseFloat(s.total_valor), 0);
-
-      compareData = {
-        lossesBySector: compareLossesBySectorWithRate,
-        lossesByProduct: compareLossesByProduct,
-        totalGeral: compareTotalGeral
-      };
-    }
+    console.log(`✅ Perdas processadas: ${lossesBySector.length} setores, ${lossesByProduct.length} produtos, Total: R$ ${totalGeral.toFixed(2)}`);
 
     // ========================================
     // RESPOSTA
@@ -226,27 +115,46 @@ Deno.serve(async (req) => {
         start: startDate,
         end: endDate
       },
-      comparePeriod: compareStartDate ? {
-        start: compareStartDate,
-        end: compareEndDate
-      } : null,
       data: {
-        lossesBySector: lossesBySectorWithRate,
-        lossesByProduct: lossesByProductWithRate,
-        lossesBySectorProduct,
-        rawData: rawLossesData,
+        lossesBySector: lossesBySector.map(s => ({
+          setor: s.setor,
+          total_valor: parseFloat(s.total_valor || 0),
+          total_quantidade: parseFloat(s.total_quantidade || 0)
+        })),
+        lossesByProduct: lossesByProduct.map(p => ({
+          produto_id: p.produto_id,
+          produto_nome: p.produto_nome,
+          setor: p.setor,
+          unidade: p.unidade,
+          total_valor: parseFloat(p.total_valor || 0),
+          total_quantidade: parseFloat(p.total_quantidade || 0)
+        })),
+        lossesBySectorProduct: lossesBySectorProduct.map(p => ({
+          setor: p.setor,
+          produto_id: p.produto_id,
+          produto_nome: p.produto_nome,
+          unidade: p.unidade,
+          total_valor: parseFloat(p.total_valor || 0),
+          total_quantidade: parseFloat(p.total_quantidade || 0)
+        })),
+        rawData: rawLossesData.map(r => ({
+          data: r.data,
+          valor_reais: parseFloat(r.valor_reais || 0),
+          quantidade: parseFloat(r.quantidade || 0)
+        })),
         totalGeral
       },
-      compareData
+      compareData: null // Simplificado - sem comparação por enquanto
     });
 
   } catch (error) {
-    console.error('❌ ERRO:', error.message);
+    console.error('❌ ERRO getLossesReport:', error.message);
     console.error('Stack:', error.stack);
     
     return Response.json({ 
       error: error.message,
-      stack: error.stack
+      details: error.stack,
+      hint: 'Verifique se: 1) A tabela perdas existe, 2) Os produto_id existem na tabela produtos, 3) As colunas data, valor_reais, quantidade existem'
     }, { status: 500 });
   }
 });
