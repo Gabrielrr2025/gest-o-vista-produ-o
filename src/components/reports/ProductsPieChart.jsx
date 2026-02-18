@@ -152,11 +152,11 @@ export default function ProductsPieChart({
             <PieChart>
               <Pie
                 data={chartData}
-                cx="50%"
+                cx="35%"
                 cy="50%"
                 labelLine={false}
                 label={renderLabel}
-                outerRadius={100}
+                outerRadius={90}
                 fill="#8884d8"
                 dataKey="value"
               >
@@ -166,17 +166,23 @@ export default function ProductsPieChart({
               </Pie>
               <Tooltip content={<CustomTooltip />} />
               <Legend 
-                verticalAlign="bottom" 
-                height={36}
+                layout="vertical"
+                verticalAlign="middle" 
+                align="right"
+                iconSize={12}
+                wrapperStyle={{
+                  fontSize: '14px',
+                  paddingLeft: '20px'
+                }}
                 formatter={(value, entry) => {
                   const isOthers = value === 'Outros';
                   const otherCount = entry.payload.products?.length || 0;
                   
                   return (
-                    <span className="text-sm">
+                    <span className="text-sm font-medium">
                       {value}
                       {isOthers && otherCount > 0 && ` (${otherCount})`}: 
-                      R$ {entry.payload.value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      <span className="font-bold"> R$ {(entry.payload.value / 1000).toFixed(1)}k</span>
                     </span>
                   );
                 }}
