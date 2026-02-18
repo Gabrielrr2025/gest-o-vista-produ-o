@@ -155,7 +155,7 @@ export default function Layout({ children, currentPageName }) {
 
           {/* Navigation */}
           <TooltipProvider delayDuration={300}>
-            <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+            <nav className="flex-1 p-4 space-y-2 overflow-y-auto scrollbar-thin">
               {navigation.map((item) => {
                 if (currentUser && currentUser.role !== 'admin') {
                   const permissions = currentUser.permissions || {};
@@ -183,7 +183,7 @@ export default function Layout({ children, currentPageName }) {
                     onClick={() => setSidebarOpen(false)}
                     className={`
                       group flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-medium
-                      transition-all duration-300 relative overflow-hidden
+                      transition-all duration-200 relative overflow-hidden
                       ${sidebarMinimized ? 'justify-center' : ''}
                       ${isActive 
                         ? 'bg-gradient-to-r from-[hsl(var(--accent-neon))] to-[hsl(var(--accent-purple))] text-[hsl(var(--bg-void))] shadow-lg glow-cyan' 
@@ -193,12 +193,12 @@ export default function Layout({ children, currentPageName }) {
                   >
                     {/* Hover effect background */}
                     {!isActive && (
-                      <div className="absolute inset-0 bg-gradient-to-r from-[hsl(var(--accent-neon))]/10 to-[hsl(var(--accent-purple))]/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                      <div className="absolute inset-0 bg-gradient-to-r from-[hsl(var(--accent-neon))]/10 to-[hsl(var(--accent-purple))]/10 opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
                     )}
                     
                     <item.icon className={`w-5 h-5 flex-shrink-0 relative z-10 ${isActive ? 'animate-pulse' : ''}`} strokeWidth={2} />
                     {!sidebarMinimized && (
-                      <span className="transition-opacity duration-300 relative z-10">{item.name}</span>
+                      <span className="transition-opacity duration-200 relative z-10 whitespace-nowrap">{item.name}</span>
                     )}
                     
                     {/* Active indicator */}
@@ -208,6 +208,7 @@ export default function Layout({ children, currentPageName }) {
                   </Link>
                 );
 
+                // Só mostra tooltip quando minimizado
                 return sidebarMinimized ? (
                   <Tooltip key={item.page}>
                     <TooltipTrigger asChild>
@@ -215,7 +216,8 @@ export default function Layout({ children, currentPageName }) {
                     </TooltipTrigger>
                     <TooltipContent 
                       side="right" 
-                      className="glass-strong text-[hsl(var(--text-primary))] border-[hsl(var(--border-medium))]"
+                      sideOffset={10}
+                      className="glass-strong text-[hsl(var(--text-primary))] border-[hsl(var(--border-medium))] z-[60]"
                     >
                       {item.name}
                     </TooltipContent>
