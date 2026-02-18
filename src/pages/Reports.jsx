@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { FileSpreadsheet, TrendingUp, TrendingDown, AlertCircle, AlertTriangle, FileText } from "lucide-react";
+import { FileSpreadsheet, TrendingUp, TrendingDown, AlertCircle, AlertTriangle } from "lucide-react";
 import { format, subYears, subMonths, startOfMonth, endOfMonth, startOfYear, endOfYear, parseISO, getHours, getDay, getWeek } from "date-fns";
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
