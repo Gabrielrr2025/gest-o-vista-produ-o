@@ -260,15 +260,27 @@ export default function Reports() {
   const monthlyChartData = useMemo(() => {
     const yearSales = yearSalesQuery.data?.data?.rawData || [];
     const yearLosses = yearLossesQuery.data?.data?.rawData || [];
+    
+    // Dados do ano de comparação (se habilitado)
+    const compareYearSales = compareYearsEnabled ? (compareYearSalesQuery.data?.data?.rawData || []) : [];
+    const compareYearLosses = compareYearsEnabled ? (compareYearLossesQuery.data?.data?.rawData || []) : [];
+    
     if (yearSales.length === 0) return [];
 
     const monthlyData = new Map();
     const monthOrder = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
     monthOrder.forEach(month => {
-      monthlyData.set(month, { month, sales: 0, losses: 0 });
+      monthlyData.set(month, { 
+        month, 
+        sales: 0, 
+        losses: 0,
+        compareSales: 0,
+        compareLosses: 0
+      });
     });
 
+    // Processar vendas do ano atual
     yearSales.forEach(row => {
       const date = new Date(row.data);
       const monthIndex = date.getMonth();
@@ -276,6 +288,7 @@ export default function Reports() {
       monthlyData.get(month).sales += parseFloat(row.valor_reais || 0);
     });
 
+    // Processar perdas do ano atual
     yearLosses.forEach(row => {
       const date = new Date(row.data);
       const monthIndex = date.getMonth();
@@ -283,13 +296,32 @@ export default function Reports() {
       monthlyData.get(month).losses += parseFloat(row.valor_reais || 0);
     });
 
+    // Processar vendas do ano de comparação
+    if (compareYearsEnabled) {
+      compareYearSales.forEach(row => {
+        const date = new Date(row.data);
+        const monthIndex = date.getMonth();
+        const month = monthOrder[monthIndex];
+        monthlyData.get(month).compareSales += parseFloat(row.valor_reais || 0);
+      });
+
+      compareYearLosses.forEach(row => {
+        const date = new Date(row.data);
+        const monthIndex = date.getMonth();
+        const month = monthOrder[monthIndex];
+        monthlyData.get(month).compareLosses += parseFloat(row.valor_reais || 0);
+      });
+    }
+
+    // Calcular % de perda
     const result = Array.from(monthlyData.values()).map(item => ({
       ...item,
-      lossRate: item.sales > 0 ? (item.losses / item.sales) * 100 : 0
+      lossRate: item.sales > 0 ? (item.losses / item.sales) * 100 : 0,
+      compareLossRate: item.compareSales > 0 ? (item.compareLosses / item.compareSales) * 100 : 0
     }));
 
     return result;
-  }, [yearSalesQuery.data, yearLossesQuery.data]);
+  }, [yearSalesQuery.data, yearLossesQuery.data, compareYearsEnabled, compareYearSalesQuery.data, compareYearLossesQuery.data]);
 
   const sectorsWithLosses = useMemo(() => {
     if (!salesData?.salesBySector) return [];
@@ -731,10 +763,18 @@ export default function Reports() {
           <CardContent className="pt-6">
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-slate-900 mb-2">
-                Faturamento Mensal vs Perdas - Ano {selectedYear}
+                Faturamento Mensal vs Perdas - {selectedYear}
+                {compareYearsEnabled && (
+                  <span className="text-lg font-normal text-slate-600 ml-2">
+                    comparado com {compareYear}
+                  </span>
+                )}
               </h2>
               <p className="text-sm text-slate-600">
-                Visão completa do ano • Clique nos meses para detalhar
+                {compareYearsEnabled 
+                  ? `Comparação ${selectedYear} vs ${compareYear} • Clique nos meses para detalhar`
+                  : 'Visão completa do ano • Clique nos meses para detalhar'
+                }
               </p>
             </div>
             
@@ -748,6 +788,14 @@ export default function Reports() {
                   <linearGradient id="colorLosses" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8}/>
                     <stop offset="95%" stopColor="#ef4444" stopOpacity={0.3}/>
+                  </linearGradient>
+                  <linearGradient id="colorCompareSales" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.4}/>
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.15}/>
+                  </linearGradient>
+                  <linearGradient id="colorCompareLosses" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.4}/>
+                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0.15}/>
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -779,17 +827,23 @@ export default function Reports() {
                     borderRadius: '8px',
                     boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                   }}
-                  formatter={(value, name) => {
-                    if (name === 'lossRate' || name === '% Perda') {
+                  formatter={(value, name, props) => {
+                    // Formatação de % de perda
+                    if (props.dataKey === 'lossRate') {
                       return [`${value.toFixed(1)}%`, '% Perda'];
                     }
+                    
+                    // Formatação em reais
                     const formatted = `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-                    if (name === 'sales' || name === 'Faturamento') {
+                    
+                    // Identificar pelo dataKey
+                    if (props.dataKey === 'sales') {
                       return [formatted, 'Faturamento'];
                     }
-                    if (name === 'losses' || name === 'Perdas') {
+                    if (props.dataKey === 'losses') {
                       return [formatted, 'Perdas'];
                     }
+                    
                     return [formatted, name];
                   }}
                   labelStyle={{ fontWeight: 'bold', marginBottom: '8px' }}
@@ -798,10 +852,36 @@ export default function Reports() {
                   wrapperStyle={{ paddingTop: '20px' }}
                   iconType="circle"
                 />
+                
+                {/* Barras do ano de comparação (se ativo) */}
+                {compareYearsEnabled && (
+                  <>
+                    <Bar 
+                      yAxisId="left"
+                      dataKey="compareSales" 
+                      name={`Faturamento ${compareYear}`}
+                      fill="url(#colorCompareSales)"
+                      radius={[8, 8, 0, 0]}
+                      maxBarSize={60}
+                    />
+                    {hasLossesData && (
+                      <Bar 
+                        yAxisId="left"
+                        dataKey="compareLosses" 
+                        name={`Perdas ${compareYear}`}
+                        fill="url(#colorCompareLosses)"
+                        radius={[8, 8, 0, 0]}
+                        maxBarSize={60}
+                      />
+                    )}
+                  </>
+                )}
+                
+                {/* Barras do ano atual */}
                 <Bar 
                   yAxisId="left"
                   dataKey="sales" 
-                  name="Faturamento" 
+                  name={`Faturamento ${selectedYear}`}
                   fill="url(#colorSales)"
                   radius={[8, 8, 0, 0]}
                   maxBarSize={60}
@@ -811,7 +891,7 @@ export default function Reports() {
                     <Bar 
                       yAxisId="left"
                       dataKey="losses" 
-                      name="Perdas" 
+                      name={`Perdas ${selectedYear}`}
                       fill="url(#colorLosses)"
                       radius={[8, 8, 0, 0]}
                       maxBarSize={60}
@@ -820,7 +900,7 @@ export default function Reports() {
                       yAxisId="right"
                       type="monotone" 
                       dataKey="lossRate" 
-                      name="% Perda" 
+                      name={`% Perda ${selectedYear}`}
                       stroke="#f59e0b" 
                       strokeWidth={3}
                       dot={{ fill: '#f59e0b', r: 5, strokeWidth: 2, stroke: '#fff' }}
