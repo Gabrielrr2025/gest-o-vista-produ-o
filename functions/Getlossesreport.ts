@@ -35,111 +35,56 @@ Deno.serve(async (req) => {
     // VERSÃO SUPER SIMPLES - SEM JOINS
     // ========================================
 
-    // 1. Total geral
-    console.log('🔵 Buscando total geral...');
-    const totalResult = await sql`
-      SELECT 
-        SUM(valor_reais) as total_valor,
-        SUM(quantidade) as total_quantidade,
-        COUNT(*) as total_registros
-      FROM perdas
-      WHERE data >= ${startDate}::date 
-        AND data <= ${endDate}::date
-    `;
-    
-    console.log('✅ Total:', totalResult[0]);
+    // Executar todas as queries em paralelo
+    const [totalResult, rawData, productDetails, bySector, bySectorProduct] = await Promise.all([
+      sql`
+        SELECT SUM(valor_reais) as total_valor
+        FROM perdas
+        WHERE data >= ${startDate}::date AND data <= ${endDate}::date
+      `,
+      sql`
+        SELECT data, SUM(valor_reais) as valor_reais, SUM(quantidade) as quantidade
+        FROM perdas
+        WHERE data >= ${startDate}::date AND data <= ${endDate}::date
+        GROUP BY data
+        ORDER BY data
+      `,
+      sql`
+        SELECT 
+          pe.produto_id, p.nome as produto_nome, p.setor, p.unidade,
+          SUM(pe.valor_reais) as total_valor, SUM(pe.quantidade) as total_quantidade
+        FROM perdas pe
+        LEFT JOIN produtos p ON pe.produto_id = p.id
+        WHERE pe.data >= ${startDate}::date AND pe.data <= ${endDate}::date
+        GROUP BY pe.produto_id, p.nome, p.setor, p.unidade
+        ORDER BY total_valor DESC
+        LIMIT ${topN}
+      `,
+      sql`
+        SELECT 
+          COALESCE(p.setor, 'Sem Setor') as setor,
+          SUM(pe.valor_reais) as total_valor, SUM(pe.quantidade) as total_quantidade
+        FROM perdas pe
+        LEFT JOIN produtos p ON pe.produto_id = p.id
+        WHERE pe.data >= ${startDate}::date AND pe.data <= ${endDate}::date
+        GROUP BY p.setor
+        ORDER BY total_valor DESC
+      `,
+      sql`
+        SELECT 
+          COALESCE(p.setor, 'Sem Setor') as setor, pe.produto_id,
+          p.nome as produto_nome, p.unidade,
+          SUM(pe.valor_reais) as total_valor, SUM(pe.quantidade) as total_quantidade
+        FROM perdas pe
+        LEFT JOIN produtos p ON pe.produto_id = p.id
+        WHERE pe.data >= ${startDate}::date AND pe.data <= ${endDate}::date
+        GROUP BY p.setor, pe.produto_id, p.nome, p.unidade
+        ORDER BY p.setor, total_valor DESC
+      `
+    ]);
+
     const totalGeral = parseFloat(totalResult[0]?.total_valor || 0);
-
-    // 2. Dados brutos por data
-    console.log('🔵 Buscando dados por data...');
-    const rawData = await sql`
-      SELECT 
-        data,
-        SUM(valor_reais) as valor_reais,
-        SUM(quantidade) as quantidade
-      FROM perdas
-      WHERE data >= ${startDate}::date 
-        AND data <= ${endDate}::date
-      GROUP BY data
-      ORDER BY data
-    `;
-    
-    console.log(`✅ Dados brutos: ${rawData.length} dias`);
-
-    // 3. Perdas por produto (SEM JOIN primeiro)
-    console.log('🔵 Buscando por produto...');
-    const byProduct = await sql`
-      SELECT 
-        produto_id,
-        SUM(valor_reais) as total_valor,
-        SUM(quantidade) as total_quantidade
-      FROM perdas
-      WHERE data >= ${startDate}::date 
-        AND data <= ${endDate}::date
-      GROUP BY produto_id
-      ORDER BY total_valor DESC
-      LIMIT ${topN}
-    `;
-    
-    console.log(`✅ Por produto: ${byProduct.length} produtos`);
-
-    // 4. AGORA com JOIN para pegar nomes
-    console.log('🔵 Buscando detalhes dos produtos...');
-    const productDetails = await sql`
-      SELECT 
-        pe.produto_id,
-        p.nome as produto_nome,
-        p.setor,
-        p.unidade,
-        SUM(pe.valor_reais) as total_valor,
-        SUM(pe.quantidade) as total_quantidade
-      FROM perdas pe
-      LEFT JOIN produtos p ON pe.produto_id = p.id
-      WHERE pe.data >= ${startDate}::date 
-        AND pe.data <= ${endDate}::date
-      GROUP BY pe.produto_id, p.nome, p.setor, p.unidade
-      ORDER BY total_valor DESC
-      LIMIT ${topN}
-    `;
-    
-    console.log(`✅ Detalhes: ${productDetails.length} produtos com info`);
-
-    // 5. Por setor
-    console.log('🔵 Buscando por setor...');
-    const bySector = await sql`
-      SELECT 
-        COALESCE(p.setor, 'Sem Setor') as setor,
-        SUM(pe.valor_reais) as total_valor,
-        SUM(pe.quantidade) as total_quantidade
-      FROM perdas pe
-      LEFT JOIN produtos p ON pe.produto_id = p.id
-      WHERE pe.data >= ${startDate}::date 
-        AND pe.data <= ${endDate}::date
-      GROUP BY p.setor
-      ORDER BY total_valor DESC
-    `;
-    
-    console.log(`✅ Por setor: ${bySector.length} setores`);
-
-    // 6. Por setor E produto
-    console.log('🔵 Buscando por setor e produto...');
-    const bySectorProduct = await sql`
-      SELECT 
-        COALESCE(p.setor, 'Sem Setor') as setor,
-        pe.produto_id,
-        p.nome as produto_nome,
-        p.unidade,
-        SUM(pe.valor_reais) as total_valor,
-        SUM(pe.quantidade) as total_quantidade
-      FROM perdas pe
-      LEFT JOIN produtos p ON pe.produto_id = p.id
-      WHERE pe.data >= ${startDate}::date 
-        AND pe.data <= ${endDate}::date
-      GROUP BY p.setor, pe.produto_id, p.nome, p.unidade
-      ORDER BY p.setor, total_valor DESC
-    `;
-    
-    console.log(`✅ Por setor+produto: ${bySectorProduct.length} items`);
+    console.log(`✅ Queries paralelas concluídas. Total: R$ ${totalGeral.toFixed(2)}`);
 
     console.log(`🎉 SUCESSO! Total: R$ ${totalGeral.toFixed(2)}`);
 
