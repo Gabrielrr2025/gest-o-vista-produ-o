@@ -21,7 +21,6 @@ const LayoutWrapper = ({ children, currentPageName }) => Layout ?
 // Componente que redireciona para a primeira página permitida
 const SmartRedirect = () => {
   const [redirectPath, setRedirectPath] = useState(null);
-  const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
     const checkPermissions = async () => {
@@ -31,7 +30,6 @@ const SmartRedirect = () => {
         // Se é admin, vai para Dashboard
         if (user.role === 'admin') {
           setRedirectPath('/Dashboard');
-          setIsChecking(false);
           return;
         }
 
@@ -56,25 +54,22 @@ const SmartRedirect = () => {
           const permKey = pagePermissionMap[page];
           if (permissions[permKey]) {
             setRedirectPath(`/${page}`);
-            setIsChecking(false);
             return;
           }
         }
 
         // Se não tem nenhuma permissão, vai para Products (padrão)
         setRedirectPath('/Products');
-        setIsChecking(false);
       } catch (error) {
         console.error('Erro ao verificar permissões:', error);
         setRedirectPath('/Dashboard');
-        setIsChecking(false);
       }
     };
 
     checkPermissions();
-  }, []);
+  }, []); // Array vazio - só executa uma vez
 
-  if (isChecking) {
+  if (!redirectPath) {
     return (
       <div className="fixed inset-0 flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
