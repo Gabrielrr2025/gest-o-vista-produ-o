@@ -893,24 +893,99 @@ export default function Planning() {
 
                   {/* Sugestão */}
                   <div className="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
-                    <div className="flex items-start gap-2">
-                      <Lightbulb className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                      <div className="flex-1">
-                        <span className="text-xs font-semibold text-blue-700 block mb-1">
-                          Sugestão de Produção
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-1.5">
+                        <Lightbulb className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                        <span className="text-xs font-semibold text-blue-700">Sugestão de Produção</span>
+                      </div>
+                      {/* Badge de confiança */}
+                      {selectedProduct.confianca && (
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${
+                          selectedProduct.confianca === 'alta'      ? 'bg-green-100 text-green-700' :
+                          selectedProduct.confianca === 'media'     ? 'bg-yellow-100 text-yellow-700' :
+                          selectedProduct.confianca === 'baixa'     ? 'bg-orange-100 text-orange-700' :
+                          'bg-slate-200 text-slate-600'
+                        }`}>
+                          {selectedProduct.confianca === 'sem_dados' ? 'Sem histórico' : `Confiança ${selectedProduct.confianca_label ?? selectedProduct.confianca}`}
                         </span>
-                        <span className="text-sm font-medium text-blue-900 block mb-1">
-                          {selectedProduct.suggestion}
-                        </span>
-                        <div className="text-xs text-blue-700 space-y-0.5">
-                          <div>Total semanal: <span className="font-bold">{selectedProduct.suggested_production} {selectedProduct.unidade}</span></div>
-                          <div>Por dia: <span className="font-bold">{Math.ceil(selectedProduct.suggested_production / 7)} {selectedProduct.unidade}</span></div>
+                      )}
+                    </div>
+
+                    <p className="text-xs text-blue-800 mb-2 leading-relaxed">
+                      {selectedProduct.suggestion}
+                    </p>
+
+                    <div className="text-xs text-blue-700 font-bold mb-2">
+                      Total sugerido: {selectedProduct.suggested_production} {selectedProduct.unidade}/semana
+                    </div>
+
+                    {/* Detalhes do cálculo */}
+                    {selectedProduct.calc_details && selectedProduct.semanas_com_dados > 0 && (
+                      <div className="mt-2 pt-2 border-t border-blue-200 text-xs text-blue-700 space-y-1">
+                        <p className="font-semibold text-blue-800">Detalhes do cálculo:</p>
+
+                        {/* Passo A */}
+                        <div className="space-y-0.5">
+                          <p className="opacity-70 font-medium">A — Venda prevista</p>
+                          <div className="flex justify-between">
+                            <span>Méd. recência ({selectedProduct.semanas_com_dados} sem.):</span>
+                            <span className="font-medium">{selectedProduct.calc_details.media_recencia} {selectedProduct.unidade}</span>
+                          </div>
+                          {selectedProduct.tem_ano_anterior && (
+                            <div className="flex justify-between">
+                              <span>Mesmo período ano ant.:</span>
+                              <span className="font-medium">{selectedProduct.calc_details.media_ano_anterior} {selectedProduct.unidade}</span>
+                            </div>
+                          )}
+                          {selectedProduct.calc_details.media_base12m > 0 && (
+                            <div className="flex justify-between">
+                              <span>Base 12 meses:</span>
+                              <span className="font-medium">{selectedProduct.calc_details.media_base12m} {selectedProduct.unidade}</span>
+                            </div>
+                          )}
+                          {selectedProduct.calc_details.pesos && (
+                            <div className="flex justify-between opacity-60">
+                              <span>Pesos usados:</span>
+                              <span>
+                                {selectedProduct.calc_details.pesos.rec}% rec.
+                                {selectedProduct.calc_details.pesos.ano > 0 ? ` · ${selectedProduct.calc_details.pesos.ano}% ano ant.` : ''}
+                                {selectedProduct.calc_details.pesos.base > 0 ? ` · ${selectedProduct.calc_details.pesos.base}% 12m` : ''}
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex justify-between font-semibold">
+                            <span>→ Venda prevista:</span>
+                            <span>{selectedProduct.calc_details.venda_prevista} {selectedProduct.unidade}</span>
+                          </div>
+                        </div>
+
+                        {/* Passo B */}
+                        <div className="space-y-0.5 pt-1">
+                          <p className="opacity-70 font-medium">B — Taxa de perda</p>
+                          <div className="flex justify-between">
+                            <span>Taxa (mediana histórica):</span>
+                            <span className="font-medium">{selectedProduct.calc_details.taxa_perda_pct}%</span>
+                          </div>
+                        </div>
+
+                        {/* Passo C */}
+                        <div className="space-y-0.5 pt-1">
+                          <p className="opacity-70 font-medium">C — Produção final</p>
+                          <div className="flex justify-between">
+                            <span>Prod. base (÷ 1−taxa):</span>
+                            <span className="font-medium">{selectedProduct.calc_details.prod_base} {selectedProduct.unidade}</span>
+                          </div>
+                          <div className="flex justify-between font-bold">
+                            <span>+ Buffer {selectedProduct.calc_details.buffer_pct}%:</span>
+                            <span>{selectedProduct.suggested_production} {selectedProduct.unidade}</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <Button 
-                      size="sm" 
-                      className="w-full mt-2 bg-blue-600 hover:bg-blue-700"
+                    )}
+
+                    <Button
+                      size="sm"
+                      className="w-full mt-3 bg-blue-600 hover:bg-blue-700"
                       onClick={handleApplySuggestion}
                     >
                       Aplicar Sugestão
