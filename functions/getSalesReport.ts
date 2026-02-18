@@ -37,66 +37,61 @@ Deno.serve(async (req) => {
     // PERÍODO PRINCIPAL
     // ========================================
 
-    // Vendas por setor (agregado)
-    const salesBySector = await sql`
-      SELECT 
-        p.setor,
-        SUM(v.valor_reais) as total_valor,
-        SUM(v.quantidade) as total_quantidade,
-        COUNT(DISTINCT p.id) as total_produtos
-      FROM vendas v
-      JOIN produtos p ON v.produto_id = p.id
-      WHERE v.data BETWEEN ${startDate} AND ${endDate}
-      GROUP BY p.setor
-      ORDER BY total_valor DESC
-    `;
+    // Executar todas as queries em paralelo
+    const [salesBySector, salesByProduct, salesBySectorProduct, rawSalesData] = await Promise.all([
+      sql`
+        SELECT 
+          p.setor,
+          SUM(v.valor_reais) as total_valor,
+          SUM(v.quantidade) as total_quantidade,
+          COUNT(DISTINCT p.id) as total_produtos
+        FROM vendas v
+        JOIN produtos p ON v.produto_id = p.id
+        WHERE v.data BETWEEN ${startDate} AND ${endDate}
+        GROUP BY p.setor
+        ORDER BY total_valor DESC
+      `,
+      sql`
+        SELECT 
+          p.id as produto_id,
+          p.nome as produto_nome,
+          p.setor,
+          p.unidade,
+          SUM(v.valor_reais) as total_valor,
+          SUM(v.quantidade) as total_quantidade
+        FROM vendas v
+        JOIN produtos p ON v.produto_id = p.id
+        WHERE v.data BETWEEN ${startDate} AND ${endDate}
+        GROUP BY p.id, p.nome, p.setor, p.unidade
+        ORDER BY total_valor DESC
+        LIMIT ${topN}
+      `,
+      sql`
+        SELECT 
+          p.setor,
+          p.id as produto_id,
+          p.nome as produto_nome,
+          p.unidade,
+          SUM(v.valor_reais) as total_valor,
+          SUM(v.quantidade) as total_quantidade
+        FROM vendas v
+        JOIN produtos p ON v.produto_id = p.id
+        WHERE v.data BETWEEN ${startDate} AND ${endDate}
+        GROUP BY p.setor, p.id, p.nome, p.unidade
+        ORDER BY p.setor, total_valor DESC
+      `,
+      sql`
+        SELECT 
+          v.data,
+          p.setor,
+          v.valor_reais
+        FROM vendas v
+        JOIN produtos p ON v.produto_id = p.id
+        WHERE v.data BETWEEN ${startDate} AND ${endDate}
+      `
+    ]);
 
-    // Vendas por produto (detalhado) - TOP N global
-    const salesByProduct = await sql`
-      SELECT 
-        p.id as produto_id,
-        p.nome as produto_nome,
-        p.setor,
-        p.unidade,
-        SUM(v.valor_reais) as total_valor,
-        SUM(v.quantidade) as total_quantidade
-      FROM vendas v
-      JOIN produtos p ON v.produto_id = p.id
-      WHERE v.data BETWEEN ${startDate} AND ${endDate}
-      GROUP BY p.id, p.nome, p.setor, p.unidade
-      ORDER BY total_valor DESC
-      LIMIT ${topN}
-    `;
-
-    // Vendas por setor E produto (para drill-down)
-    const salesBySectorProduct = await sql`
-      SELECT 
-        p.setor,
-        p.id as produto_id,
-        p.nome as produto_nome,
-        p.unidade,
-        SUM(v.valor_reais) as total_valor,
-        SUM(v.quantidade) as total_quantidade
-      FROM vendas v
-      JOIN produtos p ON v.produto_id = p.id
-      WHERE v.data BETWEEN ${startDate} AND ${endDate}
-      GROUP BY p.setor, p.id, p.nome, p.unidade
-      ORDER BY p.setor, total_valor DESC
-    `;
-
-    // Total geral
     const totalGeral = salesBySector.reduce((sum, s) => sum + parseFloat(s.total_valor), 0);
-
-    // Dados brutos (dia a dia para gráficos)
-    const rawSalesData = await sql`
-      SELECT 
-        v.data,
-        p.setor,
-        v.valor_reais
-      FROM vendas v
-      JOIN produtos p ON v.produto_id = p.id
-      WHERE v.data BETWEEN ${startDate} AND ${endDate}
-    `;
 
     console.log(`✅ ${salesBySector.length} setores, ${salesByProduct.length} produtos (top ${topN})`);
 
