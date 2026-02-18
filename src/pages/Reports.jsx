@@ -727,13 +727,13 @@ export default function Reports() {
             <CardContent className="pt-6">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <p className="text-sm text-blue-700 font-bold mb-1 uppercase tracking-wide">
+                  <p className="text-base text-blue-700 font-bold mb-1 uppercase tracking-wide">
                     Média Mensal de Vendas
                   </p>
                   <p className="text-4xl font-bold text-blue-900 mb-2">
                     R$ {(yearSalesTotal / 12 / 1000).toFixed(0)}k
                   </p>
-                  <p className="text-base text-blue-600 mt-1 font-bold">
+                  <p className="text-lg text-blue-600 mt-1 font-bold">
                     Melhor mês: Dezembro
                   </p>
                 </div>
