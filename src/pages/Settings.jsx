@@ -21,6 +21,7 @@ import {
   AlertDescription,
 } from "@/components/ui/alert";
 import DatabaseDiagnostic from "@/components/settings/DatabaseDiagnostic";
+import ProductionRationalSettings from "@/components/settings/ProductionRationalSettings";
 
 export default function Settings() {
   const queryClient = useQueryClient();
@@ -268,23 +269,8 @@ export default function Settings() {
         </CardContent>
       </Card>
 
-      {/* Outras Configurações (placeholder para futuro) */}
-      <Card className="opacity-50">
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <SettingsIcon className="w-5 h-5 text-slate-400" />
-            Outras Configurações
-          </CardTitle>
-          <CardDescription>
-            Em breve: notificações, preferências de relatórios, etc.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-slate-500 italic">
-            Funcionalidades em desenvolvimento...
-          </p>
-        </CardContent>
-      </Card>
+      {/* Racional de Produção */}
+      <ProductionRationalSettings isAdmin={isAdmin} />
 
       {/* Sobre o Sistema */}
       <Card>
