@@ -186,8 +186,8 @@ export default function Layout({ children, currentPageName }) {
                       transition-all duration-200 relative overflow-hidden
                       ${sidebarMinimized ? 'justify-center' : ''}
                       ${isActive 
-                        ? 'bg-gradient-to-r from-[hsl(var(--accent-neon))] to-[hsl(var(--accent-purple))] text-[hsl(var(--bg-void))] shadow-lg glow-cyan' 
-                        : 'text-[hsl(var(--text-secondary))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-elevated))]'
+                        ? 'bg-gradient-to-r from-[hsl(var(--accent-neon))] to-[hsl(var(--accent-purple))] text-white shadow-lg glow-cyan' 
+                        : 'text-slate-300 hover:text-white hover:bg-[hsl(var(--bg-elevated))]'
                       }
                     `}
                   >
@@ -237,21 +237,21 @@ export default function Layout({ children, currentPageName }) {
                         onClick={() => setSidebarOpen(false)}
                         className={`
                           group flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-medium
-                          transition-all duration-300 relative overflow-hidden
+                          transition-all duration-200 relative overflow-hidden
                           ${sidebarMinimized ? 'justify-center' : ''}
                           ${isActive
-                            ? 'bg-gradient-to-r from-[hsl(var(--accent-neon))] to-[hsl(var(--accent-purple))] text-[hsl(var(--bg-void))] shadow-lg glow-purple' 
-                            : 'text-[hsl(var(--text-secondary))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-elevated))]'
+                            ? 'bg-gradient-to-r from-[hsl(var(--accent-neon))] to-[hsl(var(--accent-purple))] text-white shadow-lg glow-purple' 
+                            : 'text-slate-300 hover:text-white hover:bg-[hsl(var(--bg-elevated))]'
                           }
                         `}
                       >
                         {!isActive && (
-                          <div className="absolute inset-0 bg-gradient-to-r from-[hsl(var(--accent-purple))]/10 to-[hsl(var(--accent-neon))]/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                          <div className="absolute inset-0 bg-gradient-to-r from-[hsl(var(--accent-purple))]/10 to-[hsl(var(--accent-neon))]/10 opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
                         )}
                         
                         <Shield className={`w-5 h-5 flex-shrink-0 relative z-10 ${isActive ? 'animate-pulse' : ''}`} strokeWidth={2} />
                         {!sidebarMinimized && (
-                          <span className="transition-opacity duration-300 relative z-10">Administrativo</span>
+                          <span className="transition-opacity duration-200 relative z-10 whitespace-nowrap">Administrativo</span>
                         )}
                         
                         {isActive && !sidebarMinimized && (
