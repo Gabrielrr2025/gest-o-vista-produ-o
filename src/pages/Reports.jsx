@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { FileSpreadsheet, TrendingUp, TrendingDown, AlertCircle, AlertTriangle } from "lucide-react";
+import { FileSpreadsheet, TrendingUp, TrendingDown, AlertCircle, AlertTriangle, FileText } from "lucide-react";
 import { format, subYears, subMonths, startOfMonth, endOfMonth, startOfYear, endOfYear, parseISO, getHours, getDay, getWeek } from "date-fns";
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
@@ -471,7 +471,55 @@ export default function Reports() {
     }
   };
 
-
+  const handleExportPDF = async () => {
+    if (!salesData || !lossesData) return;
+    
+    try {
+      const { default: jsPDF } = await import('jspdf');
+      await import('jspdf-autotable');
+      
+      const doc = new jsPDF();
+      
+      doc.setFontSize(20);
+      doc.text('Relatório de Vendas e Perdas', 14, 20);
+      
+      doc.setFontSize(12);
+      doc.text(`Período: ${format(dateRange.from, 'dd/MM/yyyy')} - ${format(dateRange.to, 'dd/MM/yyyy')}`, 14, 30);
+      
+      doc.setFontSize(14);
+      doc.text('Resumo', 14, 45);
+      doc.autoTable({
+        startY: 50,
+        head: [['Métrica', 'Valor']],
+        body: [
+          ['Faturamento Total', `R$ ${salesData.totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`],
+          ['Perdas Totais', `R$ ${lossesData.totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`],
+          ['Taxa de Perda', `${averageLossRate ? averageLossRate.toFixed(1) : '0'}%`]
+        ]
+      });
+      
+      const finalY = doc.lastAutoTable.finalY || 80;
+      doc.text('Top 10 Produtos', 14, finalY + 15);
+      
+      const products = salesData.salesByProduct.slice(0, 10);
+      doc.autoTable({
+        startY: finalY + 20,
+        head: [['#', 'Produto', 'Setor', 'Vendas (R$)']],
+        body: products.map((p, idx) => [
+          idx + 1,
+          p.produto_nome,
+          p.setor,
+          parseFloat(p.total_valor).toFixed(2)
+        ])
+      });
+      
+      doc.save(`Relatorio_Vendas_${format(new Date(), 'dd-MM-yyyy')}.pdf`);
+      toast.success("PDF exportado!");
+    } catch (error) {
+      console.error('Erro ao exportar PDF:', error);
+      toast.error("Erro ao exportar PDF. Instale: npm install jspdf jspdf-autotable");
+    }
+  };
 
   if (!hasAccess) {
     return (
@@ -493,10 +541,25 @@ export default function Reports() {
           <p className="text-slate-600 mt-1">Análise integrada de vendas e perdas</p>
         </div>
         {salesData && (
-          <Button onClick={handleExportExcel} size="lg" className="shadow-md">
-            <FileSpreadsheet className="w-5 h-5 mr-2" />
-            Exportar Excel
-          </Button>
+          <div className="flex gap-3">
+            <Button 
+              onClick={handleExportExcel} 
+              size="lg" 
+              className="shadow-md bg-green-600 hover:bg-green-700 text-white"
+            >
+              <FileSpreadsheet className="w-5 h-5 mr-2" />
+              Exportar Excel
+            </Button>
+            
+            <Button 
+              onClick={handleExportPDF} 
+              size="lg" 
+              className="shadow-md bg-red-600 hover:bg-red-700 text-white"
+            >
+              <FileText className="w-5 h-5 mr-2" />
+              Exportar PDF
+            </Button>
+          </div>
         )}
       </div>
 
@@ -721,7 +784,13 @@ export default function Reports() {
                       return [`${value.toFixed(1)}%`, '% Perda'];
                     }
                     const formatted = `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-                    return [formatted, name === 'sales' ? 'Faturamento' : 'Perdas'];
+                    if (name === 'sales' || name === 'Faturamento') {
+                      return [formatted, 'Faturamento'];
+                    }
+                    if (name === 'losses' || name === 'Perdas') {
+                      return [formatted, 'Perdas'];
+                    }
+                    return [formatted, name];
                   }}
                   labelStyle={{ fontWeight: 'bold', marginBottom: '8px' }}
                 />
@@ -1006,6 +1075,7 @@ export default function Reports() {
                   type="sales"
                 />
               </div>
+            </>
           )}
 
           {selectedSector && salesData.rawData && (
