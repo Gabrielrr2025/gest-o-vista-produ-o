@@ -81,11 +81,11 @@ export default function SectorDistributionChart({ sectors, type = 'sales' }) {
             <PieChart>
               <Pie
                 data={chartDataWithPercent}
-                cx="50%"
+                cx="35%"
                 cy="50%"
                 labelLine={false}
                 label={renderLabel}
-                outerRadius={100}
+                outerRadius={90}
                 fill="#8884d8"
                 dataKey="value"
               >
@@ -95,11 +95,17 @@ export default function SectorDistributionChart({ sectors, type = 'sales' }) {
               </Pie>
               <Tooltip content={<CustomTooltip />} />
               <Legend 
-                verticalAlign="bottom" 
-                height={36}
+                layout="vertical"
+                verticalAlign="middle" 
+                align="right"
+                iconSize={12}
+                wrapperStyle={{
+                  fontSize: '14px',
+                  paddingLeft: '20px'
+                }}
                 formatter={(value, entry) => (
-                  <span className="text-sm">
-                    {value}: R$ {entry.payload.value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  <span className="text-sm font-medium">
+                    {value}: <span className="font-bold">R$ {(entry.payload.value / 1000).toFixed(1)}k</span>
                   </span>
                 )}
               />
