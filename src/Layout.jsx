@@ -186,8 +186,8 @@ export default function Layout({ children, currentPageName }) {
                       transition-all duration-200 relative overflow-hidden
                       ${sidebarMinimized ? 'justify-center' : ''}
                       ${isActive 
-                        ? 'bg-gradient-to-r from-[hsl(var(--accent-neon))] to-[hsl(var(--accent-purple))] text-white shadow-lg glow-cyan' 
-                        : 'text-slate-300 hover:text-white hover:bg-[hsl(var(--bg-elevated))]'
+                        ? 'bg-gradient-to-r from-[hsl(var(--accent-neon))] to-[hsl(var(--accent-purple))] text-[hsl(var(--sidebar-primary-foreground))] shadow-lg glow-cyan' 
+                        : 'text-[hsl(var(--sidebar-foreground))] hover:text-[hsl(var(--sidebar-primary-foreground))] hover:bg-[hsl(var(--sidebar-accent))]'
                       }
                     `}
                   >
@@ -240,8 +240,8 @@ export default function Layout({ children, currentPageName }) {
                           transition-all duration-200 relative overflow-hidden
                           ${sidebarMinimized ? 'justify-center' : ''}
                           ${isActive
-                            ? 'bg-gradient-to-r from-[hsl(var(--accent-neon))] to-[hsl(var(--accent-purple))] text-white shadow-lg glow-purple' 
-                            : 'text-slate-300 hover:text-white hover:bg-[hsl(var(--bg-elevated))]'
+                            ? 'bg-gradient-to-r from-[hsl(var(--accent-neon))] to-[hsl(var(--accent-purple))] text-[hsl(var(--sidebar-primary-foreground))] shadow-lg glow-purple' 
+                            : 'text-[hsl(var(--sidebar-foreground))] hover:text-[hsl(var(--sidebar-primary-foreground))] hover:bg-[hsl(var(--sidebar-accent))]'
                           }
                         `}
                       >
