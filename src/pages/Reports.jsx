@@ -125,7 +125,9 @@ export default function Reports() {
       const response = await base44.functions.invoke('getSalesReport', apiParams);
       return response.data;
     },
-    enabled: hasAccess && !!apiParams
+    enabled: hasAccess && !!apiParams,
+    staleTime: 5 * 60 * 1000, // 5 minutos
+    gcTime: 10 * 60 * 1000 // 10 minutos
   });
 
   const lossesQuery = useQuery({
@@ -141,7 +143,9 @@ export default function Reports() {
       }
     },
     enabled: hasAccess && !!apiParams,
-    retry: false
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000
   });
 
   const lastYearSalesQuery = useQuery({
@@ -208,17 +212,6 @@ export default function Reports() {
   const lossesData = lossesQuery.data?.data;
   const lastYearSalesData = lastYearSalesQuery.data?.data;
   const hasLossesData = lossesData && lossesData.totalGeral > 0;
-
-  // Debug de perdas
-  console.log('🔍 DEBUG PERDAS:', {
-    lossesQuery_isLoading: lossesQuery.isLoading,
-    lossesQuery_isError: lossesQuery.isError,
-    lossesQuery_error: lossesQuery.error,
-    lossesData: lossesData,
-    totalGeral: lossesData?.totalGeral,
-    hasLossesData: hasLossesData,
-    rawDataLength: lossesData?.rawData?.length || 0
-  });
 
   // Totais anuais
   const yearSalesTotal = useMemo(() => {
