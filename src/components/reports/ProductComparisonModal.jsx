@@ -20,7 +20,7 @@ import {
   Legend,
   ResponsiveContainer
 } from 'recharts';
-import DateRangePicker from "./DateRangePicker";
+import DateRangePicker from "../components/reports/DateRangePicker";
 
 const GROUPING_OPTIONS = [
   { value: 'day', label: 'Por dia' },
@@ -241,7 +241,7 @@ export default function ProductComparisonModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto z-[100]">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -262,59 +262,6 @@ export default function ProductComparisonModal({
         </DialogHeader>
 
         <div className="space-y-6 mt-6">
-          {/* Controles */}
-          <Card className="shadow-lg border-slate-200">
-            <CardContent className="pt-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Período Principal */}
-                <div className="space-y-2">
-                  <Label className="text-base font-medium text-slate-700">Período de Análise</Label>
-                  <DateRangePicker 
-                    value={dateRange}
-                    onChange={setDateRange}
-                  />
-                </div>
-
-                {/* Agrupamento */}
-                <div className="space-y-2">
-                  <Label className="text-base font-medium text-slate-700">Agrupar por</Label>
-                  <Select value={groupBy} onValueChange={setGroupBy}>
-                    <SelectTrigger className="h-11 shadow-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {GROUPING_OPTIONS.map(option => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Comparação */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Switch
-                      id="compare"
-                      checked={compareEnabled}
-                      onCheckedChange={setCompareEnabled}
-                    />
-                    <Label htmlFor="compare" className="text-base font-medium text-slate-700 cursor-pointer">
-                      Comparar período
-                    </Label>
-                  </div>
-                  {compareEnabled && (
-                    <DateRangePicker 
-                      value={compareDateRange}
-                      onChange={setCompareDateRange}
-                    />
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Cards de Resumo */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Card Vendas */}
@@ -396,22 +343,84 @@ export default function ProductComparisonModal({
             </Card>
           </div>
 
-          {/* Gráfico */}
+          {/* Gráfico com Controles */}
           {isLoading ? (
-            <div className="text-center py-12 text-slate-500">
-              Carregando evolução do produto...
-            </div>
+            <Card className="shadow-lg">
+              <CardContent className="py-16 text-center">
+                <div className="text-slate-500">Carregando evolução do produto...</div>
+              </CardContent>
+            </Card>
           ) : chartData.length > 0 ? (
             <Card className="shadow-lg">
               <CardContent className="pt-6">
-                <h3 className="text-lg font-semibold mb-4">
-                  Evolução de Vendas e Perdas
-                  {compareEnabled && (
-                    <span className="text-sm font-normal text-slate-600 ml-2">
-                      • Comparação de períodos
-                    </span>
-                  )}
-                </h3>
+                {/* Header com controles */}
+                <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
+                  <div>
+                    <h3 className="text-lg font-semibold">
+                      Evolução de Vendas e Perdas
+                    </h3>
+                    {compareEnabled && (
+                      <p className="text-sm text-slate-600 mt-1">
+                        Comparação de períodos ativa
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Controles em linha */}
+                  <div className="flex items-center gap-3 flex-wrap">
+                    {/* Período */}
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm font-medium text-slate-700 whitespace-nowrap">Período:</Label>
+                      <div className="relative z-50">
+                        <DateRangePicker 
+                          value={dateRange}
+                          onChange={setDateRange}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Agrupamento */}
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm font-medium text-slate-700 whitespace-nowrap">Agrupar:</Label>
+                      <Select value={groupBy} onValueChange={setGroupBy}>
+                        <SelectTrigger className="w-40 h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="z-[100]">
+                          {GROUPING_OPTIONS.map(option => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Comparação */}
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        id="compare"
+                        checked={compareEnabled}
+                        onCheckedChange={setCompareEnabled}
+                      />
+                      <Label htmlFor="compare" className="text-sm font-medium text-slate-700 cursor-pointer whitespace-nowrap">
+                        Comparar
+                      </Label>
+                    </div>
+
+                    {/* Período de comparação */}
+                    {compareEnabled && (
+                      <div className="relative z-50">
+                        <DateRangePicker 
+                          value={compareDateRange}
+                          onChange={setCompareDateRange}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Gráfico */}
                 <ResponsiveContainer width="100%" height={400}>
                   <ComposedChart data={chartData}>
                     <defs>
