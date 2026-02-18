@@ -503,8 +503,6 @@ export default function Reports() {
     }
   };
 
-
-
   if (!hasAccess) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -525,7 +523,11 @@ export default function Reports() {
           <p className="text-slate-600 mt-1">Análise integrada de vendas e perdas</p>
         </div>
         {salesData && (
-          <Button onClick={handleExportExcel} size="lg" className="shadow-md bg-green-600 hover:bg-green-700 text-white">
+          <Button 
+            onClick={handleExportExcel} 
+            size="lg" 
+            className="shadow-md bg-green-600 hover:bg-green-700 text-white"
+          >
             <FileSpreadsheet className="w-5 h-5 mr-2" />
             Exportar Excel
           </Button>
@@ -608,20 +610,20 @@ export default function Reports() {
             <CardContent className="pt-6">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <p className="text-xs text-green-700 font-semibold mb-1 uppercase tracking-wide">
+                  <p className="text-base text-green-700 font-bold mb-1 uppercase tracking-wide">
                     Faturamento
                   </p>
                   <p className="text-4xl font-bold text-green-900 mb-2">
                     R$ {(yearSalesTotal / 1000).toFixed(0)}k
                   </p>
                   {yearOverYearChange !== null && (
-                    <div className={`flex items-center gap-1 mt-2 text-sm font-bold ${
+                    <div className={`flex items-center gap-1 mt-2 text-lg font-bold ${
                       yearOverYearChange > 0 ? 'text-green-700' : 'text-red-700'
                     }`}>
                       {yearOverYearChange > 0 ? (
-                        <TrendingUp className="w-4 h-4" />
+                        <TrendingUp className="w-5 h-5" />
                       ) : (
-                        <TrendingDown className="w-4 h-4" />
+                        <TrendingDown className="w-5 h-5" />
                       )}
                       <span>
                         {yearOverYearChange > 0 ? '+' : ''}
@@ -642,13 +644,13 @@ export default function Reports() {
             <CardContent className="pt-6">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <p className="text-xs text-red-700 font-semibold mb-1 uppercase tracking-wide">
+                  <p className="text-base text-red-700 font-bold mb-1 uppercase tracking-wide">
                     Perdas
                   </p>
                   <p className="text-4xl font-bold text-red-900 mb-2">
                     R$ {(yearLossesTotal / 1000).toFixed(0)}k
                   </p>
-                  <p className="text-sm text-red-600 mt-1 font-semibold">
+                  <p className="text-lg text-red-600 mt-1 font-bold">
                     Taxa média: {yearAverageLossRate.toFixed(1)}%
                   </p>
                 </div>
@@ -1092,6 +1094,7 @@ export default function Reports() {
                   type="sales"
                 />
               </div>
+            </>
           )}
 
           {selectedSector && salesData.rawData && (
