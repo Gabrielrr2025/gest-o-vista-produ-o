@@ -20,7 +20,7 @@ import {
   Legend,
   ResponsiveContainer
 } from 'recharts';
-import DateRangePicker from "../components/reports/DateRangePicker";
+import DateRangePicker from "./DateRangePicker";
 
 const GROUPING_OPTIONS = [
   { value: 'day', label: 'Por dia' },
