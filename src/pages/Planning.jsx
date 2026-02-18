@@ -29,7 +29,10 @@ import {
   ArrowDown,
   Calendar as CalendarIcon,
   Lock,
-  LockOpen
+  LockOpen,
+  CalendarDays,
+  AlertTriangle,
+  Info as InfoIcon
 } from "lucide-react";
 import { format, addWeeks, subWeeks, startOfWeek, endOfWeek, eachDayOfInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -836,6 +839,90 @@ export default function Planning() {
                   </div>
                 </div>
 
+                {/* SEÇÃO CALENDÁRIO: Eventos que impactam a semana */}
+                {((selectedProduct.eventos_semana && selectedProduct.eventos_semana.length > 0) ||
+                  (selectedProduct.eventos_semana_info && selectedProduct.eventos_semana_info.length > 0)) && (
+                  <div className="border-t pt-3">
+                    <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                      <CalendarDays className="w-4 h-4 text-purple-500" />
+                      Eventos na semana
+                    </h4>
+                    <div className="space-y-2">
+                      {/* Eventos com impacto numérico */}
+                      {selectedProduct.eventos_semana?.map((ev, idx) => {
+                        const positivo = ev.impacto_pct > 0;
+                        return (
+                          <div
+                            key={idx}
+                            className={`rounded-lg px-3 py-2 border text-xs ${
+                              positivo
+                                ? 'bg-blue-50 border-blue-200'
+                                : 'bg-amber-50 border-amber-200'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-0.5">
+                              <span className={`font-semibold ${positivo ? 'text-blue-800' : 'text-amber-800'}`}>
+                                {ev.nome}
+                              </span>
+                              <span className={`font-bold text-sm px-1.5 py-0.5 rounded ${
+                                positivo
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : 'bg-amber-100 text-amber-700'
+                              }`}>
+                                {positivo ? '+' : ''}{ev.impacto_pct}%
+                              </span>
+                            </div>
+                            <div className={`opacity-70 ${positivo ? 'text-blue-700' : 'text-amber-700'}`}>
+                              {format(new Date(ev.data + 'T12:00:00'), "EEEE, dd/MM", { locale: ptBR })}
+                              {ev.tipo && ` · ${ev.tipo}`}
+                            </div>
+                            {ev.notas && (
+                              <div className={`mt-1 opacity-60 italic ${positivo ? 'text-blue-700' : 'text-amber-700'}`}>
+                                {ev.notas}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                      {/* Eventos apenas informativos (impacto = 0) */}
+                      {selectedProduct.eventos_semana_info?.map((ev, idx) => (
+                        <div
+                          key={`info-${idx}`}
+                          className="rounded-lg px-3 py-2 border border-slate-200 bg-slate-50 text-xs"
+                        >
+                          <div className="flex items-center justify-between mb-0.5">
+                            <span className="font-semibold text-slate-700">{ev.nome}</span>
+                            <span className="text-slate-400 flex items-center gap-1">
+                              <InfoIcon className="w-3 h-3" />
+                              Info
+                            </span>
+                          </div>
+                          <div className="text-slate-500">
+                            {format(new Date(ev.data + 'T12:00:00'), "EEEE, dd/MM", { locale: ptBR })}
+                            {ev.tipo && ` · ${ev.tipo}`}
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Resumo do impacto total */}
+                      {selectedProduct.eventos_semana?.length > 0 && (
+                        <div className={`rounded-lg px-3 py-2 text-xs font-medium flex items-center justify-between ${
+                          selectedProduct.multiplicador_calendario >= 1
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-amber-100 text-amber-800'
+                        }`}>
+                          <span>Impacto total na sugestão:</span>
+                          <span className="font-bold text-sm">
+                            {selectedProduct.multiplicador_calendario >= 1 ? '+' : ''}
+                            {((selectedProduct.multiplicador_calendario - 1) * 100).toFixed(0)}%
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* SEÇÃO 3: Tendência e Sugestão */}
                 <div className="border-t pt-3">
                   <h4 className="text-sm font-semibold text-slate-700 mb-3">
@@ -954,10 +1041,30 @@ export default function Planning() {
                             </div>
                           )}
                           <div className="flex justify-between font-semibold">
-                            <span>→ Venda prevista:</span>
-                            <span>{selectedProduct.calc_details.venda_prevista} {selectedProduct.unidade}</span>
+                            <span>→ Venda base:</span>
+                            <span>{selectedProduct.calc_details.venda_prevista_base ?? selectedProduct.calc_details.venda_prevista} {selectedProduct.unidade}</span>
                           </div>
                         </div>
+
+                        {/* Calendário (só aparece se há impacto) */}
+                        {selectedProduct.calc_details.multiplicador_calendario &&
+                         selectedProduct.calc_details.multiplicador_calendario !== 1 && (
+                          <div className="space-y-0.5 pt-1">
+                            <p className="opacity-70 font-medium">📅 Ajuste do calendário</p>
+                            <div className="flex justify-between">
+                              <span>Multiplicador:</span>
+                              <span className={`font-medium ${selectedProduct.calc_details.multiplicador_calendario >= 1 ? 'text-blue-500' : 'text-amber-500'}`}>
+                                ×{selectedProduct.calc_details.multiplicador_calendario}
+                                {' '}({selectedProduct.calc_details.multiplicador_calendario >= 1 ? '+' : ''}
+                                {((selectedProduct.calc_details.multiplicador_calendario - 1) * 100).toFixed(0)}%)
+                              </span>
+                            </div>
+                            <div className="flex justify-between font-semibold">
+                              <span>→ Venda ajustada:</span>
+                              <span>{selectedProduct.calc_details.venda_prevista_final} {selectedProduct.unidade}</span>
+                            </div>
+                          </div>
+                        )}
 
                         {/* Passo B */}
                         <div className="space-y-0.5 pt-1">
