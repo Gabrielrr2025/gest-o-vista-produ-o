@@ -86,7 +86,7 @@ Deno.serve(async (req) => {
     const totalGeral = parseFloat(totalResult[0]?.total_valor || 0);
     console.log(`✅ Queries paralelas concluídas. Total: R$ ${totalGeral.toFixed(2)}`);
 
-    console.log(`🎉 SUCESSO! Total: R$ ${totalGeral.toFixed(2)}`);
+
 
     // ========================================
     // RESPOSTA
