@@ -209,6 +209,17 @@ export default function Reports() {
   const lastYearSalesData = lastYearSalesQuery.data?.data;
   const hasLossesData = lossesData && lossesData.totalGeral > 0;
 
+  // Debug de perdas
+  console.log('🔍 DEBUG PERDAS:', {
+    lossesQuery_isLoading: lossesQuery.isLoading,
+    lossesQuery_isError: lossesQuery.isError,
+    lossesQuery_error: lossesQuery.error,
+    lossesData: lossesData,
+    totalGeral: lossesData?.totalGeral,
+    hasLossesData: hasLossesData,
+    rawDataLength: lossesData?.rawData?.length || 0
+  });
+
   // Totais anuais
   const yearSalesTotal = useMemo(() => {
     const data = yearSalesQuery.data?.data;
@@ -1094,6 +1105,7 @@ export default function Reports() {
                   type="sales"
                 />
               </div>
+            </>
           )}
 
           {selectedSector && salesData.rawData && (
