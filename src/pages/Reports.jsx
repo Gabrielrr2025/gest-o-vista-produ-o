@@ -525,25 +525,10 @@ export default function Reports() {
           <p className="text-slate-600 mt-1">Análise integrada de vendas e perdas</p>
         </div>
         {salesData && (
-          <div className="flex gap-3">
-            <Button 
-              onClick={handleExportExcel} 
-              size="lg" 
-              className="shadow-md bg-green-600 hover:bg-green-700 text-white"
-            >
-              <FileSpreadsheet className="w-5 h-5 mr-2" />
-              Exportar Excel
-            </Button>
-            
-            <Button 
-              onClick={handleExportPDF} 
-              size="lg" 
-              className="shadow-md bg-red-600 hover:bg-red-700 text-white"
-            >
-              <FileText className="w-5 h-5 mr-2" />
-              Exportar PDF
-            </Button>
-          </div>
+          <Button onClick={handleExportExcel} size="lg" className="shadow-md bg-green-600 hover:bg-green-700 text-white">
+            <FileSpreadsheet className="w-5 h-5 mr-2" />
+            Exportar Excel
+          </Button>
         )}
       </div>
 
