@@ -1,7 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 import { neon } from 'npm:@neondatabase/serverless@0.9.0';
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
 function median(values: number[]): number {
   if (values.length === 0) return 0;
   const sorted = [...values].sort((a, b) => a - b);
@@ -14,23 +13,33 @@ function mean(values: number[]): number {
   return values.reduce((a, b) => a + b, 0) / values.length;
 }
 
-// Postura define como reagir a tendências e quanto peso dar ao ano anterior
 const POSTURA_CONFIG = {
-  conservador: { growthCap: 0.05, lossCap: 0.08, desc: 'Conservador' },
-  equilibrado:  { growthCap: 0.12, lossCap: 0.15, desc: 'Equilibrado' },
-  agressivo:   { growthCap: 0.22, lossCap: 0.25, desc: 'Agressivo'  },
+  conservador: { growthCap: 0.05, desc: 'Conservador' },
+  equilibrado:  { growthCap: 0.12, desc: 'Equilibrado' },
+  agressivo:   { growthCap: 0.22, desc: 'Agressivo'  },
 };
 
-// Nível de confiança baseado em quantas semanas de dados existem
-function getConfidenceLevel(semanasComDados: number, temAnoAnterior: boolean): {
-  nivel: 'alta' | 'media' | 'baixa' | 'sem_dados';
-  label: string;
-  cor: string;
-} {
-  if (semanasComDados === 0) return { nivel: 'sem_dados', label: 'Sem histórico',   cor: 'gray'   };
-  if (semanasComDados >= 6 && temAnoAnterior) return { nivel: 'alta',  label: 'Alta',         cor: 'green'  };
-  if (semanasComDados >= 4)                   return { nivel: 'media', label: 'Média',         cor: 'yellow' };
-  return                                             { nivel: 'baixa', label: 'Baixa',         cor: 'orange' };
+function getConfidenceLevel(semanasComDados: number, temAnoAnterior: boolean) {
+  if (semanasComDados === 0) return { nivel: 'sem_dados', label: 'Sem histórico', cor: 'gray' };
+  if (semanasComDados >= 6 && temAnoAnterior) return { nivel: 'alta',  label: 'Alta',  cor: 'green'  };
+  if (semanasComDados >= 4)                   return { nivel: 'media', label: 'Média', cor: 'yellow' };
+  return                                             { nivel: 'baixa', label: 'Baixa', cor: 'orange' };
+}
+
+// Verifica se um evento do calendário afeta um determinado setor
+function eventoAfetaSetor(eventSectors: string[] | string | null, produtoSetor: string): boolean {
+  if (!eventSectors) return false;
+  const sectors = Array.isArray(eventSectors) ? eventSectors : [eventSectors];
+  return sectors.includes('Todos') || sectors.includes(produtoSetor);
+}
+
+// Calcula o impacto total de uma lista de eventos na semana (multiplicador)
+// Ex: evento +30% e evento -20% → multiplicador = 1.30 * 0.80 = 1.04
+function calcImpactoSemana(eventos: any[]): number {
+  return eventos.reduce((mult, ev) => {
+    const pct = parseFloat(ev.impact_percentage ?? '0') / 100;
+    return mult * (1 + pct);
+  }, 1.0);
 }
 
 Deno.serve(async (req) => {
@@ -63,31 +72,24 @@ Deno.serve(async (req) => {
     const cfg: Record<string, string> = {};
     configRows.forEach((r: any) => { cfg[r.chave] = r.valor; });
 
-    // Defaults seguros
-    const semanasHistorico  = Math.max(2, parseInt(cfg['planejamento_semanas_historico'] ?? '8'));
-    const posturaKey        = (cfg['planejamento_postura'] ?? 'equilibrado') as keyof typeof POSTURA_CONFIG;
-    const bufferPct         = Math.max(0, Math.min(0.30, parseFloat(cfg['planejamento_buffer_pct'] ?? '5') / 100));
-    const sugestaoSemDados  = Math.max(0, parseFloat(cfg['planejamento_sugestao_sem_dados'] ?? '10'));
-    const postura           = POSTURA_CONFIG[posturaKey] ?? POSTURA_CONFIG.equilibrado;
-
-    console.log('⚙️', { semanasHistorico, posturaKey, bufferPct, sugestaoSemDados });
+    const semanasHistorico = Math.max(2, parseInt(cfg['planejamento_semanas_historico'] ?? '8'));
+    const posturaKey       = (cfg['planejamento_postura'] ?? 'equilibrado') as keyof typeof POSTURA_CONFIG;
+    const bufferPct        = Math.max(0, Math.min(0.30, parseFloat(cfg['planejamento_buffer_pct'] ?? '5') / 100));
+    const sugestaoSemDados = Math.max(0, parseFloat(cfg['planejamento_sugestao_sem_dados'] ?? '10'));
+    const postura          = POSTURA_CONFIG[posturaKey] ?? POSTURA_CONFIG.equilibrado;
 
     // ── 2. Janelas de datas ──────────────────────────────────────────────────
     const refDate = new Date(startDate);
 
-    // Recência: puxa até N semanas atrás
     const recStart = new Date(refDate);
     recStart.setDate(recStart.getDate() - semanasHistorico * 7);
     const recStartStr = recStart.toISOString().split('T')[0];
 
-    // Mesmo período do ano anterior: janela de 3 semanas centrada na semana equivalente
-    // (±1 semana para suavizar variações de calendário)
+    // Mesmo período ano anterior (janela de 3 semanas centrada)
     const anoAntCenter = new Date(refDate);
     anoAntCenter.setFullYear(anoAntCenter.getFullYear() - 1);
-    const anoAntStart = new Date(anoAntCenter);
-    anoAntStart.setDate(anoAntStart.getDate() - 7);
-    const anoAntEnd = new Date(anoAntCenter);
-    anoAntEnd.setDate(anoAntEnd.getDate() + 13);
+    const anoAntStart = new Date(anoAntCenter); anoAntStart.setDate(anoAntStart.getDate() - 7);
+    const anoAntEnd   = new Date(anoAntCenter); anoAntEnd.setDate(anoAntEnd.getDate() + 13);
     const anoAntStartStr = anoAntStart.toISOString().split('T')[0];
     const anoAntEndStr   = anoAntEnd.toISOString().split('T')[0];
 
@@ -99,8 +101,7 @@ Deno.serve(async (req) => {
     // ── 3. Queries ───────────────────────────────────────────────────────────
     const products = await sql`
       SELECT id, nome, setor, unidade, status, dias_producao
-      FROM produtos WHERE status = 'ativo'
-      ORDER BY setor, nome
+      FROM produtos WHERE status = 'ativo' ORDER BY setor, nome
     `;
 
     const salesRecencia = await sql`
@@ -114,7 +115,6 @@ Deno.serve(async (req) => {
       WHERE pe.data >= ${recStartStr} AND pe.data < ${startDate}
     `;
 
-    // Mesmo período ano anterior
     const salesAnoAnt = await sql`
       SELECT p.id as produto_id, SUM(v.quantidade) as total
       FROM vendas v JOIN produtos p ON v.produto_id = p.id
@@ -128,7 +128,6 @@ Deno.serve(async (req) => {
       GROUP BY p.id
     `;
 
-    // Base 12 meses
     const salesBase12m = await sql`
       SELECT p.id as produto_id, SUM(v.quantidade) as total
       FROM vendas v JOIN produtos p ON v.produto_id = p.id
@@ -136,25 +135,41 @@ Deno.serve(async (req) => {
       GROUP BY p.id
     `;
 
-    // Semana atual (exibição no painel)
     const currentWeekSales = await sql`
       SELECT p.id as produto_id, SUM(v.quantidade) as quantidade_total
       FROM vendas v JOIN produtos p ON v.produto_id = p.id
-      WHERE v.data >= ${startDate} AND v.data <= ${endDate}
-      GROUP BY p.id
+      WHERE v.data >= ${startDate} AND v.data <= ${endDate} GROUP BY p.id
     `;
     const currentWeekLoss = await sql`
       SELECT p.id as produto_id, SUM(pe.quantidade) as quantidade_total
       FROM perdas pe JOIN produtos p ON pe.produto_id = p.id
-      WHERE pe.data >= ${startDate} AND pe.data <= ${endDate}
-      GROUP BY p.id
+      WHERE pe.data >= ${startDate} AND pe.data <= ${endDate} GROUP BY p.id
     `;
+
+    // ── CALENDÁRIO: eventos históricos + semana alvo ─────────────────────────
+    // Histórico: para ponderar semanas com eventos excepcionais
+    const calendarHistorico = await sql`
+      SELECT name, date, impact_percentage, sectors, type, priority
+      FROM calendar_events
+      WHERE date >= ${recStartStr} AND date < ${startDate}
+      AND impact_percentage != 0
+      ORDER BY date
+    `;
+
+    // Semana alvo: eventos que impactam a semana que estamos planejando
+    const calendarSemanaAlvo = await sql`
+      SELECT name, date, impact_percentage, sectors, type, priority, notes
+      FROM calendar_events
+      WHERE date >= ${startDate} AND date <= ${endDate}
+      ORDER BY date
+    `;
+
+    console.log(`📅 ${calendarHistorico.length} eventos históricos, ${calendarSemanaAlvo.length} eventos na semana alvo`);
 
     // ── 4. Processar por produto ─────────────────────────────────────────────
     const productAnalysis = products.map((product: any) => {
       const pid = product.id;
 
-      // Parse dias de produção
       let diasProducao: string[] = [];
       try {
         if (product.dias_producao) {
@@ -167,8 +182,10 @@ Deno.serve(async (req) => {
       const prodSalesRec  = salesRecencia.filter( (s: any) => s.produto_id === pid);
       const prodLossesRec = lossesRecencia.filter((l: any) => l.produto_id === pid);
 
-      // ── Agrupar vendas e perdas por semana ────────────────────────────────
-      type WeekData = { sales: number; losses: number; hasData: boolean };
+      // ── Agrupar por semana com peso do calendário ─────────────────────────
+      // Semanas com eventos de alto impacto recebem peso reduzido na média
+      // (não queremos que a semana da Páscoa contamine a média "normal")
+      type WeekData = { sales: number; losses: number; hasData: boolean; peso: number; eventos: string[] };
       const weeklyData: WeekData[] = [];
 
       for (let i = 0; i < semanasHistorico; i++) {
@@ -176,35 +193,64 @@ Deno.serve(async (req) => {
         wStart.setDate(wStart.getDate() + i * 7);
         const wEnd = new Date(wStart);
         wEnd.setDate(wEnd.getDate() + 6);
+        const wStartStr = wStart.toISOString().split('T')[0];
+        const wEndStr   = wEnd.toISOString().split('T')[0];
 
         const wSales = prodSalesRec
           .filter((s: any) => { const d = new Date(s.data); return d >= wStart && d <= wEnd; })
           .reduce((acc: number, s: any) => acc + parseFloat(s.quantidade), 0);
-        const wLoss  = prodLossesRec
+        const wLoss = prodLossesRec
           .filter((l: any) => { const d = new Date(l.data); return d >= wStart && d <= wEnd; })
           .reduce((acc: number, l: any) => acc + parseFloat(l.quantidade), 0);
 
-        weeklyData.push({ sales: wSales, losses: wLoss, hasData: (wSales + wLoss) > 0 });
+        // Eventos do calendário nessa semana histórica que afetam este produto
+        const eventosNaSemana = calendarHistorico.filter((ev: any) =>
+          ev.date >= wStartStr && ev.date <= wEndStr &&
+          eventoAfetaSetor(ev.sectors, product.setor)
+        );
+
+        // Peso reduzido proporcionalmente ao impacto do evento
+        // Evento de ±50% → peso 0.3 (quase ignorado)
+        // Evento de ±20% → peso 0.6
+        // Sem eventos → peso 1.0
+        let peso = 1.0;
+        eventosNaSemana.forEach((ev: any) => {
+          const absImpact = Math.abs(parseFloat(ev.impact_percentage ?? '0')) / 100;
+          peso = Math.min(peso, Math.max(0.2, 1 - absImpact * 1.2));
+        });
+
+        weeklyData.push({
+          sales: wSales,
+          losses: wLoss,
+          hasData: (wSales + wLoss) > 0,
+          peso,
+          eventos: eventosNaSemana.map((ev: any) => ev.name),
+        });
       }
 
-      // Semanas com dados efetivos
       const semanasComDados = weeklyData.filter(w => w.hasData).length;
-      const weekSaleTotals  = weeklyData.filter(w => w.hasData).map(w => w.sales);
-      const allWeekSales    = weeklyData.map(w => w.sales); // inclui zeros para tendência
+
+      // ── Médias ponderadas pelo calendário ─────────────────────────────────
+      const pesoTotal = weeklyData.filter(w => w.hasData).reduce((s, w) => s + w.peso, 0);
+      const mediaVendasPonderada = pesoTotal > 0
+        ? weeklyData.filter(w => w.hasData).reduce((s, w) => s + w.sales * w.peso, 0) / pesoTotal
+        : 0;
+
+      // Para tendência (últimas N/2 vs primeiras N/2) sem ponderação do calendário
+      const allWeekSales  = weeklyData.map(w => w.sales);
+      const allWeekLosses = weeklyData.map(w => w.losses);
 
       // ── Mesmo período ano anterior ────────────────────────────────────────
       const totalVendaAnoAnt  = parseFloat(salesAnoAnt.find( (s: any) => s.produto_id === pid)?.total ?? '0');
       const totalPerdaAnoAnt  = parseFloat(lossesAnoAnt.find((l: any) => l.produto_id === pid)?.total ?? '0');
-      const mediaVendaAnoAnt  = totalVendaAnoAnt  / 3; // janela de 3 semanas
-      const mediaPerdaAnoAnt  = totalPerdaAnoAnt  / 3;
-      const temAnoAnterior    = totalVendaAnoAnt  > 0;
+      const mediaVendaAnoAnt  = totalVendaAnoAnt / 3;
+      const mediaPerdaAnoAnt  = totalPerdaAnoAnt / 3;
+      const temAnoAnterior    = totalVendaAnoAnt > 0;
 
-      // ── Base 12 meses ─────────────────────────────────────────────────────
       const total12m     = parseFloat(salesBase12m.find((s: any) => s.produto_id === pid)?.total ?? '0');
       const mediaBase12m = total12m / 52;
       const tem12m       = total12m > 0;
 
-      // ── Nível de confiança ────────────────────────────────────────────────
       const confianca = getConfidenceLevel(semanasComDados, temAnoAnterior);
 
       // ── PASSO A: Previsão de vendas ───────────────────────────────────────
@@ -213,89 +259,99 @@ Deno.serve(async (req) => {
       let pesosUsados = { rec: 0, ano: 0, base: 0 };
 
       if (semanasComDados === 0) {
-        // Sem nenhum dado → usa valor padrão configurado
-        vendaPrevista  = sugestaoSemDados;
+        vendaPrevista   = sugestaoSemDados;
         estrategiaUsada = `Sem histórico. Usando sugestão padrão de ${sugestaoSemDados} ${product.unidade}.`;
 
       } else if (semanasComDados <= 3) {
-        // Poucos dados → usa apenas a média do que existe, sem tendência
-        vendaPrevista  = mean(weekSaleTotals);
-        estrategiaUsada = `Histórico inicial (${semanasComDados} sem.). Usando média simples sem tendência.`;
+        vendaPrevista   = mediaVendasPonderada;
+        estrategiaUsada = `Histórico inicial (${semanasComDados} sem.). Média simples sem tendência.`;
         pesosUsados = { rec: 1, ano: 0, base: 0 };
 
       } else {
-        // Dados suficientes → blend completo
-        const mediaRecencia = mean(weekSaleTotals);
-
         if (temAnoAnterior && tem12m) {
-          // Blend completo: recência + ano anterior + base 12m
-          // Pesos variam por postura
           const wRec  = posturaKey === 'conservador' ? 0.45 : posturaKey === 'agressivo' ? 0.70 : 0.60;
           const wAno  = posturaKey === 'conservador' ? 0.40 : posturaKey === 'agressivo' ? 0.20 : 0.30;
           const wBase = 1 - wRec - wAno;
-          vendaPrevista  = wRec * mediaRecencia + wAno * mediaVendaAnoAnt + wBase * mediaBase12m;
-          pesosUsados    = { rec: wRec, ano: wAno, base: wBase };
+          vendaPrevista   = wRec * mediaVendasPonderada + wAno * mediaVendaAnoAnt + wBase * mediaBase12m;
+          pesosUsados     = { rec: wRec, ano: wAno, base: wBase };
           estrategiaUsada = `Blend completo: ${Math.round(wRec*100)}% recência + ${Math.round(wAno*100)}% mesmo período ano ant. + ${Math.round(wBase*100)}% base 12m.`;
-
         } else if (!temAnoAnterior && tem12m) {
-          // Sem ano anterior → recência + base 12m
           const wRec  = posturaKey === 'conservador' ? 0.65 : posturaKey === 'agressivo' ? 0.85 : 0.75;
           const wBase = 1 - wRec;
-          vendaPrevista  = wRec * mediaRecencia + wBase * mediaBase12m;
-          pesosUsados    = { rec: wRec, ano: 0, base: wBase };
+          vendaPrevista   = wRec * mediaVendasPonderada + wBase * mediaBase12m;
+          pesosUsados     = { rec: wRec, ano: 0, base: wBase };
           estrategiaUsada = `Sem histórico anual. Blend: ${Math.round(wRec*100)}% recência + ${Math.round(wBase*100)}% base 12m.`;
-
         } else if (temAnoAnterior && !tem12m) {
-          // Sem base 12m → recência + ano anterior
           const wRec = posturaKey === 'conservador' ? 0.50 : posturaKey === 'agressivo' ? 0.75 : 0.65;
           const wAno = 1 - wRec;
-          vendaPrevista  = wRec * mediaRecencia + wAno * mediaVendaAnoAnt;
-          pesosUsados    = { rec: wRec, ano: wAno, base: 0 };
+          vendaPrevista   = wRec * mediaVendasPonderada + wAno * mediaVendaAnoAnt;
+          pesosUsados     = { rec: wRec, ano: wAno, base: 0 };
           estrategiaUsada = `Blend: ${Math.round(wRec*100)}% recência + ${Math.round(wAno*100)}% mesmo período ano ant.`;
-
         } else {
-          // Apenas recência
-          vendaPrevista  = mediaRecencia;
-          pesosUsados    = { rec: 1, ano: 0, base: 0 };
+          vendaPrevista   = mediaVendasPonderada;
+          pesosUsados     = { rec: 1, ano: 0, base: 0 };
           estrategiaUsada = `Apenas recência (${semanasComDados} semanas).`;
         }
 
-        // A5. Ajuste por tendência de crescimento (só com 4+ semanas)
+        // Ajuste por tendência
         if (semanasComDados >= 4) {
-          const half       = Math.max(1, Math.floor(allWeekSales.length / 2));
-          const mediaRec   = mean(allWeekSales.slice(allWeekSales.length - half));
-          const mediaOld   = mean(allWeekSales.slice(0, half));
-          const growthRate = mediaOld > 0 ? (mediaRec - mediaOld) / mediaOld : 0;
-
-          // Amplifica tendência conforme postura, limitado pelo cap configurado
-          const rawAdj    = growthRate;
-          const adjFinal  = Math.max(-postura.growthCap, Math.min(postura.growthCap, rawAdj));
-          vendaPrevista   = vendaPrevista * (1 + adjFinal);
+          const half     = Math.max(1, Math.floor(allWeekSales.length / 2));
+          const mediaRec = mean(allWeekSales.slice(allWeekSales.length - half));
+          const mediaOld = mean(allWeekSales.slice(0, half));
+          const growth   = mediaOld > 0 ? (mediaRec - mediaOld) / mediaOld : 0;
+          const adjFinal = Math.max(-postura.growthCap, Math.min(postura.growthCap, growth));
+          vendaPrevista  = vendaPrevista * (1 + adjFinal);
         }
       }
 
-      // ── Tendência (para exibição) ─────────────────────────────────────────
+      // ── CALENDÁRIO: ajuste da semana alvo ────────────────────────────────
+      // Filtra eventos da semana alvo que afetam este produto
+      const eventosAlvo = calendarSemanaAlvo.filter((ev: any) =>
+        eventoAfetaSetor(ev.sectors, product.setor) && parseFloat(ev.impact_percentage ?? '0') !== 0
+      );
+
+      const multiplicadorCalendario = calcImpactoSemana(eventosAlvo);
+      const vendaPrevistaComCalendario = vendaPrevista * multiplicadorCalendario;
+
+      // Info dos eventos para exibição no frontend
+      const eventosImpacto = eventosAlvo.map((ev: any) => ({
+        nome: ev.name,
+        data: ev.date,
+        tipo: ev.type,
+        impacto_pct: parseFloat(ev.impact_percentage),
+        prioridade: ev.priority,
+        notas: ev.notes || '',
+      }));
+
+      // Há também eventos sem impacto numérico mas que o usuário registrou (apenas informativos)
+      const eventosInfo = calendarSemanaAlvo.filter((ev: any) =>
+        eventoAfetaSetor(ev.sectors, product.setor) && parseFloat(ev.impact_percentage ?? '0') === 0
+      ).map((ev: any) => ({
+        nome: ev.name,
+        data: ev.date,
+        tipo: ev.type,
+        impacto_pct: 0,
+        prioridade: ev.priority,
+        notas: ev.notes || '',
+      }));
+
+      // ── Tendência ─────────────────────────────────────────────────────────
       let salesTrend: 'growing' | 'decreasing' | 'stable' = 'stable';
       let lossesTrend: 'growing' | 'decreasing' | 'stable' = 'stable';
       let growthRateDisplay = 0;
 
       if (semanasComDados >= 4) {
-        const half       = Math.max(1, Math.floor(allWeekSales.length / 2));
-        const mediaRec   = mean(allWeekSales.slice(allWeekSales.length - half));
-        const mediaOld   = mean(allWeekSales.slice(0, half));
+        const half     = Math.max(1, Math.floor(allWeekSales.length / 2));
+        const mediaRec = mean(allWeekSales.slice(allWeekSales.length - half));
+        const mediaOld = mean(allWeekSales.slice(0, half));
         growthRateDisplay = mediaOld > 0 ? (mediaRec - mediaOld) / mediaOld : 0;
 
-        salesTrend = growthRateDisplay >  0.08 ? 'growing'
-                   : growthRateDisplay < -0.08 ? 'decreasing'
-                   : 'stable';
+        salesTrend = growthRateDisplay >  0.08 ? 'growing' : growthRateDisplay < -0.08 ? 'decreasing' : 'stable';
 
-        const allWeekLosses = weeklyData.map(w => w.losses);
-        const lossRec = mean(allWeekLosses.slice(allWeekLosses.length - half));
-        const lossOld = mean(allWeekLosses.slice(0, half));
-        const lossGrowth = lossOld > 0 ? (lossRec - lossOld) / lossOld : 0;
-        lossesTrend = lossGrowth >  0.08 ? 'growing'
-                    : lossGrowth < -0.08 ? 'decreasing'
-                    : 'stable';
+        const lossRec  = mean(allWeekLosses.slice(allWeekLosses.length - half));
+        const lossOld  = mean(allWeekLosses.slice(0, half));
+        const lossG    = lossOld > 0 ? (lossRec - lossOld) / lossOld : 0;
+        lossesTrend    = lossG > 0.08 ? 'growing' : lossG < -0.08 ? 'decreasing' : 'stable';
       }
 
       // ── PASSO B: Taxa de perda (mediana) ─────────────────────────────────
@@ -304,36 +360,27 @@ Deno.serve(async (req) => {
         .map(w => w.losses / (w.sales + w.losses));
 
       let taxaPerdaFinal = 0;
-
       if (weekLossRates.length === 0 && temAnoAnterior && (mediaVendaAnoAnt + mediaPerdaAnoAnt) > 0) {
-        // Sem taxa recente → usa apenas o ano anterior
         taxaPerdaFinal = mediaPerdaAnoAnt / (mediaVendaAnoAnt + mediaPerdaAnoAnt);
-
       } else if (weekLossRates.length > 0 && temAnoAnterior && (mediaVendaAnoAnt + mediaPerdaAnoAnt) > 0) {
-        // Blend: 70% recência + 30% ano anterior
         const taxaRec = median(weekLossRates);
         const taxaAno = mediaPerdaAnoAnt / (mediaVendaAnoAnt + mediaPerdaAnoAnt);
         taxaPerdaFinal = 0.70 * taxaRec + 0.30 * taxaAno;
-
       } else {
-        // Apenas recência (ou zero)
         taxaPerdaFinal = median(weekLossRates);
       }
 
-      // Cap seguro para evitar divisão por zero
-      const taxaSafe = Math.min(taxaPerdaFinal, 0.90);
-
       // ── PASSO C: Produção final ───────────────────────────────────────────
-      // Fórmula: VendaPrevista ÷ (1 - TaxaPerda) × (1 + Buffer)
-      const prodBase        = vendaPrevista > 0 && taxaSafe < 1
-                              ? vendaPrevista / (1 - taxaSafe)
-                              : vendaPrevista;
-      const prodFinal       = prodBase * (1 + bufferPct);
+      const taxaSafe    = Math.min(taxaPerdaFinal, 0.90);
+      const prodBase    = vendaPrevistaComCalendario > 0 && taxaSafe < 1
+                          ? vendaPrevistaComCalendario / (1 - taxaSafe)
+                          : vendaPrevistaComCalendario;
+      const prodFinal   = prodBase * (1 + bufferPct);
       const suggestedProduction = Math.max(0, Math.ceil(prodFinal));
 
-      // ── Médias para exibição ──────────────────────────────────────────────
-      const avgSales  = mean(weekSaleTotals);
-      const avgLosses = mean(weeklyData.filter(w => w.hasData).map(w => w.losses));
+      // Médias para exibição
+      const avgSales    = mean(weeklyData.filter(w => w.hasData).map(w => w.sales));
+      const avgLosses   = mean(weeklyData.filter(w => w.hasData).map(w => w.losses));
       const avgLossRate = taxaPerdaFinal * 100;
 
       const currentSales  = parseFloat(currentWeekSales.find((s: any) => s.produto_id === pid)?.quantidade_total ?? '0');
@@ -341,52 +388,60 @@ Deno.serve(async (req) => {
       const currentLossRate = (currentSales + currentLosses) > 0
         ? (currentLosses / (currentSales + currentLosses)) * 100 : 0;
 
-      // ── Texto da sugestão ─────────────────────────────────────────────────
+      // Texto da sugestão
       let suggestion = estrategiaUsada;
       if (semanasComDados > 0) {
         const pctBuffer = (bufferPct * 100).toFixed(0);
         const pctPerda  = (taxaPerdaFinal * 100).toFixed(1);
         suggestion = `${estrategiaUsada} Taxa de perda: ${pctPerda}%. Buffer: +${pctBuffer}%.`;
+        if (eventosImpacto.length > 0) {
+          const pctCal = ((multiplicadorCalendario - 1) * 100).toFixed(0);
+          const sinal  = multiplicadorCalendario >= 1 ? '+' : '';
+          suggestion += ` Calendário: ${sinal}${pctCal}% (${eventosImpacto.map(e => e.nome).join(', ')}).`;
+        }
       }
 
       return {
-        produto_id:      pid,
-        produto_nome:    product.nome,
-        setor:           product.setor,
-        unidade:         product.unidade,
+        produto_id:   pid,
+        produto_nome: product.nome,
+        setor:        product.setor,
+        unidade:      product.unidade,
         production_days: diasProducao,
 
-        // Médias exibição
-        avg_sales:     Math.round(avgSales  * 100) / 100,
-        avg_losses:    Math.round(avgLosses * 100) / 100,
-        avg_loss_rate: Math.round(avgLossRate * 10) / 10,
+        avg_sales:     Math.round(avgSales    * 100) / 100,
+        avg_losses:    Math.round(avgLosses   * 100) / 100,
+        avg_loss_rate: Math.round(avgLossRate * 10)  / 10,
 
-        // Semana atual
         current_sales:     currentSales,
         current_losses:    currentLosses,
         current_loss_rate: Math.round(currentLossRate * 10) / 10,
 
-        // Tendências
-        sales_trend:  salesTrend,
-        losses_trend: lossesTrend,
+        sales_trend:      salesTrend,
+        losses_trend:     lossesTrend,
         sales_growth_rate: Math.round(growthRateDisplay * 1000) / 10,
 
-        // Confiança
-        confianca: confianca.nivel,
-        confianca_label: confianca.label,
-        confianca_cor:   confianca.cor,
+        confianca:         confianca.nivel,
+        confianca_label:   confianca.label,
+        confianca_cor:     confianca.cor,
         semanas_com_dados: semanasComDados,
-        tem_ano_anterior: temAnoAnterior,
+        tem_ano_anterior:  temAnoAnterior,
 
-        // Detalhes do cálculo (para painel transparente)
+        // Calendário
+        eventos_semana:        eventosImpacto,  // com impacto numérico
+        eventos_semana_info:   eventosInfo,      // apenas informativos
+        multiplicador_calendario: Math.round(multiplicadorCalendario * 1000) / 1000,
+        semanas_historico_com_eventos: weeklyData.filter(w => w.eventos.length > 0).length,
+
         calc_details: {
-          venda_prevista:        Math.round(vendaPrevista       * 100) / 100,
-          taxa_perda_pct:        Math.round(taxaPerdaFinal      * 1000) / 10,
-          prod_base:             Math.round(prodBase            * 100) / 100,
-          buffer_pct:            bufferPct * 100,
-          media_recencia:        Math.round(avgSales            * 100) / 100,
-          media_ano_anterior:    Math.round(mediaVendaAnoAnt    * 100) / 100,
-          media_base12m:         Math.round(mediaBase12m        * 100) / 100,
+          venda_prevista_base:      Math.round(vendaPrevista               * 100) / 100,
+          multiplicador_calendario: Math.round(multiplicadorCalendario     * 1000) / 1000,
+          venda_prevista_final:     Math.round(vendaPrevistaComCalendario  * 100) / 100,
+          taxa_perda_pct:           Math.round(taxaPerdaFinal              * 1000) / 10,
+          prod_base:                Math.round(prodBase                    * 100) / 100,
+          buffer_pct:               bufferPct * 100,
+          media_recencia:           Math.round(avgSales                    * 100) / 100,
+          media_ano_anterior:       Math.round(mediaVendaAnoAnt            * 100) / 100,
+          media_base12m:            Math.round(mediaBase12m                * 100) / 100,
           pesos: {
             rec:  Math.round(pesosUsados.rec  * 100),
             ano:  Math.round(pesosUsados.ano  * 100),
@@ -403,6 +458,7 @@ Deno.serve(async (req) => {
     return Response.json({
       products: productAnalysis,
       period: { start: startDate, end: endDate },
+      eventos_semana_geral: calendarSemanaAlvo,
       config_used: {
         semanas_historico: semanasHistorico,
         postura: postura.desc,
