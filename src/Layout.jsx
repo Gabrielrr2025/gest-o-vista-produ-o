@@ -186,7 +186,7 @@ export default function Layout({ children, currentPageName }) {
                       transition-all duration-200 relative overflow-hidden
                       ${sidebarMinimized ? 'justify-center' : ''}
                       ${isActive 
-                        ? 'bg-gradient-to-r from-[hsl(var(--accent-neon))] to-[hsl(var(--accent-purple))] text-[hsl(var(--sidebar-primary-foreground))] shadow-lg glow-cyan' 
+                        ? 'bg-gradient-to-r from-cyan-500 to-purple-600 text-white shadow-lg glow-cyan' 
                         : 'text-[hsl(var(--sidebar-foreground))] hover:text-[hsl(var(--sidebar-primary-foreground))] hover:bg-[hsl(var(--sidebar-accent))]'
                       }
                     `}
@@ -217,7 +217,7 @@ export default function Layout({ children, currentPageName }) {
                     <TooltipContent 
                       side="right" 
                       sideOffset={10}
-                      className="glass-strong text-[hsl(var(--text-primary))] border-[hsl(var(--border-medium))] z-[60]"
+                      className="bg-white text-slate-900 border-slate-200 shadow-lg z-[60]"
                     >
                       {item.name}
                     </TooltipContent>
@@ -240,7 +240,7 @@ export default function Layout({ children, currentPageName }) {
                           transition-all duration-200 relative overflow-hidden
                           ${sidebarMinimized ? 'justify-center' : ''}
                           ${isActive
-                            ? 'bg-gradient-to-r from-[hsl(var(--accent-neon))] to-[hsl(var(--accent-purple))] text-[hsl(var(--sidebar-primary-foreground))] shadow-lg glow-purple' 
+                            ? 'bg-gradient-to-r from-cyan-500 to-purple-600 text-white shadow-lg glow-purple' 
                             : 'text-[hsl(var(--sidebar-foreground))] hover:text-[hsl(var(--sidebar-primary-foreground))] hover:bg-[hsl(var(--sidebar-accent))]'
                           }
                         `}
@@ -267,7 +267,8 @@ export default function Layout({ children, currentPageName }) {
                         </TooltipTrigger>
                         <TooltipContent 
                           side="right" 
-                          className="glass-strong text-[hsl(var(--text-primary))] border-[hsl(var(--border-medium))]"
+                          sideOffset={10}
+                          className="bg-white text-slate-900 border-slate-200 shadow-lg z-[60]"
                         >
                           Administrativo
                         </TooltipContent>
