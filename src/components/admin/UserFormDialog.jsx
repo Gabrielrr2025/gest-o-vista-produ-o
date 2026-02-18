@@ -129,13 +129,13 @@ export default function UserFormDialog({ user, onClose, onSave }) {
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="modal-container sm:max-w-[600px] w-[95%] p-0">
-        <DialogHeader className="modal-header">
+      <DialogContent className="modal-container sm:max-w-[600px] w-[95%] p-0 max-h-[90vh] flex flex-col">
+        <DialogHeader className="modal-header flex-shrink-0">
           <DialogTitle>{user ? 'Editar Usuário' : 'Adicionar Novo Usuário'}</DialogTitle>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
-          <div className="modal-body space-y-3">
+          <div className="modal-body space-y-3 overflow-y-auto flex-1">
           <div>
             <Label htmlFor="full_name">Nome Completo *</Label>
             <Input
@@ -259,7 +259,7 @@ export default function UserFormDialog({ user, onClose, onSave }) {
           )}
           </div>
 
-          <div className="modal-footer">
+          <div className="modal-footer flex-shrink-0">
             <button 
               type="button" 
               onClick={onClose}
