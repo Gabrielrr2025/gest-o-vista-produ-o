@@ -1105,7 +1105,6 @@ export default function Reports() {
                   type="sales"
                 />
               </div>
-            </>
           )}
 
           {selectedSector && salesData.rawData && (
