@@ -831,6 +831,30 @@ export default function Planning() {
               </CardHeader>
               
               <CardContent className="space-y-4">
+                {/* SEÇÃO 0: Dias de Produção configurados */}
+                {selectedProduct.production_days && selectedProduct.production_days.length > 0 && (
+                  <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                    <p className="text-xs font-semibold text-slate-600 mb-2">Dias de produção:</p>
+                    <div className="flex flex-wrap gap-1">
+                      {['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'].map(day => {
+                        const isActive = selectedProduct.production_days.includes(day);
+                        return (
+                          <span
+                            key={day}
+                            className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                              isActive
+                                ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                                : 'bg-slate-200 text-slate-400 line-through'
+                            }`}
+                          >
+                            {day.substring(0, 3)}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* SEÇÃO 1: Semana Atual */}
                 <div>
                   <h4 className="text-sm font-semibold text-slate-700 mb-3">
