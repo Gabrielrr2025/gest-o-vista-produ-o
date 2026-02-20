@@ -726,7 +726,7 @@ export default function Planning() {
                         <TableHead className="text-center w-24">Média</TableHead>
                         {weekDays.map((day, idx) => (
                           <TableHead key={idx} className="text-center w-24">
-                            <div className="text-xs font-medium">
+                            <div className="text-xs font-medium capitalize">
                               {format(day, 'EEE', { locale: ptBR })}
                             </div>
                             <div className="text-xs text-slate-500">
