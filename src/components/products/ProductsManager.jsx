@@ -37,7 +37,7 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
   // Mutation para criar produto
   const createMutation = useMutation({
     mutationFn: async (data) => {
-      const response = await base44.functions.invoke('createProduct', data);
+      const response = await base44.functions.invoke('Createproduct', data);
       return response.data;
     },
     onSuccess: () => {
@@ -54,7 +54,7 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
   // Mutation para atualizar produto
   const updateMutation = useMutation({
     mutationFn: async ({ id, ...data }) => {
-      const response = await base44.functions.invoke('updateProduct', { id, ...data });
+      const response = await base44.functions.invoke('Updateproduct', { id, ...data });
       return response.data;
     },
     onSuccess: () => {
@@ -71,7 +71,7 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
   // Mutation para deletar produto
   const deleteMutation = useMutation({
     mutationFn: async ({ id, soft }) => {
-      const response = await base44.functions.invoke('deleteProduct', { id, soft });
+      const response = await base44.functions.invoke('deleteproduct', { id, soft });
       return response.data;
     },
     onSuccess: (data) => {
