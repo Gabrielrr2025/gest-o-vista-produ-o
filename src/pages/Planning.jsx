@@ -297,6 +297,7 @@ export default function Planning() {
     
     filteredPlanning.forEach(product => {
       const productionDays = product.production_days || [];
+      const hasProductionDays = productionDays.length > 0;
       
       // Contar dias ativos de produção
       const activeDaysCount = weekDays.filter((day) => {
@@ -305,8 +306,8 @@ export default function Planning() {
           0: 'Domingo', 1: 'Segunda', 2: 'Terça', 3: 'Quarta',
           4: 'Quinta', 5: 'Sexta', 6: 'Sábado'
         };
-        return productionDays.includes(dayNameMap[dayOfWeek]);
-      }).length;
+        return !hasProductionDays || productionDays.includes(dayNameMap[dayOfWeek]);
+      }).length || weekDays.length;
       
       // Distribuir apenas nos dias de produção
       const dailyQty = activeDaysCount > 0 
@@ -320,7 +321,7 @@ export default function Planning() {
           0: 'Domingo', 1: 'Segunda', 2: 'Terça', 3: 'Quarta',
           4: 'Quinta', 5: 'Sexta', 6: 'Sábado'
         };
-        const isProductionDay = productionDays.includes(dayNameMap[dayOfWeek]);
+        const isProductionDay = !hasProductionDays || productionDays.includes(dayNameMap[dayOfWeek]);
         
         newQuantities[key] = isProductionDay ? dailyQty : 0;
         
@@ -349,6 +350,7 @@ export default function Planning() {
     }
 
     const productionDays = selectedProduct.production_days || [];
+    const hasProductionDays = productionDays.length > 0;
     
     // Contar quantos dias de produção existem
     const activeDaysCount = weekDays.filter((day) => {
@@ -357,8 +359,8 @@ export default function Planning() {
         0: 'Domingo', 1: 'Segunda', 2: 'Terça', 3: 'Quarta',
         4: 'Quinta', 5: 'Sexta', 6: 'Sábado'
       };
-      return productionDays.includes(dayNameMap[dayOfWeek]);
-    }).length;
+      return !hasProductionDays || productionDays.includes(dayNameMap[dayOfWeek]);
+    }).length || weekDays.length;
     
     // Distribuir produção apenas nos dias ativos
     const dailyQty = activeDaysCount > 0 
@@ -374,7 +376,7 @@ export default function Planning() {
         0: 'Domingo', 1: 'Segunda', 2: 'Terça', 3: 'Quarta',
         4: 'Quinta', 5: 'Sexta', 6: 'Sábado'
       };
-      const isProductionDay = productionDays.includes(dayNameMap[dayOfWeek]);
+      const isProductionDay = !hasProductionDays || productionDays.includes(dayNameMap[dayOfWeek]);
       
       // Só aplicar quantidade nos dias de produção
       newQuantities[key] = isProductionDay ? dailyQty : 0;
@@ -752,7 +754,8 @@ export default function Planning() {
 
                              // Verificar se produto é produzido neste dia
                              const productionDays = product.production_days || [];
-                             const isProductionDay = productionDays.includes(dayName);
+                             // Se dias_producao não configurado, todos os dias são válidos
+                             const isProductionDay = productionDays.length === 0 || productionDays.includes(dayName);
 
                              return (
                                <TableCell key={idx} className="p-1">
