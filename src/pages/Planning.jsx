@@ -41,6 +41,21 @@ import { toast } from "sonner";
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 
+// ─── localStorage helpers ─────────────────────────────────────────────────────
+const LS_KEYS = {
+  sector:    'planning_selected_sector',
+  search:    'planning_search_term',
+  quantities: (start) => `planning_quantities_${start}`,
+};
+
+function lsGet(key, fallback = null) {
+  try { const v = localStorage.getItem(key); return v !== null ? JSON.parse(v) : fallback; }
+  catch { return fallback; }
+}
+function lsSet(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+}
+
 // Função auxiliar para calcular início da semana (TERÇA)
 const getWeekBounds = (date) => {
   const start = startOfWeek(date, { weekStartsOn: 2 }); // 2 = Terça
@@ -58,8 +73,8 @@ export default function Planning() {
     return addWeeks(currentWeekStart, 1); // Próxima semana
   });
   
-  const [selectedSector, setSelectedSector] = useState("all");
-  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedSector, setSelectedSector] = useState(() => lsGet(LS_KEYS.sector, 'all'));
+  const [searchTerm, setSearchTerm] = useState(() => lsGet(LS_KEYS.search, ''));
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [plannedQuantities, setPlannedQuantities] = useState({});
   const [isUnlocked, setIsUnlocked] = useState(false);
@@ -100,14 +115,33 @@ export default function Planning() {
 
   const editCode = configData?.valor || '1234';
 
+  // Buscar produtos do base44 (tem production_days que não existe no SQL)
+  const base44ProductsQuery = useQuery({
+    queryKey: ['base44Products'],
+    queryFn: () => base44.entities.Product.list(),
+    staleTime: 5 * 60 * 1000, // cache 5 min
+  });
+
+  // Mapa produtoId → production_days (do base44)
+  const productionDaysMap = React.useMemo(() => {
+    const map = {};
+    (base44ProductsQuery.data || []).forEach(p => {
+      if (p.production_days && p.production_days.length > 0) {
+        map[p.id] = p.production_days;
+      }
+    });
+    return map;
+  }, [base44ProductsQuery.data]);
+
   // Buscar dados do planejamento via function
   const planningQuery = useQuery({
-    queryKey: ['planningData', startDate, endDate],
+    queryKey: ['planningData', startDate, endDate, Object.keys(productionDaysMap).length],
     queryFn: async () => {
       console.log('📤 Buscando dados de planejamento:', { startDate, endDate });
       const response = await base44.functions.invoke('getPlanningData', {
         startDate,
-        endDate
+        endDate,
+        productionDaysMap: productionDaysMap,
       });
       console.log('📥 Dados recebidos:', response.data);
       return response.data;
@@ -126,12 +160,12 @@ export default function Planning() {
     }
   });
 
-  // Carregar planejamento salvo no estado
+  // Carregar planejamento salvo — banco tem prioridade, localStorage é fallback
   useEffect(() => {
-    if (savedPlanningQuery.data?.planejamentos) {
+    if (savedPlanningQuery.data?.planejamentos && savedPlanningQuery.data.planejamentos.length > 0) {
       const saved = {};
       savedPlanningQuery.data.planejamentos.forEach(item => {
-        const dayIndex = weekDays.findIndex(d => 
+        const dayIndex = weekDays.findIndex(d =>
           format(d, 'yyyy-MM-dd') === item.data
         );
         if (dayIndex !== -1) {
@@ -139,8 +173,15 @@ export default function Planning() {
         }
       });
       setPlannedQuantities(saved);
+    } else if (savedPlanningQuery.data && savedPlanningQuery.data.planejamentos?.length === 0) {
+      // Banco não tem dados — tentar localStorage como fallback
+      const cached = lsGet(LS_KEYS.quantities(startDate));
+      if (cached && Object.keys(cached).length > 0) {
+        setPlannedQuantities(cached);
+        setHasUnsavedChanges(true); // marca para o usuário salvar no banco
+      }
     }
-  }, [savedPlanningQuery.data, weekDays]);
+  }, [savedPlanningQuery.data, weekDays, startDate]);
 
   // Mutation para salvar planejamento
   const saveMutation = useMutation({
@@ -267,6 +308,7 @@ export default function Planning() {
       });
       await Promise.all(savePromises);
       setHasUnsavedChanges(false);
+      lsSet(LS_KEYS.quantities(startDate), plannedQuantities);
       toast.success('✅ Planejamento salvo com sucesso!');
     } catch (err) {
       toast.error('Erro ao salvar planejamento');
@@ -659,11 +701,11 @@ export default function Planning() {
         <Input
           placeholder="Buscar produto..."
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          onChange={(e) => { setSearchTerm(e.target.value); lsSet(LS_KEYS.search, e.target.value); }}
           className="sm:w-64"
         />
         
-        <Select value={selectedSector} onValueChange={setSelectedSector}>
+        <Select value={selectedSector} onValueChange={(v) => { setSelectedSector(v); lsSet(LS_KEYS.sector, v); }}>
           <SelectTrigger className="sm:w-48">
             <SelectValue placeholder="Setor" />
           </SelectTrigger>
