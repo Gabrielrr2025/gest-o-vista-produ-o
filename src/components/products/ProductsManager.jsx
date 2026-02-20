@@ -160,13 +160,10 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
     try {
       const data = await base44.functions.invoke('deleteproduct', {
         id: deleteTarget.id,
-        soft: true,
+        soft: false, // sempre deletar permanentemente
       });
       if (data?.success) {
-        toast.success(data.deleted
-          ? `"${deleteTarget.name}" excluído.`
-          : `"${deleteTarget.name}" desativado (possui registros vinculados).`
-        );
+        toast.success(`"${deleteTarget.name}" excluído permanentemente.`);
         queryClient.invalidateQueries({ queryKey: ['products'] });
         onRefresh?.();
         setDeleteTarget(null);
@@ -461,8 +458,8 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir produto?</AlertDialogTitle>
             <AlertDialogDescription>
-              O produto <strong>{deleteTarget?.name}</strong> será excluído permanentemente.
-              Se houver registros vinculados (vendas, perdas), ele será apenas desativado.
+              O produto <strong>{deleteTarget?.name}</strong> será excluído permanentemente do sistema.
+              Ele voltará a aparecer como "não mapeado" caso ainda exista nos registros de vendas ou perdas.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
