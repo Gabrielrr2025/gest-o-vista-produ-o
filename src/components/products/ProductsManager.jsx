@@ -1,13 +1,13 @@
 import React, { useState, useMemo } from 'react';
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
@@ -15,13 +15,13 @@ import { Plus, Search, Pencil, Trash2, Package, Filter } from "lucide-react";
 import SectorBadge, { SECTORS } from "../common/SectorBadge";
 
 const DAYS_OF_WEEK = [
-  { value: "seg", label: "Seg" },
-  { value: "ter", label: "Ter" },
-  { value: "qua", label: "Qua" },
-  { value: "qui", label: "Qui" },
-  { value: "sex", label: "Sex" },
-  { value: "sab", label: "Sáb" },
-  { value: "dom", label: "Dom" },
+  { value: "seg", label: "S" },
+  { value: "ter", label: "T" },
+  { value: "qua", label: "Q" },
+  { value: "qui", label: "Q" },
+  { value: "sex", label: "S" },
+  { value: "sab", label: "S" },
+  { value: "dom", label: "D" },
 ];
 
 const UNITS = ["UN", "KG", "kilo", "unidade"];
@@ -42,46 +42,14 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [filterSector, setFilterSector] = useState("all");
-  const [filterActive, setFilterActive] = useState("all");
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [form, setForm] = useState(emptyForm);
+  const [isSaving, setIsSaving] = useState(false);
+
   const [deleteTarget, setDeleteTarget] = useState(null);
-
-  // --- Mutations ---
-  const createMutation = useMutation({
-    mutationFn: (data) => base44.functions.invoke('Createproduct', data),
-    onSuccess: () => {
-      toast.success("Produto criado com sucesso!");
-      queryClient.invalidateQueries({ queryKey: ['products'] });
-      onRefresh?.();
-      closeDialog();
-    },
-    onError: (err) => toast.error("Erro ao criar produto: " + err.message),
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: (data) => base44.functions.invoke('Updateproduct', data),
-    onSuccess: () => {
-      toast.success("Produto atualizado!");
-      queryClient.invalidateQueries({ queryKey: ['products'] });
-      onRefresh?.();
-      closeDialog();
-    },
-    onError: (err) => toast.error("Erro ao atualizar produto: " + err.message),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id) => base44.functions.invoke('deleteproduct', { id }),
-    onSuccess: () => {
-      toast.success("Produto excluído.");
-      queryClient.invalidateQueries({ queryKey: ['products'] });
-      onRefresh?.();
-      setDeleteTarget(null);
-    },
-    onError: (err) => toast.error("Erro ao excluir: " + err.message),
-  });
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // --- Filtros ---
   const filtered = useMemo(() => {
@@ -91,12 +59,9 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
         p.name?.toLowerCase().includes(search.toLowerCase()) ||
         p.code?.toLowerCase().includes(search.toLowerCase());
       const matchSector = filterSector === "all" || p.sector === filterSector;
-      const matchActive =
-        filterActive === "all" ||
-        (filterActive === "active" ? p.active !== false : p.active === false);
-      return matchSearch && matchSector && matchActive;
+      return matchSearch && matchSector;
     });
-  }, [products, search, filterSector, filterActive]);
+  }, [products, search, filterSector]);
 
   // --- Dialog helpers ---
   const openCreate = () => {
@@ -136,40 +101,97 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
     }));
   };
 
-  const handleSubmit = () => {
+  // --- Salvar (criar ou editar) ---
+  const handleSubmit = async () => {
     if (!form.name.trim()) return toast.error("Nome é obrigatório.");
     if (!form.sector) return toast.error("Setor é obrigatório.");
 
-    if (editingProduct) {
-      updateMutation.mutate({ id: editingProduct.id, ...form });
-    } else {
-      createMutation.mutate(form);
+    setIsSaving(true);
+    try {
+      if (editingProduct) {
+        await base44.functions.invoke('Updateproduct', { id: editingProduct.id, ...form });
+        toast.success("Produto atualizado!");
+      } else {
+        await base44.functions.invoke('Createproduct', form);
+        toast.success("Produto criado com sucesso!");
+      }
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      onRefresh?.();
+      closeDialog();
+    } catch (err) {
+      toast.error("Erro ao salvar produto: " + (err.message || "Tente novamente."));
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const isSaving = createMutation.isPending || updateMutation.isPending;
+  // --- Excluir ---
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      const response = await base44.functions.invoke('deleteproduct', {
+        id: deleteTarget.id,
+        soft: true,
+      });
 
-  // --- Render ---
+      const data = response?.data;
+
+      if (data?.success) {
+        if (data.deleted) {
+          toast.success("Produto excluído permanentemente.");
+        } else {
+          toast.success("Produto desativado (possui registros vinculados).");
+        }
+        queryClient.invalidateQueries({ queryKey: ['products'] });
+        onRefresh?.();
+        setDeleteTarget(null);
+      } else {
+        toast.error(data?.error || "Erro ao excluir produto.");
+      }
+    } catch (err) {
+      toast.error("Erro ao excluir: " + (err.message || "Tente novamente."));
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // --- Render dias de produção como badges ---
+  const renderDays = (days = []) => (
+    <div className="flex gap-1">
+      {DAYS_OF_WEEK.map(({ value, label }) => (
+        <span
+          key={value}
+          className={`w-6 h-6 flex items-center justify-center rounded text-[10px] font-bold ${
+            days.includes(value)
+              ? "bg-slate-700 text-white"
+              : "bg-slate-100 text-slate-300"
+          }`}
+        >
+          {label}
+        </span>
+      ))}
+    </div>
+  );
+
   return (
     <div className="space-y-4">
       {/* Barra de controles */}
-      <div className="card-glass p-4 rounded-xl flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div className="flex flex-col sm:flex-row gap-3 flex-1">
-          {/* Busca */}
           <div className="relative flex-1 max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[hsl(var(--text-tertiary))]" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <Input
               placeholder="Buscar por nome ou código..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 glass border-[hsl(var(--border-medium))]"
+              className="pl-9"
             />
           </div>
 
-          {/* Filtro setor */}
           <Select value={filterSector} onValueChange={setFilterSector}>
-            <SelectTrigger className="w-44 glass border-[hsl(var(--border-medium))]">
-              <Filter className="w-3.5 h-3.5 mr-1.5 text-[hsl(var(--text-tertiary))]" />
+            <SelectTrigger className="w-44">
+              <Filter className="w-3.5 h-3.5 mr-1.5 text-slate-400" />
               <SelectValue placeholder="Setor" />
             </SelectTrigger>
             <SelectContent>
@@ -179,175 +201,132 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
               ))}
             </SelectContent>
           </Select>
-
-          {/* Filtro status */}
-          <Select value={filterActive} onValueChange={setFilterActive}>
-            <SelectTrigger className="w-36 glass border-[hsl(var(--border-medium))]">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="active">Ativos</SelectItem>
-              <SelectItem value="inactive">Inativos</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
 
         {showAddButton && (
-          <Button
-            onClick={openCreate}
-            className="bg-gradient-to-r from-[hsl(var(--accent-neon))] to-[hsl(var(--accent-purple))] text-[hsl(var(--bg-void))] font-semibold hover:opacity-90 glow-cyan"
-          >
+          <Button onClick={openCreate} className="bg-slate-900 hover:bg-slate-700 text-white">
             <Plus className="w-4 h-4 mr-2" />
             Novo Produto
           </Button>
         )}
       </div>
 
-      {/* Contador */}
-      <p className="text-xs text-[hsl(var(--text-tertiary))] px-1">
+      {/* Tabela */}
+      <Card>
+        <CardContent className="p-0">
+          {isLoading ? (
+            <div className="text-center py-16 text-slate-500">
+              <div className="w-8 h-8 border-2 border-slate-300 border-t-slate-700 rounded-full animate-spin mx-auto mb-3" />
+              Carregando produtos...
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="text-center py-16 text-slate-400">
+              <Package className="w-12 h-12 mx-auto mb-3 opacity-30" />
+              <p className="font-medium">Nenhum produto encontrado</p>
+              <p className="text-sm mt-1">Tente ajustar os filtros ou cadastre um novo produto.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-48">Produto</TableHead>
+                    <TableHead className="w-32">Setor</TableHead>
+                    <TableHead className="w-28 text-center">Rendimento</TableHead>
+                    <TableHead className="w-28 text-center">Unidade Venda</TableHead>
+                    <TableHead>Dias de Produção</TableHead>
+                    <TableHead className="w-24 text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((product) => (
+                    <TableRow
+                      key={product.id}
+                      className={product.active === false ? "opacity-50" : ""}
+                    >
+                      <TableCell className="font-medium">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">{product.name}</p>
+                          {product.code && (
+                            <p className="text-xs text-slate-400">#{product.code}</p>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <SectorBadge sector={product.sector} />
+                      </TableCell>
+                      <TableCell className="text-center text-sm text-slate-600">
+                        {product.recipe_yield || 1} {product.unit === "kilo" || product.unit === "KG" ? "Kg" : "Un"}
+                      </TableCell>
+                      <TableCell className="text-center text-sm text-slate-600">
+                        {product.unit || "UN"}
+                      </TableCell>
+                      <TableCell>
+                        {renderDays(product.production_days || [])}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => openEdit(product)}
+                            className="text-slate-400 hover:text-slate-700 transition-colors p-1"
+                            title="Editar"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => setDeleteTarget(product)}
+                            className="text-red-400 hover:text-red-600 transition-colors p-1"
+                            title="Excluir"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <p className="text-xs text-slate-400 px-1">
         {filtered.length} produto{filtered.length !== 1 ? "s" : ""} encontrado{filtered.length !== 1 ? "s" : ""}
       </p>
 
-      {/* Loading */}
-      {isLoading && (
-        <div className="text-center py-16 text-[hsl(var(--text-tertiary))]">
-          <div className="w-8 h-8 border-2 border-[hsl(var(--accent-neon))] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          Carregando produtos...
-        </div>
-      )}
-
-      {/* Vazio */}
-      {!isLoading && filtered.length === 0 && (
-        <div className="text-center py-16 text-[hsl(var(--text-tertiary))]">
-          <Package className="w-12 h-12 mx-auto mb-3 opacity-30" />
-          <p className="font-medium">Nenhum produto encontrado</p>
-          <p className="text-sm mt-1">Tente ajustar os filtros ou cadastre um novo produto.</p>
-        </div>
-      )}
-
-      {/* Grid de cards */}
-      {!isLoading && filtered.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filtered.map((product) => (
-            <Card
-              key={product.id}
-              className="card-futuristic hover:scale-[1.02] transition-transform duration-200 relative"
-            >
-              <CardContent className="p-4 space-y-3">
-                {/* Header do card */}
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-[hsl(var(--text-primary))] truncate text-sm leading-tight">
-                      {product.name}
-                    </p>
-                    {product.code && (
-                      <p className="text-xs text-[hsl(var(--text-tertiary))] mt-0.5">
-                        #{product.code}
-                      </p>
-                    )}
-                  </div>
-                  <Badge
-                    className={`text-xs shrink-0 ${
-                      product.active !== false
-                        ? "bg-[hsl(var(--success-neon))]/20 text-[hsl(var(--success-neon))] border-[hsl(var(--success-neon))]/30"
-                        : "bg-[hsl(var(--error-neon))]/20 text-[hsl(var(--error-neon))] border-[hsl(var(--error-neon))]/30"
-                    }`}
-                    variant="outline"
-                  >
-                    {product.active !== false ? "Ativo" : "Inativo"}
-                  </Badge>
-                </div>
-
-                {/* Setor e unidade */}
-                <div className="flex items-center gap-2 flex-wrap">
-                  <SectorBadge sector={product.sector} />
-                  <Badge variant="outline" className="text-xs border-[hsl(var(--border-medium))] text-[hsl(var(--text-secondary))]">
-                    {product.unit || "UN"}
-                  </Badge>
-                </div>
-
-                {/* Dias de produção */}
-                {product.production_days?.length > 0 && (
-                  <div className="flex gap-1 flex-wrap">
-                    {DAYS_OF_WEEK.map(({ value, label }) => (
-                      <span
-                        key={value}
-                        className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                          product.production_days.includes(value)
-                            ? "bg-[hsl(var(--accent-neon))]/20 text-[hsl(var(--accent-neon))]"
-                            : "bg-transparent text-transparent"
-                        }`}
-                      >
-                        {product.production_days.includes(value) ? label : ""}
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {/* Ações */}
-                <div className="flex gap-2 pt-1 border-t border-[hsl(var(--border-subtle))]">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="flex-1 text-xs h-8 hover:bg-[hsl(var(--accent-neon))]/10 hover:text-[hsl(var(--accent-neon))]"
-                    onClick={() => openEdit(product)}
-                  >
-                    <Pencil className="w-3 h-3 mr-1.5" />
-                    Editar
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="flex-1 text-xs h-8 hover:bg-[hsl(var(--error-neon))]/10 hover:text-[hsl(var(--error-neon))]"
-                    onClick={() => setDeleteTarget(product)}
-                  >
-                    <Trash2 className="w-3 h-3 mr-1.5" />
-                    Excluir
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-
       {/* Dialog Criar / Editar */}
       <Dialog open={dialogOpen} onOpenChange={(open) => !open && closeDialog()}>
-        <DialogContent className="glass-strong border-[hsl(var(--border-medium))] max-w-lg">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-[hsl(var(--text-primary))]">
+            <DialogTitle>
               {editingProduct ? "Editar Produto" : "Novo Produto"}
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            {/* Nome */}
             <div className="space-y-1.5">
-              <Label className="text-[hsl(var(--text-secondary))] text-sm">Nome *</Label>
+              <Label className="text-sm">Nome *</Label>
               <Input
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 placeholder="Ex: Pão Francês"
-                className="glass border-[hsl(var(--border-medium))]"
               />
             </div>
 
-            {/* Código + Setor */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-[hsl(var(--text-secondary))] text-sm">Código</Label>
+                <Label className="text-sm">Código</Label>
                 <Input
                   value={form.code}
                   onChange={(e) => setForm({ ...form, code: e.target.value })}
                   placeholder="Ex: PAD001"
-                  className="glass border-[hsl(var(--border-medium))]"
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[hsl(var(--text-secondary))] text-sm">Setor *</Label>
+                <Label className="text-sm">Setor *</Label>
                 <Select value={form.sector} onValueChange={(v) => setForm({ ...form, sector: v })}>
-                  <SelectTrigger className="glass border-[hsl(var(--border-medium))]">
+                  <SelectTrigger>
                     <SelectValue placeholder="Selecione..." />
                   </SelectTrigger>
                   <SelectContent>
@@ -359,12 +338,11 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
               </div>
             </div>
 
-            {/* Unidade + Rendimento */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-[hsl(var(--text-secondary))] text-sm">Unidade</Label>
+                <Label className="text-sm">Unidade</Label>
                 <Select value={form.unit} onValueChange={(v) => setForm({ ...form, unit: v })}>
-                  <SelectTrigger className="glass border-[hsl(var(--border-medium))]">
+                  <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -375,53 +353,56 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[hsl(var(--text-secondary))] text-sm">Rendimento</Label>
+                <Label className="text-sm">Rendimento</Label>
                 <Input
                   type="number"
                   min="0.01"
                   step="0.01"
                   value={form.recipe_yield}
                   onChange={(e) => setForm({ ...form, recipe_yield: parseFloat(e.target.value) || 1 })}
-                  className="glass border-[hsl(var(--border-medium))]"
                 />
               </div>
             </div>
 
-            {/* Horários */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-[hsl(var(--text-secondary))] text-sm">Horário Fabricação</Label>
+                <Label className="text-sm">Horário Fabricação</Label>
                 <Input
                   type="time"
                   value={form.manufacturing_time}
                   onChange={(e) => setForm({ ...form, manufacturing_time: e.target.value })}
-                  className="glass border-[hsl(var(--border-medium))]"
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[hsl(var(--text-secondary))] text-sm">Horário Venda</Label>
+                <Label className="text-sm">Horário Venda</Label>
                 <Input
                   type="time"
                   value={form.sale_time}
                   onChange={(e) => setForm({ ...form, sale_time: e.target.value })}
-                  className="glass border-[hsl(var(--border-medium))]"
                 />
               </div>
             </div>
 
-            {/* Dias de produção */}
             <div className="space-y-1.5">
-              <Label className="text-[hsl(var(--text-secondary))] text-sm">Dias de Produção</Label>
+              <Label className="text-sm">Dias de Produção</Label>
               <div className="flex gap-2 flex-wrap">
-                {DAYS_OF_WEEK.map(({ value, label }) => (
+                {[
+                  { value: "seg", label: "Seg" },
+                  { value: "ter", label: "Ter" },
+                  { value: "qua", label: "Qua" },
+                  { value: "qui", label: "Qui" },
+                  { value: "sex", label: "Sex" },
+                  { value: "sab", label: "Sáb" },
+                  { value: "dom", label: "Dom" },
+                ].map(({ value, label }) => (
                   <button
                     key={value}
                     type="button"
                     onClick={() => toggleDay(value)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
                       form.production_days.includes(value)
-                        ? "bg-[hsl(var(--accent-neon))]/20 text-[hsl(var(--accent-neon))] border-[hsl(var(--accent-neon))]/50"
-                        : "bg-transparent text-[hsl(var(--text-tertiary))] border-[hsl(var(--border-medium))] hover:border-[hsl(var(--accent-neon))]/30"
+                        ? "bg-slate-800 text-white border-slate-800"
+                        : "bg-white text-slate-500 border-slate-200 hover:border-slate-400"
                     }`}
                   >
                     {label}
@@ -430,11 +411,10 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
               </div>
             </div>
 
-            {/* Status ativo */}
-            <div className="flex items-center justify-between p-3 rounded-lg border border-[hsl(var(--border-subtle))] glass">
+            <div className="flex items-center justify-between p-3 rounded-lg border border-slate-200">
               <div>
-                <p className="text-sm font-medium text-[hsl(var(--text-primary))]">Produto Ativo</p>
-                <p className="text-xs text-[hsl(var(--text-tertiary))]">Produtos inativos não aparecem no planejamento</p>
+                <p className="text-sm font-medium text-slate-900">Produto Ativo</p>
+                <p className="text-xs text-slate-400">Produtos inativos não aparecem no planejamento</p>
               </div>
               <Switch
                 checked={form.active}
@@ -444,14 +424,8 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
           </div>
 
           <DialogFooter className="gap-2">
-            <Button variant="ghost" onClick={closeDialog} className="text-[hsl(var(--text-secondary))]">
-              Cancelar
-            </Button>
-            <Button
-              onClick={handleSubmit}
-              disabled={isSaving}
-              className="bg-gradient-to-r from-[hsl(var(--accent-neon))] to-[hsl(var(--accent-purple))] text-[hsl(var(--bg-void))] font-semibold hover:opacity-90"
-            >
+            <Button variant="ghost" onClick={closeDialog}>Cancelar</Button>
+            <Button onClick={handleSubmit} disabled={isSaving} className="bg-slate-900 hover:bg-slate-700 text-white">
               {isSaving ? "Salvando..." : editingProduct ? "Salvar Alterações" : "Criar Produto"}
             </Button>
           </DialogFooter>
@@ -460,24 +434,21 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
 
       {/* Dialog confirmar exclusão */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-        <AlertDialogContent className="glass-strong border-[hsl(var(--border-medium))]">
+        <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-[hsl(var(--text-primary))]">
-              Excluir produto?
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-[hsl(var(--text-secondary))]">
-              O produto <strong className="text-[hsl(var(--text-primary))]">{deleteTarget?.name}</strong> será excluído permanentemente. Esta ação não pode ser desfeita.
+            <AlertDialogTitle>Excluir produto?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O produto <strong>{deleteTarget?.name}</strong> será excluído. Se houver registros vinculados (vendas, perdas), ele será apenas desativado automaticamente.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="glass border-[hsl(var(--border-medium))]">
-              Cancelar
-            </AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deleteMutation.mutate(deleteTarget?.id)}
-              className="bg-[hsl(var(--error-neon))]/80 hover:bg-[hsl(var(--error-neon))] text-white"
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700 text-white"
             >
-              {deleteMutation.isPending ? "Excluindo..." : "Excluir"}
+              {isDeleting ? "Excluindo..." : "Excluir"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
