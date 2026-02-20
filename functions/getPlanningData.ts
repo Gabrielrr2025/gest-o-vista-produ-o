@@ -101,7 +101,7 @@ Deno.serve(async (req) => {
 
     // 3. Queries
     const products = await sql`
-      SELECT id, nome, setor, unidade, status
+      SELECT id, nome, setor, unidade, status, dias_producao
       FROM produtos WHERE status = 'ativo' ORDER BY setor, nome
     `;
 
@@ -146,9 +146,20 @@ Deno.serve(async (req) => {
     const productAnalysis = products.map((product: any) => {
       const pid = product.id;
 
-      // production_days vem do base44 (não existe no PostgreSQL)
-      // O frontend envia productionDaysMap com os dias já resolvidos
-      const diasProducao: string[] = productionDaysMap[pid] || productionDaysMap[String(pid)] || [];
+      // dias_producao vem do SQL (salvo pelo Updateproduct/Createproduct)
+      // productionDaysMap do frontend é usado como fallback caso SQL esteja vazio
+      let diasProducao: string[] = [];
+      try {
+        if (product.dias_producao) {
+          if (Array.isArray(product.dias_producao))           diasProducao = product.dias_producao;
+          else if (typeof product.dias_producao === 'string') diasProducao = JSON.parse(product.dias_producao);
+          else                                                 diasProducao = Object.values(product.dias_producao);
+        }
+      } catch { diasProducao = []; }
+      // Fallback: se SQL não tiver dias, usa o que o frontend enviou
+      if (diasProducao.length === 0 && (productionDaysMap[pid] || productionDaysMap[String(pid)])) {
+        diasProducao = productionDaysMap[pid] || productionDaysMap[String(pid)];
+      }
 
       const prodSalesRec  = salesRecencia.filter( (s: any) => s.produto_id === pid);
       const prodLossesRec = lossesRecencia.filter((l: any) => l.produto_id === pid);
