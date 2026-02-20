@@ -43,18 +43,16 @@ import jsPDF from 'jspdf';
 
 // ─── localStorage helpers ─────────────────────────────────────────────────────
 const LS_KEYS = {
-  sector:    'planning_selected_sector',
-  search:    'planning_search_term',
+  sector:     'planning_selected_sector',
+  search:     'planning_search_term',
   quantities: (start) => `planning_quantities_${start}`,
 };
-
 function lsGet(key, fallback = null) {
   try { const v = localStorage.getItem(key); return v !== null ? JSON.parse(v) : fallback; }
   catch { return fallback; }
 }
 function lsSet(key, value) {
-  try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
-}
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch {} }
 
 // Função auxiliar para calcular início da semana (TERÇA)
 const getWeekBounds = (date) => {
@@ -78,10 +76,10 @@ export default function Planning() {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [plannedQuantities, setPlannedQuantities] = useState({});
   const [isUnlocked, setIsUnlocked] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showUnlockDialog, setShowUnlockDialog] = useState(false);
   const [unlockCode, setUnlockCode] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   // Refs para debounce
   const saveTimeoutRef = useRef({});
@@ -122,7 +120,7 @@ export default function Planning() {
       console.log('📤 Buscando dados de planejamento:', { startDate, endDate });
       const response = await base44.functions.invoke('getPlanningData', {
         startDate,
-        endDate,
+        endDate
       });
       console.log('📥 Dados recebidos:', response.data);
       return response.data;
@@ -141,12 +139,12 @@ export default function Planning() {
     }
   });
 
-  // Carregar planejamento salvo — banco tem prioridade, localStorage é fallback
+  // Carregar planejamento salvo no estado
   useEffect(() => {
-    if (savedPlanningQuery.data?.planejamentos && savedPlanningQuery.data.planejamentos.length > 0) {
+    if (savedPlanningQuery.data?.planejamentos) {
       const saved = {};
       savedPlanningQuery.data.planejamentos.forEach(item => {
-        const dayIndex = weekDays.findIndex(d =>
+        const dayIndex = weekDays.findIndex(d => 
           format(d, 'yyyy-MM-dd') === item.data
         );
         if (dayIndex !== -1) {
@@ -154,15 +152,8 @@ export default function Planning() {
         }
       });
       setPlannedQuantities(saved);
-    } else if (savedPlanningQuery.data && savedPlanningQuery.data.planejamentos?.length === 0) {
-      // Banco não tem dados — tentar localStorage como fallback
-      const cached = lsGet(LS_KEYS.quantities(startDate));
-      if (cached && Object.keys(cached).length > 0) {
-        setPlannedQuantities(cached);
-        setHasUnsavedChanges(true); // marca para o usuário salvar no banco
-      }
     }
-  }, [savedPlanningQuery.data, weekDays, startDate]);
+  }, [savedPlanningQuery.data, weekDays]);
 
   // Mutation para salvar planejamento
   const saveMutation = useMutation({
@@ -267,10 +258,10 @@ export default function Planning() {
     }));
 
     setHasUnsavedChanges(true);
+    saveQuantity(productId, dayIndex, numValue);
   };
 
-
-  // Salvar planejamento completo manualmente
+  // Salvar planejamento manualmente
   const handleSave = async () => {
     if (isWeekLocked) { setShowUnlockDialog(true); return; }
     setIsSaving(true);
@@ -278,25 +269,25 @@ export default function Planning() {
       const savePromises = [];
       Object.entries(plannedQuantities).forEach(([key, qty]) => {
         const [productId, dayIdx] = key.split('-');
-        const dateStr = format(weekDays[parseInt(dayIdx)], 'yyyy-MM-dd');
         savePromises.push(
           base44.functions.invoke('savePlanning', {
             produto_id: productId,
-            data: dateStr,
+            data: format(weekDays[parseInt(dayIdx)], 'yyyy-MM-dd'),
             quantidade_planejada: qty
           })
         );
       });
       await Promise.all(savePromises);
-      setHasUnsavedChanges(false);
       lsSet(LS_KEYS.quantities(startDate), plannedQuantities);
-      toast.success('✅ Planejamento salvo com sucesso!');
+      setHasUnsavedChanges(false);
+      toast.success('✅ Planejamento salvo!');
     } catch (err) {
       toast.error('Erro ao salvar planejamento');
     } finally {
       setIsSaving(false);
     }
   };
+
   // Desbloquear com código
   const handleUnlock = () => {
     if (unlockCode === editCode) {
@@ -320,7 +311,6 @@ export default function Planning() {
     
     filteredPlanning.forEach(product => {
       const productionDays = product.production_days || [];
-      const hasProductionDays = productionDays.length > 0;
       
       // Contar dias ativos de produção
       const activeDaysCount = weekDays.filter((day) => {
@@ -329,8 +319,8 @@ export default function Planning() {
           0: 'Domingo', 1: 'Segunda', 2: 'Terça', 3: 'Quarta',
           4: 'Quinta', 5: 'Sexta', 6: 'Sábado'
         };
-        return !hasProductionDays || productionDays.includes(dayNameMap[dayOfWeek]);
-      }).length || weekDays.length;
+        return productionDays.includes(dayNameMap[dayOfWeek]);
+      }).length;
       
       // Distribuir apenas nos dias de produção
       const dailyQty = activeDaysCount > 0 
@@ -344,7 +334,7 @@ export default function Planning() {
           0: 'Domingo', 1: 'Segunda', 2: 'Terça', 3: 'Quarta',
           4: 'Quinta', 5: 'Sexta', 6: 'Sábado'
         };
-        const isProductionDay = !hasProductionDays || productionDays.includes(dayNameMap[dayOfWeek]);
+        const isProductionDay = productionDays.includes(dayNameMap[dayOfWeek]);
         
         newQuantities[key] = isProductionDay ? dailyQty : 0;
         
@@ -373,7 +363,6 @@ export default function Planning() {
     }
 
     const productionDays = selectedProduct.production_days || [];
-    const hasProductionDays = productionDays.length > 0;
     
     // Contar quantos dias de produção existem
     const activeDaysCount = weekDays.filter((day) => {
@@ -382,8 +371,8 @@ export default function Planning() {
         0: 'Domingo', 1: 'Segunda', 2: 'Terça', 3: 'Quarta',
         4: 'Quinta', 5: 'Sexta', 6: 'Sábado'
       };
-      return !hasProductionDays || productionDays.includes(dayNameMap[dayOfWeek]);
-    }).length || weekDays.length;
+      return productionDays.includes(dayNameMap[dayOfWeek]);
+    }).length;
     
     // Distribuir produção apenas nos dias ativos
     const dailyQty = activeDaysCount > 0 
@@ -399,7 +388,7 @@ export default function Planning() {
         0: 'Domingo', 1: 'Segunda', 2: 'Terça', 3: 'Quarta',
         4: 'Quinta', 5: 'Sexta', 6: 'Sábado'
       };
-      const isProductionDay = !hasProductionDays || productionDays.includes(dayNameMap[dayOfWeek]);
+      const isProductionDay = productionDays.includes(dayNameMap[dayOfWeek]);
       
       // Só aplicar quantidade nos dias de produção
       newQuantities[key] = isProductionDay ? dailyQty : 0;
@@ -646,26 +635,6 @@ export default function Planning() {
             <RefreshCw className="w-4 h-4 mr-2" />
             Recalcular
           </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              const produtos = planningQuery.data?.products || [];
-              const amostra = produtos.slice(0, 5).map(p => ({
-                nome: p.produto_nome,
-                production_days: p.production_days,
-                tipo: typeof p.production_days,
-                isArray: Array.isArray(p.production_days),
-                length: p.production_days?.length,
-              }));
-              console.log('=== DEBUG production_days ===', JSON.stringify(amostra, null, 2));
-              alert(JSON.stringify(amostra, null, 2));
-            }}
-            className="text-orange-600 border-orange-300"
-          >
-            🔍 Debug Dias
-          </Button>
           
           <Button
             variant="outline"
@@ -684,7 +653,7 @@ export default function Planning() {
             <FileText className="w-4 h-4 mr-2" />
             PDF
           </Button>
-          
+
           <Button
             size="sm"
             onClick={handleSave}
@@ -692,7 +661,7 @@ export default function Planning() {
             className={hasUnsavedChanges ? "bg-green-600 hover:bg-green-700 text-white" : ""}
           >
             <Save className="w-4 h-4 mr-2" />
-            {isSaving ? "Salvando..." : hasUnsavedChanges ? "Salvar" : "Salvo"}
+            {isSaving ? "Salvando..." : hasUnsavedChanges ? "Salvar" : "Salvo ✓"}
           </Button>
         </div>
       </div>
@@ -797,8 +766,7 @@ export default function Planning() {
 
                              // Verificar se produto é produzido neste dia
                              const productionDays = product.production_days || [];
-                             // Se dias_producao não configurado, todos os dias são válidos
-                             const isProductionDay = productionDays.length === 0 || productionDays.includes(dayName);
+                             const isProductionDay = productionDays.includes(dayName);
 
                              return (
                                <TableCell key={idx} className="p-1">
@@ -1097,7 +1065,7 @@ export default function Planning() {
                       <div className="mt-2 pt-2 border-t border-blue-200 text-xs text-blue-700 space-y-1">
                         <p className="font-semibold text-blue-800">Detalhes do cálculo (PCP):</p>
 
-                        {/* Passo A: MMP */}
+                        {/* A: MMP */}
                         <div className="space-y-0.5">
                           <p className="opacity-70 font-medium">A — Média Móvel Ponderada</p>
                           <div className="flex justify-between">
@@ -1106,7 +1074,7 @@ export default function Planning() {
                           </div>
                           {selectedProduct.calc_details.multiplicador_calendario !== 1 && (
                             <div className="flex justify-between">
-                              <span>× calendário ({selectedProduct.calc_details.multiplicador_calendario >= 1 ? '+' : ''}{((selectedProduct.calc_details.multiplicador_calendario - 1) * 100).toFixed(0)}%):</span>
+                              <span>× calendário ({selectedProduct.calc_details.multiplicador_calendario >= 1 ? '+' : ''}{((selectedProduct.calc_details.multiplicador_calendario - 1)*100).toFixed(0)}%):</span>
                               <span className={`font-medium ${selectedProduct.calc_details.multiplicador_calendario >= 1 ? 'text-blue-500' : 'text-amber-500'}`}>
                                 {selectedProduct.calc_details.demanda_prevista} {selectedProduct.unidade}
                               </span>
@@ -1114,7 +1082,7 @@ export default function Planning() {
                           )}
                         </div>
 
-                        {/* Passo B: Buffer estatístico */}
+                        {/* B: Buffer estatístico */}
                         <div className="space-y-0.5 pt-1">
                           <p className="opacity-70 font-medium">B — Buffer estatístico (k × σ)</p>
                           <div className="flex justify-between">
@@ -1135,7 +1103,7 @@ export default function Planning() {
                           </div>
                         </div>
 
-                        {/* Passo C: Taxa de perda */}
+                        {/* C: Taxa de perda */}
                         <div className="space-y-0.5 pt-1">
                           <p className="opacity-70 font-medium">C — Taxa de perda (mediana)</p>
                           <div className="flex justify-between">
