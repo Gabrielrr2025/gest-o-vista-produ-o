@@ -14,14 +14,14 @@ import { toast } from "sonner";
 import { Plus, Search, Pencil, Trash2, Package, Filter } from "lucide-react";
 import SectorBadge, { SECTORS } from "../common/SectorBadge";
 
-const DAYS_OF_WEEK = [
-  { value: "seg", label: "S" },
-  { value: "ter", label: "T" },
-  { value: "qua", label: "Q" },
-  { value: "qui", label: "Q" },
-  { value: "sex", label: "S" },
-  { value: "sab", label: "S" },
-  { value: "dom", label: "D" },
+const DAYS = [
+  { value: "seg", short: "S", full: "Seg" },
+  { value: "ter", short: "T", full: "Ter" },
+  { value: "qua", short: "Q", full: "Qua" },
+  { value: "qui", short: "Q", full: "Qui" },
+  { value: "sex", short: "S", full: "Sex" },
+  { value: "sab", short: "S", full: "Sáb" },
+  { value: "dom", short: "D", full: "Dom" },
 ];
 
 const UNITS = ["UN", "KG", "kilo", "unidade"];
@@ -36,6 +36,7 @@ const emptyForm = {
   active: true,
   manufacturing_time: "",
   sale_time: "",
+  production_time: "",
 };
 
 export default function ProductsManager({ products = [], onRefresh, showAddButton = true, isLoading = false }) {
@@ -63,7 +64,7 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
     });
   }, [products, search, filterSector]);
 
-  // --- Dialog helpers ---
+  // --- Dialog ---
   const openCreate = () => {
     setEditingProduct(null);
     setForm(emptyForm);
@@ -78,10 +79,11 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
       sector: product.sector || "",
       unit: product.unit || "UN",
       recipe_yield: product.recipe_yield || 1,
-      production_days: product.production_days || [],
+      production_days: Array.isArray(product.production_days) ? product.production_days : [],
       active: product.active !== false,
       manufacturing_time: product.manufacturing_time || "",
       sale_time: product.sale_time || "",
+      production_time: product.production_time || "",
     });
     setDialogOpen(true);
   };
@@ -101,7 +103,7 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
     }));
   };
 
-  // --- Salvar (criar ou editar) ---
+  // --- Salvar ---
   const handleSubmit = async () => {
     if (!form.name.trim()) return toast.error("Nome é obrigatório.");
     if (!form.sector) return toast.error("Setor é obrigatório.");
@@ -134,15 +136,9 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
         id: deleteTarget.id,
         soft: true,
       });
-
       const data = response?.data;
-
       if (data?.success) {
-        if (data.deleted) {
-          toast.success("Produto excluído permanentemente.");
-        } else {
-          toast.success("Produto desativado (possui registros vinculados).");
-        }
+        toast.success(data.deleted ? "Produto excluído." : "Produto desativado (possui registros vinculados).");
         queryClient.invalidateQueries({ queryKey: ['products'] });
         onRefresh?.();
         setDeleteTarget(null);
@@ -156,19 +152,19 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
     }
   };
 
-  // --- Render dias de produção como badges ---
+  // --- Badges dos dias ---
   const renderDays = (days = []) => (
     <div className="flex gap-1">
-      {DAYS_OF_WEEK.map(({ value, label }) => (
+      {DAYS.map(({ value, short }) => (
         <span
           key={value}
-          className={`w-6 h-6 flex items-center justify-center rounded text-[10px] font-bold ${
+          className={`w-6 h-6 flex items-center justify-center rounded text-[10px] font-bold transition-colors ${
             days.includes(value)
               ? "bg-slate-700 text-white"
-              : "bg-slate-100 text-slate-300"
+              : "bg-slate-200 text-slate-500"
           }`}
         >
-          {label}
+          {short}
         </span>
       ))}
     </div>
@@ -176,7 +172,7 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
 
   return (
     <div className="space-y-4">
-      {/* Barra de controles */}
+      {/* Controles */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div className="flex flex-col sm:flex-row gap-3 flex-1">
           <div className="relative flex-1 max-w-xs">
@@ -188,7 +184,6 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
               className="pl-9"
             />
           </div>
-
           <Select value={filterSector} onValueChange={setFilterSector}>
             <SelectTrigger className="w-44">
               <Filter className="w-3.5 h-3.5 mr-1.5 text-slate-400" />
@@ -240,42 +235,35 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
                 </TableHeader>
                 <TableBody>
                   {filtered.map((product) => (
-                    <TableRow
-                      key={product.id}
-                      className={product.active === false ? "opacity-50" : ""}
-                    >
-                      <TableCell className="font-medium">
-                        <div>
-                          <p className="text-sm font-semibold text-slate-900">{product.name}</p>
-                          {product.code && (
-                            <p className="text-xs text-slate-400">#{product.code}</p>
-                          )}
-                        </div>
+                    <TableRow key={product.id} className={product.active === false ? "opacity-40" : ""}>
+                      <TableCell>
+                        <p className="text-sm font-semibold text-slate-900">{product.name}</p>
+                        {product.code && <p className="text-xs text-slate-400">#{product.code}</p>}
                       </TableCell>
                       <TableCell>
                         <SectorBadge sector={product.sector} />
                       </TableCell>
-                      <TableCell className="text-center text-sm text-slate-600">
+                      <TableCell className="text-center text-sm text-slate-700">
                         {product.recipe_yield || 1} {product.unit === "kilo" || product.unit === "KG" ? "Kg" : "Un"}
                       </TableCell>
-                      <TableCell className="text-center text-sm text-slate-600">
+                      <TableCell className="text-center text-sm text-slate-700">
                         {product.unit || "UN"}
                       </TableCell>
                       <TableCell>
                         {renderDays(product.production_days || [])}
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-1">
                           <button
                             onClick={() => openEdit(product)}
-                            className="text-slate-400 hover:text-slate-700 transition-colors p-1"
+                            className="text-slate-400 hover:text-slate-700 transition-colors p-1.5 rounded hover:bg-slate-100"
                             title="Editar"
                           >
                             <Pencil className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => setDeleteTarget(product)}
-                            className="text-red-400 hover:text-red-600 transition-colors p-1"
+                            className="text-slate-400 hover:text-red-500 transition-colors p-1.5 rounded hover:bg-red-50"
                             title="Excluir"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -295,9 +283,10 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
         {filtered.length} produto{filtered.length !== 1 ? "s" : ""} encontrado{filtered.length !== 1 ? "s" : ""}
       </p>
 
-      {/* Dialog Criar / Editar */}
+      {/* ===== DIALOG CRIAR / EDITAR ===== */}
+      {/* FIX: max-h-[90vh] overflow-y-auto para não sair da tela */}
       <Dialog open={dialogOpen} onOpenChange={(open) => !open && closeDialog()}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingProduct ? "Editar Produto" : "Novo Produto"}
@@ -305,8 +294,10 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
           </DialogHeader>
 
           <div className="space-y-4 py-2">
+
+            {/* Nome */}
             <div className="space-y-1.5">
-              <Label className="text-sm">Nome *</Label>
+              <Label className="text-sm font-medium">Nome *</Label>
               <Input
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -314,9 +305,10 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
               />
             </div>
 
+            {/* Código + Setor */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-sm">Código</Label>
+                <Label className="text-sm font-medium">Código</Label>
                 <Input
                   value={form.code}
                   onChange={(e) => setForm({ ...form, code: e.target.value })}
@@ -324,8 +316,13 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-sm">Setor *</Label>
-                <Select value={form.sector} onValueChange={(v) => setForm({ ...form, sector: v })}>
+                <Label className="text-sm font-medium">Setor *</Label>
+                {/* FIX: key={editingProduct?.id} força remontagem ao abrir edição */}
+                <Select
+                  key={`sector-${editingProduct?.id ?? 'new'}`}
+                  value={form.sector}
+                  onValueChange={(v) => setForm({ ...form, sector: v })}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione..." />
                   </SelectTrigger>
@@ -338,12 +335,18 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
               </div>
             </div>
 
+            {/* Unidade + Rendimento */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-sm">Unidade</Label>
-                <Select value={form.unit} onValueChange={(v) => setForm({ ...form, unit: v })}>
+                <Label className="text-sm font-medium">Unidade</Label>
+                {/* FIX: key força remontagem para mostrar valor correto */}
+                <Select
+                  key={`unit-${editingProduct?.id ?? 'new'}`}
+                  value={form.unit}
+                  onValueChange={(v) => setForm({ ...form, unit: v })}
+                >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Selecione..." />
                   </SelectTrigger>
                   <SelectContent>
                     {UNITS.map((u) => (
@@ -353,7 +356,7 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-sm">Rendimento</Label>
+                <Label className="text-sm font-medium">Rendimento</Label>
                 <Input
                   type="number"
                   min="0.01"
@@ -364,17 +367,21 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
               </div>
             </div>
 
+            {/* Tempo de Produção + Horário Venda */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-sm">Horário Fabricação</Label>
+                <Label className="text-sm font-medium">Tempo de Produção (min)</Label>
                 <Input
-                  type="time"
-                  value={form.manufacturing_time}
-                  onChange={(e) => setForm({ ...form, manufacturing_time: e.target.value })}
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={form.production_time}
+                  onChange={(e) => setForm({ ...form, production_time: e.target.value })}
+                  placeholder="Ex: 45"
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-sm">Horário Venda</Label>
+                <Label className="text-sm font-medium">Horário de Venda</Label>
                 <Input
                   type="time"
                   value={form.sale_time}
@@ -383,18 +390,11 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
               </div>
             </div>
 
+            {/* Dias de Produção */}
             <div className="space-y-1.5">
-              <Label className="text-sm">Dias de Produção</Label>
+              <Label className="text-sm font-medium">Dias de Produção</Label>
               <div className="flex gap-2 flex-wrap">
-                {[
-                  { value: "seg", label: "Seg" },
-                  { value: "ter", label: "Ter" },
-                  { value: "qua", label: "Qua" },
-                  { value: "qui", label: "Qui" },
-                  { value: "sex", label: "Sex" },
-                  { value: "sab", label: "Sáb" },
-                  { value: "dom", label: "Dom" },
-                ].map(({ value, label }) => (
+                {DAYS.map(({ value, full }) => (
                   <button
                     key={value}
                     type="button"
@@ -405,13 +405,14 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
                         : "bg-white text-slate-500 border-slate-200 hover:border-slate-400"
                     }`}
                   >
-                    {label}
+                    {full}
                   </button>
                 ))}
               </div>
             </div>
 
-            <div className="flex items-center justify-between p-3 rounded-lg border border-slate-200">
+            {/* Produto Ativo */}
+            <div className="flex items-center justify-between p-3 rounded-lg border border-slate-200 bg-slate-50">
               <div>
                 <p className="text-sm font-medium text-slate-900">Produto Ativo</p>
                 <p className="text-xs text-slate-400">Produtos inativos não aparecem no planejamento</p>
@@ -423,16 +424,20 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
             </div>
           </div>
 
-          <DialogFooter className="gap-2">
+          <DialogFooter className="gap-2 pt-2">
             <Button variant="ghost" onClick={closeDialog}>Cancelar</Button>
-            <Button onClick={handleSubmit} disabled={isSaving} className="bg-slate-900 hover:bg-slate-700 text-white">
+            <Button
+              onClick={handleSubmit}
+              disabled={isSaving}
+              className="bg-slate-900 hover:bg-slate-700 text-white"
+            >
               {isSaving ? "Salvando..." : editingProduct ? "Salvar Alterações" : "Criar Produto"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Dialog confirmar exclusão */}
+      {/* ===== DIALOG EXCLUIR ===== */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
