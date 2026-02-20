@@ -15,26 +15,21 @@ export default function Products() {
   const { data: productsData, isLoading } = useQuery({
     queryKey: ['products'],
     queryFn: async () => {
-      console.log('🔍 Chamando Getproducts...');
       const response = await base44.functions.invoke('Getproducts', {});
-      console.log('📦 Resposta Getproducts:', response.data);
       return response.data;
-    }
+    },
+    staleTime: 5 * 60 * 1000,
+    gcTime:    10 * 60 * 1000,
   });
 
   // Buscar dados da VIEW SQL para detectar produtos não mapeados
   const { data: sqlData, error: sqlError, isLoading: sqlLoading } = useQuery({
     queryKey: ['sqlData'],
     queryFn: async () => {
-      console.log('🔍 Buscando dados da VIEW SQL...');
       try {
         const response = await base44.functions.invoke('fetchSQLData', {});
-        console.log('📊 Resposta COMPLETA fetchSQLData:', response);
-        console.log('📦 response.data:', response.data);
-        console.log('📦 response.error:', response.error);
         
         if (response.error) {
-          console.error('❌ Erro na response:', response.error);
           return { sales: [], losses: [] };
         }
         
@@ -46,11 +41,8 @@ export default function Products() {
           losses: data.losses || data.lossData || []
         };
         
-        console.log('✅ Dados normalizados:', normalized);
-        
         return normalized;
       } catch (err) {
-        console.error('❌ Erro ao chamar fetchSQLData:', err);
         return { sales: [], losses: [] };
       }
     },
@@ -58,21 +50,10 @@ export default function Products() {
   });
 
   const products = productsData?.products || [];
-
-  console.log('🛒 Produtos cadastrados:', products.length);
-  console.log('📊 SQL Data:', sqlData);
-  console.log('❌ SQL Error:', sqlError);
-  console.log('⏳ SQL Loading:', sqlLoading);
   
   // Debug: verificar se vai renderizar o componente
   const shouldRender = !sqlLoading && sqlData && sqlData.sales && sqlData.losses;
-  console.log('🎨 Deve renderizar UnmappedProducts?', shouldRender);
   if (shouldRender) {
-    console.log('📊 Vai passar para componente:', {
-      salesLength: sqlData.sales.length,
-      lossesLength: sqlData.losses.length,
-      productsLength: products.length
-    });
   }
 
   const handleRefresh = async () => {
@@ -112,10 +93,7 @@ export default function Products() {
 
       const fileName = `produtos_${format(new Date(), 'dd-MM-yyyy')}.xlsx`;
       XLSX.writeFile(wb, fileName);
-
-      console.log('✅ Excel exportado');
     } catch (error) {
-      console.error('Erro ao exportar:', error);
     }
   };
 
