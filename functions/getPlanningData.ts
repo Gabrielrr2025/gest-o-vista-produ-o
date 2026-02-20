@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await req.json();
-    const { startDate, endDate, productionDaysMap = {} } = body;
+    const { startDate, endDate } = body;
     if (!startDate || !endDate)
       return Response.json({ error: 'Missing startDate or endDate' }, { status: 400 });
 
@@ -146,8 +146,7 @@ Deno.serve(async (req) => {
     const productAnalysis = products.map((product: any) => {
       const pid = product.id;
 
-      // dias_producao vem do SQL (salvo pelo Updateproduct/Createproduct)
-      // productionDaysMap do frontend é usado como fallback caso SQL esteja vazio
+      // dias_producao vem diretamente do SQL (salvo pelo Updateproduct/Createproduct)
       let diasProducao: string[] = [];
       try {
         if (product.dias_producao) {
@@ -156,10 +155,6 @@ Deno.serve(async (req) => {
           else                                                 diasProducao = Object.values(product.dias_producao);
         }
       } catch { diasProducao = []; }
-      // Fallback: se SQL não tiver dias, usa o que o frontend enviou
-      if (diasProducao.length === 0 && (productionDaysMap[pid] || productionDaysMap[String(pid)])) {
-        diasProducao = productionDaysMap[pid] || productionDaysMap[String(pid)];
-      }
 
       const prodSalesRec  = salesRecencia.filter( (s: any) => s.produto_id === pid);
       const prodLossesRec = lossesRecencia.filter((l: any) => l.produto_id === pid);
