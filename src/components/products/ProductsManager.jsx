@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
@@ -24,7 +24,8 @@ const DAYS = [
   { value: "dom", short: "D", full: "Dom" },
 ];
 
-const UNITS = ["UN", "KG", "kilo", "unidade"];
+// Unidades conforme solicitado
+const UNITS = ["UN", "KG", "PCT"];
 
 const emptyForm = {
   name: "",
@@ -34,8 +35,9 @@ const emptyForm = {
   recipe_yield: 1,
   production_days: [],
   active: true,
-  manufacturing_time: "",
-  sale_time: "",
+  manufacturing_time: "",   // horário de fabricação (time)
+  sale_time: "",            // horário de venda (time)
+  production_time: "",      // tempo de preparo em minutos
 };
 
 export default function ProductsManager({ products = [], onRefresh, showAddButton = true, isLoading = false }) {
@@ -63,13 +65,14 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
     });
   }, [products, search, filterSector]);
 
-  // --- Dialog ---
+  // --- Abrir criar ---
   const openCreate = () => {
     setEditingProduct(null);
     setForm(emptyForm);
     setDialogOpen(true);
   };
 
+  // --- Abrir editar ---
   const openEdit = (product) => {
     setEditingProduct(product);
     setForm({
@@ -82,6 +85,7 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
       active: product.active !== false,
       manufacturing_time: product.manufacturing_time || "",
       sale_time: product.sale_time || "",
+      production_time: product.production_time || "",
     });
     setDialogOpen(true);
   };
@@ -109,12 +113,34 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
     setIsSaving(true);
     try {
       if (editingProduct) {
-        const res = await base44.functions.invoke('Updateproduct', { id: editingProduct.id, ...form });
-        if (res?.data?.error) throw new Error(res.data.error);
+        // response.data é o retorno do backend
+        const data = await base44.functions.invoke('Updateproduct', {
+          id: editingProduct.id,
+          name: form.name,
+          code: form.code,
+          sector: form.sector,
+          unit: form.unit,
+          recipe_yield: form.recipe_yield,
+          production_days: form.production_days,
+          active: form.active,
+          manufacturing_time: form.manufacturing_time || null,
+          sale_time: form.sale_time || null,
+        });
+        if (data?.error) throw new Error(data.error);
         toast.success("Produto atualizado!");
       } else {
-        const res = await base44.functions.invoke('Createproduct', form);
-        if (res?.data?.error) throw new Error(res.data.error);
+        const data = await base44.functions.invoke('Createproduct', {
+          name: form.name,
+          code: form.code,
+          sector: form.sector,
+          unit: form.unit,
+          recipe_yield: form.recipe_yield,
+          production_days: form.production_days,
+          active: form.active,
+          manufacturing_time: form.manufacturing_time || null,
+          sale_time: form.sale_time || null,
+        });
+        if (data?.error) throw new Error(data.error);
         toast.success("Produto criado com sucesso!");
       }
       queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -132,13 +158,15 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
     if (!deleteTarget) return;
     setIsDeleting(true);
     try {
-      const res = await base44.functions.invoke('deleteproduct', {
+      const data = await base44.functions.invoke('deleteproduct', {
         id: deleteTarget.id,
         soft: true,
       });
-      const data = res?.data;
       if (data?.success) {
-        toast.success(data.deleted ? "Produto excluído." : "Produto desativado (possui registros vinculados).");
+        toast.success(data.deleted
+          ? `"${deleteTarget.name}" excluído.`
+          : `"${deleteTarget.name}" desativado (possui registros vinculados).`
+        );
         queryClient.invalidateQueries({ queryKey: ['products'] });
         onRefresh?.();
         setDeleteTarget(null);
@@ -183,7 +211,6 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
               className="pl-9"
             />
           </div>
-          {/* z-[10000] para o SelectContent aparecer acima de tudo */}
           <Select value={filterSector} onValueChange={setFilterSector}>
             <SelectTrigger className="w-44">
               <Filter className="w-3.5 h-3.5 mr-1.5 text-slate-400" />
@@ -240,7 +267,7 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
                       </TableCell>
                       <TableCell><SectorBadge sector={product.sector} /></TableCell>
                       <TableCell className="text-center text-sm text-slate-700">
-                        {product.recipe_yield || 1} {product.unit === "kilo" || product.unit === "KG" ? "Kg" : "Un"}
+                        {product.recipe_yield || 1} {product.unit === "KG" || product.unit === "kilo" ? "Kg" : "Un"}
                       </TableCell>
                       <TableCell className="text-center text-sm text-slate-700">
                         {product.unit || "UN"}
@@ -282,6 +309,9 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingProduct ? "Editar Produto" : "Novo Produto"}</DialogTitle>
+            <DialogDescription>
+              {editingProduct ? `Editando: ${editingProduct.name}` : "Preencha os dados do novo produto."}
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
@@ -312,7 +342,6 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione..." />
                   </SelectTrigger>
-                  {/* z-[10000] CRÍTICO: faz o dropdown aparecer acima do Dialog */}
                   <SelectContent className="z-[10000]">
                     {SECTORS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                   </SelectContent>
@@ -328,7 +357,6 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione..." />
                   </SelectTrigger>
-                  {/* z-[10000] CRÍTICO */}
                   <SelectContent className="z-[10000]">
                     {UNITS.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
                   </SelectContent>
@@ -346,7 +374,7 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
               </div>
             </div>
 
-            {/* Horário Fabricação + Horário Venda */}
+            {/* Horário Fabricação + Tempo de Preparo */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium">Horário de Fabricação</Label>
@@ -357,13 +385,27 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-sm font-medium">Horário de Venda</Label>
+                <Label className="text-sm font-medium">Tempo de Preparo (min)</Label>
                 <Input
-                  type="time"
-                  value={form.sale_time}
-                  onChange={(e) => setForm({ ...form, sale_time: e.target.value })}
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={form.production_time}
+                  onChange={(e) => setForm({ ...form, production_time: e.target.value })}
+                  placeholder="Ex: 45"
                 />
               </div>
+            </div>
+
+            {/* Horário de Venda */}
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Horário de Venda</Label>
+              <Input
+                type="time"
+                value={form.sale_time}
+                onChange={(e) => setForm({ ...form, sale_time: e.target.value })}
+                className="w-1/2"
+              />
             </div>
 
             {/* Dias de Produção */}
@@ -419,7 +461,8 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir produto?</AlertDialogTitle>
             <AlertDialogDescription>
-              O produto <strong>{deleteTarget?.name}</strong> será excluído. Se houver registros vinculados (vendas, perdas), ele será apenas desativado automaticamente.
+              O produto <strong>{deleteTarget?.name}</strong> será excluído permanentemente.
+              Se houver registros vinculados (vendas, perdas), ele será apenas desativado.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
