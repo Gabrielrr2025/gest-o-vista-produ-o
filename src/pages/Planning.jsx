@@ -650,10 +650,17 @@ export default function Planning() {
           <Button
             variant="outline"
             size="sm"
-            onClick={async () => {
-              const r = await base44.functions.invoke('debugPlanning', {});
-              console.log('=== DEBUG DIAS_PRODUCAO ===', JSON.stringify(r.data, null, 2));
-              alert('Resultado no console (F12 → Console):\n\n' + JSON.stringify(r.data?.produtos_amostra?.map(p => ({ nome: p.nome, raw: p.dias_producao_raw, tipo: p.tipo_real, isArray: p.is_array })), null, 2));
+            onClick={() => {
+              const produtos = planningQuery.data?.products || [];
+              const amostra = produtos.slice(0, 5).map(p => ({
+                nome: p.produto_nome,
+                production_days: p.production_days,
+                tipo: typeof p.production_days,
+                isArray: Array.isArray(p.production_days),
+                length: p.production_days?.length,
+              }));
+              console.log('=== DEBUG production_days ===', JSON.stringify(amostra, null, 2));
+              alert(JSON.stringify(amostra, null, 2));
             }}
             className="text-orange-600 border-orange-300"
           >
