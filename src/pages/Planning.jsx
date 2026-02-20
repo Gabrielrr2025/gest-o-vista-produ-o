@@ -115,38 +115,14 @@ export default function Planning() {
 
   const editCode = configData?.valor || '1234';
 
-  // Buscar produtos do PostgreSQL via Getproducts (inclui dias_producao salvo no SQL)
-  const base44ProductsQuery = useQuery({
-    queryKey: ['allProductsWithDays'],
-    queryFn: async () => {
-      const response = await base44.functions.invoke('Getproducts', {});
-      return response.data?.products || [];
-    },
-    staleTime: 5 * 60 * 1000, // cache 5 min
-  });
-
-  // Mapa produtoId → production_days (vem do SQL via Getproducts)
-  const productionDaysMap = React.useMemo(() => {
-    const map = {};
-    (base44ProductsQuery.data || []).forEach(p => {
-      // Getproducts retorna id numérico e production_days já parseado
-      if (p.production_days && p.production_days.length > 0) {
-        map[p.id]        = p.production_days;
-        map[String(p.id)] = p.production_days;
-      }
-    });
-    return map;
-  }, [base44ProductsQuery.data]);
-
   // Buscar dados do planejamento via function
   const planningQuery = useQuery({
-    queryKey: ['planningData', startDate, endDate, Object.keys(productionDaysMap).length],
+    queryKey: ['planningData', startDate, endDate],
     queryFn: async () => {
       console.log('📤 Buscando dados de planejamento:', { startDate, endDate });
       const response = await base44.functions.invoke('getPlanningData', {
         startDate,
         endDate,
-        productionDaysMap: productionDaysMap,
       });
       console.log('📥 Dados recebidos:', response.data);
       return response.data;
