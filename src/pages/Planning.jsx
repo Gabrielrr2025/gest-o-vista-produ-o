@@ -646,6 +646,19 @@ export default function Planning() {
             <RefreshCw className="w-4 h-4 mr-2" />
             Recalcular
           </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              const r = await base44.functions.invoke('debugPlanning', {});
+              console.log('=== DEBUG DIAS_PRODUCAO ===', JSON.stringify(r.data, null, 2));
+              alert('Resultado no console (F12 → Console):\n\n' + JSON.stringify(r.data?.produtos_amostra?.map(p => ({ nome: p.nome, raw: p.dias_producao_raw, tipo: p.tipo_real, isArray: p.is_array })), null, 2));
+            }}
+            className="text-orange-600 border-orange-300"
+          >
+            🔍 Debug Dias
+          </Button>
           
           <Button
             variant="outline"
@@ -726,7 +739,7 @@ export default function Planning() {
                         <TableHead className="text-center w-24">Média</TableHead>
                         {weekDays.map((day, idx) => (
                           <TableHead key={idx} className="text-center w-24">
-                            <div className="text-xs font-medium capitalize">
+                            <div className="text-xs font-medium">
                               {format(day, 'EEE', { locale: ptBR })}
                             </div>
                             <div className="text-xs text-slate-500">
@@ -762,36 +775,38 @@ export default function Planning() {
                             {weekDays.map((day, idx) => {
                              const qty = plannedQuantities[`${product.produto_id}-${idx}`] || 0;
 
-                             const dayOfWeek = day.getDay();
+                             // Obter nome do dia da semana em português
+                             const dayOfWeek = day.getDay(); // 0=Domingo, 1=Segunda, 2=Terça...
                              const dayNameMap = {
-                               0: 'Domingo', 1: 'Segunda', 2: 'Terça', 3: 'Quarta',
-                               4: 'Quinta', 5: 'Sexta', 6: 'Sábado'
+                               0: 'Domingo',
+                               1: 'Segunda',
+                               2: 'Terça',
+                               3: 'Quarta',
+                               4: 'Quinta',
+                               5: 'Sexta',
+                               6: 'Sábado'
                              };
                              const dayName = dayNameMap[dayOfWeek];
 
+                             // Verificar se produto é produzido neste dia
                              const productionDays = product.production_days || [];
+                             // Se dias_producao não configurado, todos os dias são válidos
                              const isProductionDay = productionDays.length === 0 || productionDays.includes(dayName);
 
                              return (
-                               <TableCell key={idx} className={`p-1 ${!isProductionDay ? 'bg-slate-50' : ''}`}>
-                                 {isProductionDay ? (
-                                   <Input
-                                     type="number"
-                                     min="0"
-                                     value={qty || ''}
-                                     onChange={(e) => handleQuantityChange(product.produto_id, idx, e.target.value)}
-                                     className="w-20 text-center h-9"
-                                     disabled={isWeekLocked}
-                                     title={isWeekLocked ? 'Semana bloqueada' : ''}
-                                   />
-                                 ) : (
-                                   <div 
-                                     className="w-20 h-9 flex items-center justify-center rounded-md bg-slate-100 border border-slate-200"
-                                     title={`${product.produto_nome} não é produzido nas ${dayName}s`}
-                                   >
-                                     <span className="text-slate-400 text-lg font-bold leading-none">—</span>
-                                   </div>
-                                 )}
+                               <TableCell key={idx} className="p-1">
+                                 <Input
+                                   type="number"
+                                   min="0"
+                                   value={qty || ''}
+                                   onChange={(e) => handleQuantityChange(product.produto_id, idx, e.target.value)}
+                                   className={`w-20 text-center h-9 ${!isProductionDay ? 'bg-slate-100 text-slate-400' : ''}`}
+                                   disabled={!isProductionDay || isWeekLocked}
+                                   title={
+                                     isWeekLocked ? 'Semana bloqueada - clique em um campo para desbloquear' :
+                                     !isProductionDay ? 'Produto não é produzido neste dia' : ''
+                                   }
+                                 />
                                </TableCell>
                              );
                             })}
@@ -831,30 +846,6 @@ export default function Planning() {
               </CardHeader>
               
               <CardContent className="space-y-4">
-                {/* SEÇÃO 0: Dias de Produção configurados */}
-                {selectedProduct.production_days && selectedProduct.production_days.length > 0 && (
-                  <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
-                    <p className="text-xs font-semibold text-slate-600 mb-2">Dias de produção:</p>
-                    <div className="flex flex-wrap gap-1">
-                      {['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'].map(day => {
-                        const isActive = selectedProduct.production_days.includes(day);
-                        return (
-                          <span
-                            key={day}
-                            className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                              isActive
-                                ? 'bg-blue-100 text-blue-700 border border-blue-300'
-                                : 'bg-slate-200 text-slate-400 line-through'
-                            }`}
-                          >
-                            {day.substring(0, 3)}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
                 {/* SEÇÃO 1: Semana Atual */}
                 <div>
                   <h4 className="text-sm font-semibold text-slate-700 mb-3">
