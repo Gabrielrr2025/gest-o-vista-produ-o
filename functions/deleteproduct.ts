@@ -92,40 +92,16 @@ Deno.serve(async (req) => {
         });
       }
     } else {
-      // Hard delete: deleta permanentemente
-      // ATENÇÃO: Verificar se há dependências (vendas, perdas, planejamento)
-      const hasVendas = await sql`
-        SELECT COUNT(*) as count FROM vendas WHERE produto_id = ${id}
-      `;
-
-      const hasPerdas = await sql`
-        SELECT COUNT(*) as count FROM perdas WHERE produto_id = ${id}
-      `;
-
-      const hasPlanejamento = await sql`
-        SELECT COUNT(*) as count FROM planejamento WHERE produto_id = ${id}
-      `;
-
-      const totalDependencies = 
-        parseInt(hasVendas[0].count) + 
-        parseInt(hasPerdas[0].count) + 
-        parseInt(hasPlanejamento[0].count);
-
-      if (totalDependencies > 0) {
-        return Response.json({ 
-          error: `Não é possível deletar este produto pois existem ${totalDependencies} registros vinculados (vendas, perdas ou planejamento). Use a desativação em vez de exclusão.` 
-        }, { status: 409 });
-      }
-
-      // Se não tem dependências, pode deletar
-      await sql`
-        DELETE FROM produtos WHERE id = ${id}
-      `;
-
-      console.log(`✅ Produto deletado permanentemente: ${existing[0].nome}`);
+      // Hard delete: deletar permanentemente mesmo com dependências
+      // Primeiro remove registros vinculados, depois o produto
+      await sql`DELETE FROM planejamento WHERE produto_id = ${id}`;
+      await sql`DELETE FROM perdas WHERE produto_id = ${id}`;
+      await sql`DELETE FROM vendas WHERE produto_id = ${id}`;
+      await sql`DELETE FROM produtos WHERE id = ${id}`;
 
       return Response.json({
         success: true,
+        deleted: true,
         message: 'Produto deletado permanentemente'
       });
     }
