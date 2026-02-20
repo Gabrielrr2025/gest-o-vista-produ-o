@@ -36,7 +36,6 @@ const emptyForm = {
   active: true,
   manufacturing_time: "",
   sale_time: "",
-  production_time: "",
 };
 
 export default function ProductsManager({ products = [], onRefresh, showAddButton = true, isLoading = false }) {
@@ -79,11 +78,10 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
       sector: product.sector || "",
       unit: product.unit || "UN",
       recipe_yield: product.recipe_yield || 1,
-      production_days: Array.isArray(product.production_days) ? product.production_days : [],
+      production_days: Array.isArray(product.production_days) ? [...product.production_days] : [],
       active: product.active !== false,
       manufacturing_time: product.manufacturing_time || "",
       sale_time: product.sale_time || "",
-      production_time: product.production_time || "",
     });
     setDialogOpen(true);
   };
@@ -111,17 +109,19 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
     setIsSaving(true);
     try {
       if (editingProduct) {
-        await base44.functions.invoke('Updateproduct', { id: editingProduct.id, ...form });
+        const res = await base44.functions.invoke('Updateproduct', { id: editingProduct.id, ...form });
+        if (res?.data?.error) throw new Error(res.data.error);
         toast.success("Produto atualizado!");
       } else {
-        await base44.functions.invoke('Createproduct', form);
+        const res = await base44.functions.invoke('Createproduct', form);
+        if (res?.data?.error) throw new Error(res.data.error);
         toast.success("Produto criado com sucesso!");
       }
       queryClient.invalidateQueries({ queryKey: ['products'] });
       onRefresh?.();
       closeDialog();
     } catch (err) {
-      toast.error("Erro ao salvar produto: " + (err.message || "Tente novamente."));
+      toast.error("Erro ao salvar: " + (err.message || "Verifique sua conexão."));
     } finally {
       setIsSaving(false);
     }
@@ -132,11 +132,11 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
     if (!deleteTarget) return;
     setIsDeleting(true);
     try {
-      const response = await base44.functions.invoke('deleteproduct', {
+      const res = await base44.functions.invoke('deleteproduct', {
         id: deleteTarget.id,
         soft: true,
       });
-      const data = response?.data;
+      const data = res?.data;
       if (data?.success) {
         toast.success(data.deleted ? "Produto excluído." : "Produto desativado (possui registros vinculados).");
         queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -146,22 +146,20 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
         toast.error(data?.error || "Erro ao excluir produto.");
       }
     } catch (err) {
-      toast.error("Erro ao excluir: " + (err.message || "Tente novamente."));
+      toast.error("Erro ao excluir: " + (err.message || "Verifique sua conexão."));
     } finally {
       setIsDeleting(false);
     }
   };
 
-  // --- Badges dos dias ---
+  // --- Badges dias ---
   const renderDays = (days = []) => (
     <div className="flex gap-1">
       {DAYS.map(({ value, short }) => (
         <span
           key={value}
-          className={`w-6 h-6 flex items-center justify-center rounded text-[10px] font-bold transition-colors ${
-            days.includes(value)
-              ? "bg-slate-700 text-white"
-              : "bg-slate-200 text-slate-500"
+          className={`w-6 h-6 flex items-center justify-center rounded text-[10px] font-bold ${
+            days.includes(value) ? "bg-slate-700 text-white" : "bg-slate-200 text-slate-500"
           }`}
         >
           {short}
@@ -172,6 +170,7 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
 
   return (
     <div className="space-y-4">
+
       {/* Controles */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div className="flex flex-col sm:flex-row gap-3 flex-1">
@@ -184,16 +183,15 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
               className="pl-9"
             />
           </div>
+          {/* z-[10000] para o SelectContent aparecer acima de tudo */}
           <Select value={filterSector} onValueChange={setFilterSector}>
             <SelectTrigger className="w-44">
               <Filter className="w-3.5 h-3.5 mr-1.5 text-slate-400" />
               <SelectValue placeholder="Setor" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="z-[10000]">
               <SelectItem value="all">Todos os setores</SelectItem>
-              {SECTORS.map((s) => (
-                <SelectItem key={s} value={s}>{s}</SelectItem>
-              ))}
+              {SECTORS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
@@ -240,18 +238,14 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
                         <p className="text-sm font-semibold text-slate-900">{product.name}</p>
                         {product.code && <p className="text-xs text-slate-400">#{product.code}</p>}
                       </TableCell>
-                      <TableCell>
-                        <SectorBadge sector={product.sector} />
-                      </TableCell>
+                      <TableCell><SectorBadge sector={product.sector} /></TableCell>
                       <TableCell className="text-center text-sm text-slate-700">
                         {product.recipe_yield || 1} {product.unit === "kilo" || product.unit === "KG" ? "Kg" : "Un"}
                       </TableCell>
                       <TableCell className="text-center text-sm text-slate-700">
                         {product.unit || "UN"}
                       </TableCell>
-                      <TableCell>
-                        {renderDays(product.production_days || [])}
-                      </TableCell>
+                      <TableCell>{renderDays(product.production_days || [])}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
                           <button
@@ -284,13 +278,10 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
       </p>
 
       {/* ===== DIALOG CRIAR / EDITAR ===== */}
-      {/* FIX: max-h-[90vh] overflow-y-auto para não sair da tela */}
       <Dialog open={dialogOpen} onOpenChange={(open) => !open && closeDialog()}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
-              {editingProduct ? "Editar Produto" : "Novo Produto"}
-            </DialogTitle>
+            <DialogTitle>{editingProduct ? "Editar Produto" : "Novo Produto"}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
@@ -317,19 +308,13 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
               </div>
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium">Setor *</Label>
-                {/* FIX: key={editingProduct?.id} força remontagem ao abrir edição */}
-                <Select
-                  key={`sector-${editingProduct?.id ?? 'new'}`}
-                  value={form.sector}
-                  onValueChange={(v) => setForm({ ...form, sector: v })}
-                >
+                <Select value={form.sector} onValueChange={(v) => setForm({ ...form, sector: v })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione..." />
                   </SelectTrigger>
-                  <SelectContent>
-                    {SECTORS.map((s) => (
-                      <SelectItem key={s} value={s}>{s}</SelectItem>
-                    ))}
+                  {/* z-[10000] CRÍTICO: faz o dropdown aparecer acima do Dialog */}
+                  <SelectContent className="z-[10000]">
+                    {SECTORS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -339,19 +324,13 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium">Unidade</Label>
-                {/* FIX: key força remontagem para mostrar valor correto */}
-                <Select
-                  key={`unit-${editingProduct?.id ?? 'new'}`}
-                  value={form.unit}
-                  onValueChange={(v) => setForm({ ...form, unit: v })}
-                >
+                <Select value={form.unit} onValueChange={(v) => setForm({ ...form, unit: v })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione..." />
                   </SelectTrigger>
-                  <SelectContent>
-                    {UNITS.map((u) => (
-                      <SelectItem key={u} value={u}>{u}</SelectItem>
-                    ))}
+                  {/* z-[10000] CRÍTICO */}
+                  <SelectContent className="z-[10000]">
+                    {UNITS.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -367,17 +346,14 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
               </div>
             </div>
 
-            {/* Tempo de Produção + Horário Venda */}
+            {/* Horário Fabricação + Horário Venda */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-sm font-medium">Tempo de Produção (min)</Label>
+                <Label className="text-sm font-medium">Horário de Fabricação</Label>
                 <Input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={form.production_time}
-                  onChange={(e) => setForm({ ...form, production_time: e.target.value })}
-                  placeholder="Ex: 45"
+                  type="time"
+                  value={form.manufacturing_time}
+                  onChange={(e) => setForm({ ...form, manufacturing_time: e.target.value })}
                 />
               </div>
               <div className="space-y-1.5">
@@ -458,6 +434,7 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
     </div>
   );
 }
