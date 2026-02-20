@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
-import { Save, RotateCcw, Info, ChevronDown, ChevronUp, FlaskConical, Lightbulb, ShieldAlert, HelpCircle } from "lucide-react";
+import { Save, RotateCcw, Info, ChevronDown, ChevronUp, FlaskConical, Lightbulb, ShieldAlert, HelpCircle, TrendingUp, Sigma, Calculator, BarChart3 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
@@ -31,66 +31,71 @@ function HelpTooltip({ children }) {
 const DEFAULTS = {
   planejamento_semanas_historico: 8,
   planejamento_postura: 'equilibrado',
-  planejamento_buffer_pct: 5,
   planejamento_sugestao_sem_dados: 10,
 };
 
+// k = fator de nível de serviço (quantos desvios padrão de buffer adicionar)
 const POSTURAS = [
   {
     key: 'conservador',
     label: 'Conservador',
-    desc: 'Prefere não correr risco. Limita reações a tendências de crescimento. Bom para produtos com alta perecibilidade.',
+    k: 1.0,
+    nivelServico: '84%',
+    desc: 'Buffer = 1,0 × σ. Nível de serviço de 84%. Indica menor margem de segurança. Ideal para produtos muito perecíveis onde excesso vira perda certa.',
     color: 'blue',
   },
   {
     key: 'equilibrado',
     label: 'Equilibrado',
-    desc: 'Padrão recomendado. Reage a tendências de forma moderada.',
+    k: 1.28,
+    nivelServico: '90%',
+    desc: 'Buffer = 1,28 × σ. Nível de serviço de 90%. Padrão recomendado para a maioria dos produtos.',
     color: 'green',
   },
   {
     key: 'agressivo',
     label: 'Agressivo',
-    desc: 'Amplifica mais o crescimento de vendas. Bom para produtos com baixa perda e alta demanda variável.',
+    k: 1.65,
+    nivelServico: '95%',
+    desc: 'Buffer = 1,65 × σ. Nível de serviço de 95%. Margem de segurança alta. Bom para produtos com baixa perecibilidade e alta demanda variável.',
     color: 'orange',
   },
 ];
 
-// Simulação para prévia
+// Simulação de preview com a nova fórmula PCP
 function FormulaPreview({ params }) {
-  const buffer = params.planejamento_buffer_pct / 100;
-
-  const growthCaps = {
-    conservador: 0.05,
-    equilibrado: 0.12,
-    agressivo: 0.22,
-  };
-  const cap = growthCaps[params.planejamento_postura] || 0.12;
+  const postura = POSTURAS.find(p => p.key === params.planejamento_postura) || POSTURAS[1];
+  const k = postura.k;
 
   const cenarios = [
     {
-      label: 'Dados completos — Vendas ↑ Perdas ↓',
-      vendaBase: 100, taxaPerda: 0.08, tendencia: 0.15,
+      label: 'Produto estável (baixa variação)',
+      semanas: [98, 101, 99, 100, 102, 98, 101, 100],
+      taxaPerda: 0.08,
       confianca: 'Alta', corConf: 'text-green-700 bg-green-50',
     },
     {
-      label: 'Dados completos — Vendas → Perdas →',
-      vendaBase: 100, taxaPerda: 0.12, tendencia: 0,
+      label: 'Produto com variação moderada',
+      semanas: [85, 110, 90, 115, 88, 108, 92, 105],
+      taxaPerda: 0.12,
       confianca: 'Alta', corConf: 'text-green-700 bg-green-50',
     },
     {
-      label: 'Sem histórico anual — só recência (4 sem.)',
-      vendaBase: 80, taxaPerda: 0.12, tendencia: 0.05,
+      label: 'Produto imprevisível (alta variação)',
+      semanas: [60, 130, 70, 140, 55, 145, 65, 135],
+      taxaPerda: 0.15,
+      confianca: 'Alta', corConf: 'text-green-700 bg-green-50',
+    },
+    {
+      label: 'Histórico curto (4 semanas)',
+      semanas: [80, 90, 85, 88],
+      taxaPerda: 0.10,
       confianca: 'Média', corConf: 'text-yellow-700 bg-yellow-50',
     },
     {
-      label: 'Histórico muito curto (2 sem.)',
-      vendaBase: 70, taxaPerda: 0.10, tendencia: 0, // sem tendência
-      confianca: 'Baixa', corConf: 'text-orange-700 bg-orange-50',
-    },
-    {
       label: 'Produto novo — sem nenhum dado',
-      vendaBase: 0, taxaPerda: 0, tendencia: 0,
+      semanas: [],
+      taxaPerda: 0,
       confianca: 'Sem histórico', corConf: 'text-slate-600 bg-slate-100',
     },
   ];
@@ -98,34 +103,54 @@ function FormulaPreview({ params }) {
   return (
     <div className="space-y-2">
       <p className="text-xs text-slate-500 mb-3">
-        Simulação com diferentes níveis de dados históricos disponíveis:
+        Simulação com diferentes perfis de produto (mesmo buffer % pode virar valores muito diferentes):
       </p>
       {cenarios.map((s, i) => {
-        if (s.vendaBase === 0) {
-          const sugestao = params.planejamento_sugestao_sem_dados;
+        if (s.semanas.length === 0) {
           return (
             <div key={i} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
               <div>
                 <span className="font-medium text-slate-700">{s.label}</span>
                 <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold ${s.corConf}`}>{s.confianca}</span>
               </div>
-              <span className="font-bold text-slate-600">{sugestao} un. (padrão)</span>
+              <span className="font-bold text-slate-600">{params.planejamento_sugestao_sem_dados} un. (padrão)</span>
             </div>
           );
         }
-        const tendAdj = Math.max(-cap, Math.min(cap, s.tendencia));
-        const venda   = s.vendaBase * (1 + tendAdj);
+
+        // MMP: pesos 1, 2, 3, ..., n (mais recente = maior peso)
+        const n = s.semanas.length;
+        const sumW = (n * (n + 1)) / 2;
+        const mmp = s.semanas.reduce((acc, v, i) => acc + v * (i + 1), 0) / sumW;
+
+        // Desvio padrão
+        const avg = s.semanas.reduce((a, b) => a + b, 0) / n;
+        const variance = s.semanas.reduce((sum, v) => sum + Math.pow(v - avg, 2), 0) / Math.max(1, n - 1);
+        const sigma = Math.sqrt(variance);
+        const buffer = k * sigma;
+
+        // Produção
+        const demandaComBuffer = mmp + buffer;
         const taxaSafe = Math.min(s.taxaPerda, 0.9);
-        const prod    = Math.ceil((venda / (1 - taxaSafe)) * (1 + buffer));
-        const pct     = (((prod - s.vendaBase) / s.vendaBase) * 100).toFixed(0);
-        const sign    = pct > 0 ? '+' : '';
+        const prod = Math.ceil(demandaComBuffer / (1 - taxaSafe));
+        const pct = (((prod - avg) / avg) * 100).toFixed(0);
+        const sign = pct > 0 ? '+' : '';
+
         return (
-          <div key={i} className="flex items-center justify-between rounded-lg border px-3 py-2 text-xs">
-            <div>
-              <span className="font-medium text-slate-700">{s.label}</span>
-              <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold ${s.corConf}`}>{s.confianca}</span>
+          <div key={i} className="rounded-lg border px-3 py-2 text-xs">
+            <div className="flex items-center justify-between mb-1">
+              <div>
+                <span className="font-medium text-slate-700">{s.label}</span>
+                <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold ${s.corConf}`}>{s.confianca}</span>
+              </div>
+              <span className="font-bold text-slate-900">{prod} un. <span className="text-slate-400 font-normal">({sign}{pct}%)</span></span>
             </div>
-            <span className="font-bold text-slate-900">{prod} un. <span className="text-slate-400 font-normal">({sign}{pct}%)</span></span>
+            <div className="text-[10px] text-slate-400 flex gap-3">
+              <span>MMP: {mmp.toFixed(1)}</span>
+              <span>σ: {sigma.toFixed(1)}</span>
+              <span>Buffer: {buffer.toFixed(1)} ({k}×σ)</span>
+              <span>Perda: {(s.taxaPerda * 100).toFixed(0)}%</span>
+            </div>
           </div>
         );
       })}
@@ -139,9 +164,10 @@ export default function ProductionRationalSettings({ isAdmin }) {
   const [original, setOriginal] = useState(null);
   const [hasChanges, setHasChanges] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [showMethod, setShowMethod] = useState(false);
 
   useQuery({
-    queryKey: ['config', 'planejamento_racional_v3'],
+    queryKey: ['config', 'planejamento_pcp_v1'],
     queryFn: async () => {
       const keys = Object.keys(DEFAULTS);
       const results = await Promise.all(
@@ -191,50 +217,119 @@ export default function ProductionRationalSettings({ isAdmin }) {
 
   if (!isAdmin) return null;
 
+  const posturaAtual = POSTURAS.find(p => p.key === params.planejamento_postura) || POSTURAS[1];
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
           <FlaskConical className="w-5 h-5 text-purple-600" />
-          Racional da Sugestão de Produção
+          Racional da Sugestão de Produção (PCP)
         </CardTitle>
         <CardDescription>
-          Como o sistema calcula a quantidade sugerida para cada produto
+          Método baseado em Planejamento e Controle da Produção com Média Móvel Ponderada e buffer estatístico
         </CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-7">
 
-        {/* Explicação rápida */}
-        <Alert className="border-purple-200 bg-purple-50">
-          <Info className="h-4 w-4 text-purple-600" />
-          <AlertDescription className="text-purple-800 text-sm space-y-1.5">
-            <p className="font-semibold">Como o sistema calcula:</p>
-            <ol className="list-decimal list-inside space-y-1 text-xs">
-              <li><strong>Prevê a venda</strong> combinando semanas recentes + mesmo período do ano anterior + base anual (quando disponíveis)</li>
-              <li><strong>Calcula a taxa de perda</strong> histórica usando a mediana (robusta a semanas atípicas)</li>
-              <li><strong>Produção = Venda prevista ÷ (1 − Taxa de perda) + Buffer</strong></li>
-            </ol>
-            <p className="text-xs opacity-75 pt-1">
-              Se houver poucos dados, o sistema adapta o cálculo automaticamente e sinaliza o nível de confiança da sugestão.
-            </p>
-          </AlertDescription>
-        </Alert>
+        {/* Como funciona — expansível */}
+        <div className="border rounded-lg overflow-hidden">
+          <button
+            className="w-full flex items-center justify-between px-4 py-3 bg-purple-50 hover:bg-purple-100 transition-colors text-sm font-semibold text-purple-800"
+            onClick={() => setShowMethod(v => !v)}
+          >
+            <div className="flex items-center gap-2">
+              <Calculator className="w-4 h-4" />
+              Como o sistema calcula a sugestão?
+            </div>
+            {showMethod ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
+          {showMethod && (
+            <div className="p-4 bg-white space-y-4 text-sm text-slate-700">
+
+              <div className="flex gap-3">
+                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-purple-100 text-purple-700 font-bold text-xs flex items-center justify-center">A</div>
+                <div>
+                  <p className="font-semibold text-slate-800 mb-1">Média Móvel Ponderada (MMP)</p>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Ao invés de tratar todas as semanas igualmente, o sistema dá <strong>peso maior para as semanas mais recentes</strong>.
+                    Se você configurou 8 semanas, a semana mais recente vale 8×, a anterior 7×, e assim por diante.
+                    Isso captura tendências de forma automática — se as vendas estão crescendo, a sugestão já reflete isso.
+                  </p>
+                  <div className="mt-2 bg-slate-50 rounded px-3 py-2 text-xs font-mono text-slate-600">
+                    MMP = (v₁×1 + v₂×2 + ... + vₙ×n) ÷ (1+2+...+n)
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center">B</div>
+                <div>
+                  <p className="font-semibold text-slate-800 mb-1">Buffer Estatístico (k × σ)</p>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    O buffer de segurança é calculado com base na <strong>variabilidade real de cada produto</strong>.
+                    σ (desvio padrão) mede o quanto as vendas oscilam semana a semana.
+                    Um produto estável tem σ pequeno → buffer pequeno. Um produto imprevisível tem σ grande → buffer maior.
+                    O fator k define o nível de serviço: k=1,28 significa que em 90% das semanas a produção será suficiente.
+                  </p>
+                  <div className="mt-2 bg-slate-50 rounded px-3 py-2 text-xs font-mono text-slate-600">
+                    Buffer = k × σ_vendas
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-100 text-amber-700 font-bold text-xs flex items-center justify-center">C</div>
+                <div>
+                  <p className="font-semibold text-slate-800 mb-1">Ajuste do Calendário</p>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Se houver feriados ou eventos cadastrados na semana planejada, a MMP é multiplicada pelo impacto configurado.
+                    Semanas históricas com eventos excepcionais recebem peso reduzido para não distorcer a média base.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-red-100 text-red-700 font-bold text-xs flex items-center justify-center">D</div>
+                <div>
+                  <p className="font-semibold text-slate-800 mb-1">Ajuste pela Taxa de Perda</p>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    A produção precisa cobrir tanto a demanda esperada quanto as perdas históricas.
+                    A taxa de perda é calculada como <strong>mediana</strong> das semanas anteriores — isso a torna robusta contra semanas atípicas.
+                  </p>
+                  <div className="mt-2 bg-slate-50 rounded px-3 py-2 text-xs font-mono text-slate-600">
+                    Produção = (MMP_ajustada × cal + Buffer) ÷ (1 − taxa_perda)
+                  </div>
+                </div>
+              </div>
+
+              <Alert className="border-blue-200 bg-blue-50 mt-2">
+                <BarChart3 className="h-4 w-4 text-blue-600" />
+                <AlertDescription className="text-blue-800 text-xs">
+                  <strong>Por que isso é melhor que um buffer % fixo?</strong> Um buffer de 5% em 20 unidades = apenas 1 unidade a mais.
+                  Já um produto que varia ±30 unidades por semana precisa de muito mais segurança.
+                  O buffer estatístico se adapta automaticamente a cada produto.
+                </AlertDescription>
+              </Alert>
+            </div>
+          )}
+        </div>
 
         {/* Semanas de histórico */}
         <div className="space-y-2">
           <Label className="text-sm font-semibold text-slate-800">
-            Semanas de histórico a considerar
+            Semanas de histórico
             <HelpTooltip>
               <p className="font-semibold mb-1">📅 Janela de análise</p>
-              <p>Define quantas semanas para trás o sistema olha ao calcular a média de vendas e detectar se as vendas estão subindo ou caindo.</p>
-              <p className="mt-2"><strong>Exemplo:</strong> com 8 semanas, o sistema compara as últimas 4 semanas com as 4 anteriores para detectar tendências.</p>
-              <p className="mt-2 opacity-75">Se o produto tiver menos semanas de dados do que o configurado, o sistema usa o que estiver disponível automaticamente.</p>
+              <p>Define quantas semanas o sistema olha para calcular a MMP e o desvio padrão.</p>
+              <p className="mt-2"><strong>Mais semanas:</strong> estimativa mais estável, menos sensível a variações recentes.</p>
+              <p className="mt-2"><strong>Menos semanas:</strong> reage mais rápido a mudanças de demanda, mas com mais ruído.</p>
+              <p className="mt-2 opacity-75">Mínimo de 4 semanas para o cálculo do desvio padrão ser confiável.</p>
             </HelpTooltip>
           </Label>
           <p className="text-xs text-slate-500">
-            Quantas semanas recentes são usadas para calcular a média e detectar tendências.
-            O sistema usa o que tiver disponível se o produto for novo.
+            Semanas usadas para calcular a Média Móvel Ponderada e o desvio padrão de cada produto.
           </p>
           <div className="flex items-center gap-4 pt-1">
             <Slider
@@ -249,30 +344,30 @@ export default function ProductionRationalSettings({ isAdmin }) {
           </div>
         </div>
 
-        {/* Postura */}
+        {/* Postura (nível de serviço) */}
         <div className="space-y-3">
           <div>
             <Label className="text-sm font-semibold text-slate-800">
-              Postura de planejamento
+              Nível de serviço (postura)
               <HelpTooltip>
-                <p className="font-semibold mb-1">🎯 Como reagir a tendências</p>
-                <p>Quando as vendas estão claramente subindo ou caindo, o sistema pode amplificar mais ou menos essa tendência na sugestão.</p>
-                <p className="mt-2"><strong>Conservador:</strong> reage pouco às tendências. Ideal para produtos muito perecíveis onde excesso vira perda.</p>
-                <p className="mt-2"><strong>Equilibrado:</strong> reação moderada. Bom para a maioria dos produtos.</p>
-                <p className="mt-2"><strong>Agressivo:</strong> amplifica bastante o crescimento. Melhor para produtos com longa validade e demanda variável.</p>
+                <p className="font-semibold mb-1">📊 Nível de serviço estatístico</p>
+                <p>Define o fator k aplicado ao desvio padrão no cálculo do buffer.</p>
+                <p className="mt-2"><strong>k = 1,0 (84%):</strong> em 84% das semanas a produção será suficiente. Menor desperdício, maior risco de falta.</p>
+                <p className="mt-2"><strong>k = 1,28 (90%):</strong> equilíbrio entre segurança e desperdício. Recomendado para a maioria.</p>
+                <p className="mt-2"><strong>k = 1,65 (95%):</strong> em 95% das semanas não faltará. Mais seguro, porém mais desperdício.</p>
               </HelpTooltip>
             </Label>
             <p className="text-xs text-slate-500 mt-0.5">
-              Define o quanto o sistema reage a tendências de crescimento ou queda de vendas.
+              Quanto maior o nível de serviço, menor a chance de faltar produto — mas maior o buffer produzido.
             </p>
           </div>
           <div className="grid grid-cols-3 gap-3">
             {POSTURAS.map(p => {
               const isActive = params.planejamento_postura === p.key;
               const borderColor = {
-                blue: isActive ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-blue-300',
-                green: isActive ? 'border-green-500 bg-green-50' : 'border-slate-200 hover:border-green-300',
-                orange: isActive ? 'border-orange-500 bg-orange-50' : 'border-slate-200 hover:border-orange-300',
+                blue:   isActive ? 'border-blue-500 bg-blue-50'   : 'border-slate-200 hover:border-blue-300',
+                green:  isActive ? 'border-green-500 bg-green-50'  : 'border-slate-200 hover:border-green-300',
+                orange: isActive ? 'border-orange-500 bg-orange-50': 'border-slate-200 hover:border-orange-300',
               }[p.color];
               const labelColor = {
                 blue: 'text-blue-700', green: 'text-green-700', orange: 'text-orange-700',
@@ -284,40 +379,23 @@ export default function ProductionRationalSettings({ isAdmin }) {
                   onClick={() => set('planejamento_postura', p.key)}
                   className={`text-left rounded-lg border-2 p-3 transition-all ${borderColor}`}
                 >
-                  <span className={`text-sm font-bold block mb-1 ${isActive ? labelColor : 'text-slate-700'}`}>
+                  <span className={`text-sm font-bold block ${isActive ? labelColor : 'text-slate-700'}`}>
                     {p.label}
+                  </span>
+                  <span className={`text-xs font-semibold block mb-1 ${isActive ? labelColor : 'text-slate-500'}`}>
+                    k = {p.k} · {p.nivelServico}
                   </span>
                   <span className="text-xs text-slate-500 leading-relaxed">{p.desc}</span>
                 </button>
               );
             })}
           </div>
-        </div>
 
-        {/* Buffer */}
-        <div className="space-y-2">
-          <Label className="text-sm font-semibold text-slate-800">
-            Buffer de segurança
-            <HelpTooltip>
-              <p className="font-semibold mb-1">🛡️ Margem extra de proteção</p>
-              <p>Após calcular a produção necessária para cobrir vendas + perdas históricas, o sistema ainda acrescenta esse percentual como margem de segurança.</p>
-              <p className="mt-2"><strong>Exemplo com 5%:</strong> se o cálculo indicar 100 unidades, a sugestão final será 105.</p>
-              <p className="mt-2"><strong>Quando usar mais:</strong> produtos com demanda muito imprevisível ou que frequentemente faltam.</p>
-              <p className="mt-2"><strong>Quando usar menos:</strong> produtos com alta perecibilidade onde qualquer excesso vira perda garantida.</p>
-            </HelpTooltip>
-          </Label>
-          <p className="text-xs text-slate-500">
-            Margem extra adicionada após compensar as perdas. Protege contra variações inesperadas de demanda.
-          </p>
-          <div className="flex items-center gap-4 pt-1">
-            <Slider
-              min={0} max={20} step={1}
-              value={[params.planejamento_buffer_pct]}
-              onValueChange={([v]) => set('planejamento_buffer_pct', v)}
-              className="flex-1"
-            />
-            <span className="text-sm font-bold text-slate-900 tabular-nums min-w-[40px] text-right">
-              +{params.planejamento_buffer_pct}%
+          {/* Resumo da postura selecionada */}
+          <div className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 rounded-lg px-3 py-2">
+            <Sigma className="w-3.5 h-3.5 text-slate-400" />
+            <span>
+              Com a postura <strong>{posturaAtual.label}</strong>: Buffer = <strong>{posturaAtual.k} × σ_demanda</strong> — nível de serviço de <strong>{posturaAtual.nivelServico}</strong>
             </span>
           </div>
         </div>
@@ -330,15 +408,14 @@ export default function ProductionRationalSettings({ isAdmin }) {
               Sugestão padrão para produtos sem histórico
               <HelpTooltip>
                 <p className="font-semibold mb-1">🆕 Produto novo ou sem dados</p>
-                <p>Quando um produto ainda não tem nenhum registro de venda ou perda, o sistema não tem base para calcular. Nesse caso, ele usa esse valor como ponto de partida.</p>
-                <p className="mt-2">O produto aparecerá com o badge <strong>"Sem histórico"</strong> no planejamento para que o gestor saiba que a sugestão é genérica e deve ser ajustada manualmente.</p>
-                <p className="mt-2 opacity-75">Assim que houver pelo menos 1 semana de dados, o sistema começa a usar o histórico real.</p>
+                <p>Sem nenhum dado histórico, o sistema não tem como calcular a MMP nem o σ. Esse valor é usado como ponto de partida.</p>
+                <p className="mt-2">O produto aparecerá com badge "Sem histórico" no planejamento para que o gestor saiba que deve ajustar manualmente.</p>
+                <p className="mt-2 opacity-75">Assim que houver pelo menos 2 semanas de dados, o sistema começa a usar o histórico real.</p>
               </HelpTooltip>
             </Label>
           </div>
           <p className="text-xs text-slate-500">
-            Quando um produto não tem nenhum dado de venda ou perda ainda, o sistema sugere esta quantidade como ponto de partida.
-            Aparece com badge "Sem histórico" no planejamento.
+            Valor fixo sugerido quando o produto não tem nenhum registro de venda ou perda.
           </p>
           <div className="flex items-center gap-2 pt-1">
             <Input
@@ -360,7 +437,7 @@ export default function ProductionRationalSettings({ isAdmin }) {
           >
             <div className="flex items-center gap-2">
               <Lightbulb className="w-4 h-4 text-amber-500" />
-              Prévia — como a sugestão se comporta em cada situação
+              Prévia — como a sugestão varia por perfil de produto
             </div>
             {showPreview ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>
