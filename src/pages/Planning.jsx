@@ -762,38 +762,36 @@ export default function Planning() {
                             {weekDays.map((day, idx) => {
                              const qty = plannedQuantities[`${product.produto_id}-${idx}`] || 0;
 
-                             // Obter nome do dia da semana em português
-                             const dayOfWeek = day.getDay(); // 0=Domingo, 1=Segunda, 2=Terça...
+                             const dayOfWeek = day.getDay();
                              const dayNameMap = {
-                               0: 'Domingo',
-                               1: 'Segunda',
-                               2: 'Terça',
-                               3: 'Quarta',
-                               4: 'Quinta',
-                               5: 'Sexta',
-                               6: 'Sábado'
+                               0: 'Domingo', 1: 'Segunda', 2: 'Terça', 3: 'Quarta',
+                               4: 'Quinta', 5: 'Sexta', 6: 'Sábado'
                              };
                              const dayName = dayNameMap[dayOfWeek];
 
-                             // Verificar se produto é produzido neste dia
                              const productionDays = product.production_days || [];
-                             // Se dias_producao não configurado, todos os dias são válidos
                              const isProductionDay = productionDays.length === 0 || productionDays.includes(dayName);
 
                              return (
-                               <TableCell key={idx} className="p-1">
-                                 <Input
-                                   type="number"
-                                   min="0"
-                                   value={qty || ''}
-                                   onChange={(e) => handleQuantityChange(product.produto_id, idx, e.target.value)}
-                                   className={`w-20 text-center h-9 ${!isProductionDay ? 'bg-slate-100 text-slate-400' : ''}`}
-                                   disabled={!isProductionDay || isWeekLocked}
-                                   title={
-                                     isWeekLocked ? 'Semana bloqueada - clique em um campo para desbloquear' :
-                                     !isProductionDay ? 'Produto não é produzido neste dia' : ''
-                                   }
-                                 />
+                               <TableCell key={idx} className={`p-1 ${!isProductionDay ? 'bg-slate-50' : ''}`}>
+                                 {isProductionDay ? (
+                                   <Input
+                                     type="number"
+                                     min="0"
+                                     value={qty || ''}
+                                     onChange={(e) => handleQuantityChange(product.produto_id, idx, e.target.value)}
+                                     className="w-20 text-center h-9"
+                                     disabled={isWeekLocked}
+                                     title={isWeekLocked ? 'Semana bloqueada' : ''}
+                                   />
+                                 ) : (
+                                   <div 
+                                     className="w-20 h-9 flex items-center justify-center rounded-md bg-slate-100 border border-slate-200"
+                                     title={`${product.produto_nome} não é produzido nas ${dayName}s`}
+                                   >
+                                     <span className="text-slate-400 text-lg font-bold leading-none">—</span>
+                                   </div>
+                                 )}
                                </TableCell>
                              );
                             })}
