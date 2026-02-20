@@ -1,52 +1,126 @@
 import React, { useState, useCallback } from 'react';
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
-  ChevronLeft, ChevronRight, Plus, Minus, CalendarDays,
-  Trash2, AlertTriangle, RefreshCw, Sparkles
+  ChevronLeft, ChevronRight, Plus, Minus, Sparkles
 } from "lucide-react";
-import { format, getYear, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, parseISO } from "date-fns";
+import {
+  format, getYear, startOfMonth, endOfMonth,
+  eachDayOfInterval, getDay, isSameDay, parseISO
+} from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import CalendarEventDialog from '../components/calendar/CalendarEventDialog';
 
 const MONTHS = [
-  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+  "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+  "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"
 ];
 
 const EVENT_COLORS = {
-  "Feriado Nacional": { dot: "bg-red-500",    badge: "bg-red-100 text-red-800 border-red-200"    },
+  "Feriado Nacional": { dot: "bg-red-500",    badge: "bg-red-100 text-red-800 border-red-200"       },
   "Feriado Regional": { dot: "bg-amber-500",  badge: "bg-amber-100 text-amber-800 border-amber-200" },
   "Evento Especial":  { dot: "bg-yellow-400", badge: "bg-yellow-100 text-yellow-800 border-yellow-200" },
-  "Alta Demanda":     { dot: "bg-blue-500",   badge: "bg-blue-100 text-blue-800 border-blue-200"  },
+  "Alta Demanda":     { dot: "bg-blue-500",   badge: "bg-blue-100 text-blue-800 border-blue-200"    },
   "Observação":       { dot: "bg-emerald-500",badge: "bg-emerald-100 text-emerald-800 border-emerald-200" },
 };
 const DEFAULT_COLOR = { dot: "bg-slate-400", badge: "bg-slate-100 text-slate-700 border-slate-200" };
 
+// ─── Fontes das APIs gratuitas ────────────────────────────────────────────────
+
+async function fetchBrasilAPI(year) {
+  try {
+    const res = await fetch(`https://brasilapi.com.br/api/feriados/v1/${year}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.map(h => ({
+      name: h.name,
+      date: h.date,
+      type: "Feriado Nacional",
+      fonte: "BrasilAPI",
+    }));
+  } catch {
+    return [];
+  }
+}
+
+async function fetchNagerDate(year) {
+  try {
+    const res = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/BR`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.map(h => ({
+      name: h.localName || h.name,
+      date: h.date,
+      type: "Feriado Nacional",
+      fonte: "Nager.Date",
+    }));
+  } catch {
+    return [];
+  }
+}
+
+async function fetchRegionaisLLM(year) {
+  try {
+    const response = await base44.integrations.Core.InvokeLLM({
+      prompt: `Liste SOMENTE os feriados ESTADUAIS do Rio de Janeiro e MUNICIPAIS de Itaperuna/RJ para o ano ${year}.
+
+NÃO inclua feriados nacionais (Ano Novo, Carnaval, Tiradentes, Dia do Trabalho, Corpus Christi, Independência, Nossa Senhora Aparecida, Finados, Proclamação da República, Natal).
+
+Retorne APENAS feriados estaduais e municipais, sem repetições. Cada feriado deve ter:
+- name: nome oficial
+- date: data no formato YYYY-MM-DD
+- type: "Feriado Regional"`,
+      add_context_from_internet: true,
+      response_json_schema: {
+        type: "object",
+        properties: {
+          holidays: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                name: { type: "string" },
+                date: { type: "string" },
+                type: { type: "string" },
+              }
+            }
+          }
+        }
+      }
+    });
+    return (response.holidays || []).map(h => ({
+      name:  h.name,
+      date:  h.date,
+      type:  "Feriado Regional",
+      fonte: "IA (estaduais/municipais)",
+    }));
+  } catch {
+    return [];
+  }
+}
+
+// ─── Componente principal ─────────────────────────────────────────────────────
+
 export default function Calendar() {
-  const [currentYear, setCurrentYear]   = useState(getYear(new Date()));
-  const [zoom, setZoom]                 = useState(0.85);
-  const [showDialog, setShowDialog]     = useState(false);
+  const [currentYear, setCurrentYear]     = useState(getYear(new Date()));
+  const [zoom, setZoom]                   = useState(0.85);
+  const [showDialog, setShowDialog]       = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
-  const [selectedDate, setSelectedDate] = useState(null);
+  const [selectedDate, setSelectedDate]   = useState(null);
   const [loadingHolidays, setLoadingHolidays] = useState(false);
-  const [cleaningDups, setCleaningDups] = useState(false);
 
   const queryClient = useQueryClient();
-  // ─── NOTA: removido useEffect que carregava feriados automaticamente.
-  // Era a causa das duplicatas (chamado a cada troca de ano).
 
   const { data: allEvents = [] } = useQuery({
     queryKey: ['calendarEvents'],
     queryFn: () => base44.entities.CalendarEvent.list(),
   });
 
-  // Deduplica os eventos por (date + name) ainda no cliente,
-  // garantindo que mesmo duplicatas já no banco não apareçam no UI
+  // Deduplica por (date + name) no cliente — proteção extra
   const events = React.useMemo(() => {
     const seen = new Set();
     return allEvents.filter(ev => {
@@ -59,80 +133,78 @@ export default function Calendar() {
 
   const yearEvents = events.filter(e => getYear(parseISO(e.date)) === currentYear);
 
-  // ─── Carregar feriados (manual, não automático) ────────────────────────────
+  // ─── Importar feriados ────────────────────────────────────────────────────
   const loadHolidays = async () => {
     try {
       setLoadingHolidays(true);
-      toast.info("Buscando feriados...");
+      toast.info("Consultando APIs de feriados...");
 
-      const response = await base44.integrations.Core.InvokeLLM({
-        prompt: `Liste TODOS os feriados brasileiros (nacionais, estaduais do RJ e municipais de Itaperuna/RJ) para o ano ${currentYear}.
-        
-        Para cada feriado, retorne:
-        - name: nome do feriado
-        - date: data no formato YYYY-MM-DD
-        - type: "Feriado Nacional" para feriados nacionais, "Feriado Regional" para estaduais/municipais
-        - impact_percentage: 0 (será ajustado pelo usuário depois)
-        
-        IMPORTANTE: Retorne a data exata. Carnaval e Corpus Christi são móveis, calcule as datas corretas para ${currentYear}.`,
-        add_context_from_internet: true,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            holidays: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  name:             { type: "string" },
-                  date:             { type: "string" },
-                  type:             { type: "string" },
-                  impact_percentage:{ type: "number" },
-                }
-              }
-            }
-          }
-        }
+      // Buscar todas as fontes em paralelo
+      const [brasilapi, nager, regionais] = await Promise.all([
+        fetchBrasilAPI(currentYear),
+        fetchNagerDate(currentYear),
+        fetchRegionaisLLM(currentYear),
+      ]);
+
+      const fontes = {
+        BrasilAPI:   brasilapi.length,
+        "Nager.Date": nager.length,
+        "IA (regionais)": regionais.length,
+      };
+      console.log("📅 Feriados recebidos:", fontes);
+
+      // Juntar nacionais de ambas as APIs (validação cruzada)
+      // Nager.Date cobre datas que BrasilAPI às vezes esquece e vice-versa
+      const nacionaisUnidos = [...brasilapi, ...nager];
+
+      // Todos juntos: nacionais + regionais
+      const todos = [...nacionaisUnidos, ...regionais];
+
+      // Deduplicar entre as fontes por (date + name normalizado)
+      const seenLocal = new Set();
+      const uniqueTodos = todos.filter(h => {
+        const key = `${h.date}__${h.name.toLowerCase().trim()}`;
+        if (seenLocal.has(key)) return false;
+        seenLocal.add(key);
+        return true;
       });
 
-      const holidays = response.holidays || [];
-
-      // 1. Deduplicar a resposta da LLM (pode vir com repetições)
-      const uniqueHolidays = [];
-      const seenLLM = new Set();
-      for (const h of holidays) {
-        const key = `${h.date}__${h.name.toLowerCase().trim()}`;
-        if (!seenLLM.has(key)) { seenLLM.add(key); uniqueHolidays.push(h); }
-      }
-
-      // 2. Filtrar os que já existem no banco (usamos allEvents não dedupados p/ comparação completa)
-      const newHolidays = uniqueHolidays.filter(h =>
+      // Filtrar apenas o que ainda não existe no banco
+      const novos = uniqueTodos.filter(h =>
         !allEvents.some(ev =>
           ev.date === h.date &&
           ev.name.toLowerCase().trim() === h.name.toLowerCase().trim()
         )
       );
 
-      if (newHolidays.length === 0) {
+      if (novos.length === 0) {
         toast.info("Todos os feriados já estão cadastrados.");
         return;
       }
 
+      // Salvar no banco
       await Promise.all(
-        newHolidays.map(h =>
+        novos.map(h =>
           base44.entities.CalendarEvent.create({
-            name:             h.name,
-            date:             h.date,
-            type:             h.type,
-            impact_percentage:h.impact_percentage || 0,
-            sectors:          ['Todos'],
-            notes:            'Feriado carregado automaticamente',
+            name:              h.name,
+            date:              h.date,
+            type:              h.type,
+            impact_percentage: 0,
+            sectors:           ['Todos'],
+            notes:             `Importado via ${h.fonte}`,
           })
         )
       );
 
       queryClient.invalidateQueries(['calendarEvents']);
-      toast.success(`${newHolidays.length} feriado(s) adicionado(s).`);
+
+      const qtdNac = novos.filter(h => h.type === "Feriado Nacional").length;
+      const qtdReg = novos.filter(h => h.type === "Feriado Regional").length;
+      const partes = [];
+      if (qtdNac > 0) partes.push(`${qtdNac} nacionais (BrasilAPI + Nager.Date)`);
+      if (qtdReg > 0) partes.push(`${qtdReg} regionais (IA)`);
+      toast.success(`${novos.length} feriado(s) adicionado(s): ${partes.join(', ')}.`);
+
     } catch (err) {
       console.error(err);
       toast.error("Erro ao carregar feriados.");
@@ -141,59 +213,15 @@ export default function Calendar() {
     }
   };
 
-  // ─── Limpar duplicatas do banco ────────────────────────────────────────────
-  const cleanDuplicates = async () => {
-    try {
-      setCleaningDups(true);
-      // Agrupar allEvents por chave (date + name)
-      const groups = {};
-      for (const ev of allEvents) {
-        const key = `${ev.date}__${ev.name.toLowerCase().trim()}`;
-        if (!groups[key]) groups[key] = [];
-        groups[key].push(ev);
-      }
-
-      // Para cada grupo com mais de 1 evento, apagar os excedentes
-      const toDelete = [];
-      for (const group of Object.values(groups)) {
-        if (group.length > 1) {
-          // Mantém o primeiro (ou o que tem mais dados), apaga o resto
-          const keep = group.sort((a, b) =>
-            (b.notes?.length || 0) - (a.notes?.length || 0)
-          )[0];
-          group.filter(ev => ev.id !== keep.id).forEach(ev => toDelete.push(ev.id));
-        }
-      }
-
-      if (toDelete.length === 0) {
-        toast.info("Nenhuma duplicata encontrada.");
-        return;
-      }
-
-      await Promise.all(toDelete.map(id => base44.entities.CalendarEvent.delete(id)));
-      queryClient.invalidateQueries(['calendarEvents']);
-      toast.success(`${toDelete.length} evento(s) duplicado(s) removido(s).`);
-    } catch (err) {
-      console.error(err);
-      toast.error("Erro ao limpar duplicatas.");
-    } finally {
-      setCleaningDups(false);
-    }
-  };
-
   const getEventsForDay = useCallback((date) =>
     yearEvents.filter(e => isSameDay(parseISO(e.date), date)),
   [yearEvents]);
 
-  const hasDuplicates = React.useMemo(() =>
-    allEvents.length !== events.length,
-  [allEvents, events]);
-
   // ─── Render de um mês ──────────────────────────────────────────────────────
   const renderMonth = (monthIndex) => {
-    const monthDate  = new Date(currentYear, monthIndex, 1);
+    const monthDate   = new Date(currentYear, monthIndex, 1);
     const daysInMonth = eachDayOfInterval({ start: startOfMonth(monthDate), end: endOfMonth(monthDate) });
-    const emptyDays  = Array(getDay(startOfMonth(monthDate))).fill(null);
+    const emptyDays   = Array(getDay(startOfMonth(monthDate))).fill(null);
 
     return (
       <Card key={monthIndex} className="border-slate-200">
@@ -212,10 +240,6 @@ export default function Calendar() {
             {daysInMonth.map((day) => {
               const dayEvents = getEventsForDay(day);
               const hasEvents = dayEvents.length > 0;
-              // Cor dominante = tipo do primeiro evento
-              const dominantColor = hasEvents
-                ? (EVENT_COLORS[dayEvents[0].type] || DEFAULT_COLOR)
-                : null;
 
               return (
                 <Tooltip key={day.toISOString()}>
@@ -259,7 +283,6 @@ export default function Calendar() {
                       side="top"
                       className="p-0 border-0 shadow-2xl rounded-xl overflow-hidden max-w-[240px]"
                     >
-                      {/* Cabeçalho do tooltip */}
                       <div className="bg-slate-800 px-3 py-2">
                         <p className="text-xs font-semibold text-slate-200">
                           {format(day, "EEEE, d 'de' MMMM", { locale: ptBR })}
@@ -271,10 +294,9 @@ export default function Calendar() {
                         )}
                       </div>
 
-                      {/* Lista de eventos */}
                       <div className="bg-white divide-y divide-slate-100">
                         {dayEvents.map((ev, i) => {
-                          const color = EVENT_COLORS[ev.type] || DEFAULT_COLOR;
+                          const color   = EVENT_COLORS[ev.type] || DEFAULT_COLOR;
                           const impacto = parseFloat(ev.impact_percentage ?? 0);
                           return (
                             <div key={i} className="px-3 py-2 space-y-1">
@@ -288,26 +310,11 @@ export default function Calendar() {
                                   </span>
                                 )}
                               </div>
-
                               <div className="flex items-center gap-1.5">
                                 <div className={`w-1.5 h-1.5 rounded-full ${color.dot}`} />
                                 <span className="text-[10px] text-slate-500">{ev.type}</span>
-                                {ev.priority && ev.priority !== 'media' && (
-                                  <span className={`text-[10px] font-medium ${
-                                    ev.priority === 'alta' ? 'text-red-500' : 'text-emerald-500'
-                                  }`}>
-                                    · {ev.priority === 'alta' ? 'Alta prioridade' : 'Baixa prioridade'}
-                                  </span>
-                                )}
                               </div>
-
-                              {ev.sectors && !ev.sectors.includes?.('Todos') && ev.sectors.length > 0 && (
-                                <p className="text-[10px] text-slate-400">
-                                  Setores: {Array.isArray(ev.sectors) ? ev.sectors.join(', ') : ev.sectors}
-                                </p>
-                              )}
-
-                              {ev.notes && ev.notes !== 'Feriado carregado automaticamente' && (
+                              {ev.notes && !ev.notes.startsWith('Importado via') && (
                                 <p className="text-[10px] text-slate-400 italic">{ev.notes}</p>
                               )}
                             </div>
@@ -315,11 +322,8 @@ export default function Calendar() {
                         })}
                       </div>
 
-                      {/* Rodapé: dica de clique */}
                       <div className="bg-slate-50 px-3 py-1.5 border-t border-slate-100">
-                        <p className="text-[10px] text-slate-400 text-center">
-                          Clique para editar
-                        </p>
+                        <p className="text-[10px] text-slate-400 text-center">Clique para editar</p>
                       </div>
                     </TooltipContent>
                   )}
@@ -340,7 +344,9 @@ export default function Calendar() {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Calendário</h1>
-            <p className="text-sm text-slate-500 mt-1">Organize eventos, feriados e períodos especiais</p>
+            <p className="text-sm text-slate-500 mt-1">
+              Organize eventos, feriados e períodos especiais
+            </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -359,30 +365,20 @@ export default function Calendar() {
 
             {/* Zoom */}
             <div className="flex items-center gap-1 border border-slate-200 rounded-lg px-2 py-1">
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoom(z => Math.max(z - 0.15, 0.5))}>
+              <Button variant="ghost" size="icon" className="h-7 w-7"
+                onClick={() => setZoom(z => Math.max(z - 0.15, 0.5))}>
                 <Minus className="w-4 h-4" />
               </Button>
-              <span className="text-xs text-slate-600 min-w-[40px] text-center">{Math.round(zoom * 100)}%</span>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoom(z => Math.min(z + 0.15, 1.5))}>
+              <span className="text-xs text-slate-600 min-w-[40px] text-center">
+                {Math.round(zoom * 100)}%
+              </span>
+              <Button variant="ghost" size="icon" className="h-7 w-7"
+                onClick={() => setZoom(z => Math.min(z + 0.15, 1.5))}>
                 <Plus className="w-4 h-4" />
               </Button>
             </div>
 
-            {/* Limpar duplicatas (só aparece se houver) */}
-            {hasDuplicates && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={cleanDuplicates}
-                disabled={cleaningDups}
-                className="text-amber-700 border-amber-300 hover:bg-amber-50"
-              >
-                <AlertTriangle className="w-4 h-4 mr-2" />
-                {cleaningDups ? 'Limpando...' : `Limpar duplicatas (${allEvents.length - events.length})`}
-              </Button>
-            )}
-
-            {/* Carregar Feriados (manual) */}
+            {/* Importar Feriados */}
             <Button
               variant="outline"
               size="sm"
@@ -404,34 +400,29 @@ export default function Calendar() {
           </div>
         </div>
 
-        {/* Aviso se há duplicatas */}
-        {hasDuplicates && (
-          <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
-            <AlertTriangle className="w-4 h-4 shrink-0" />
-            <span>
-              Foram encontrados <strong>{allEvents.length - events.length} evento(s) duplicado(s)</strong> no banco.
-              O calendário já exibe apenas os únicos, mas recomendamos limpar para manter o banco organizado.
-            </span>
-          </div>
-        )}
+        {/* Info das fontes */}
+        <div className="flex items-center gap-2 text-xs text-slate-400 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2">
+          <Sparkles className="w-3.5 h-3.5 text-slate-300" />
+          <span>
+            Feriados nacionais via <strong className="text-slate-500">BrasilAPI</strong> + <strong className="text-slate-500">Nager.Date</strong> (validação cruzada) ·
+            Estaduais/municipais via <strong className="text-slate-500">IA</strong>
+          </span>
+        </div>
 
         {/* GRID DE MESES */}
         <div
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 origin-top-left"
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
           style={{ transform: `scale(${zoom})`, transformOrigin: 'top left' }}
         >
           {Array.from({ length: 12 }, (_, i) => renderMonth(i))}
         </div>
 
-        {/* Espaçamento extra quando zoom < 1 para o conteúdo abaixo não colidir */}
-        {zoom < 1 && (
-          <div style={{ height: `${(1 - zoom) * 800}px` }} />
-        )}
+        {zoom < 1 && <div style={{ height: `${(1 - zoom) * 800}px` }} />}
 
         {/* LEGENDA */}
         <Card className="border-slate-200 bg-slate-50">
           <CardContent className="pt-4">
-            <div className="flex flex-wrap gap-4 text-sm">
+            <div className="flex flex-wrap gap-4">
               {Object.entries(EVENT_COLORS).map(([label, color]) => (
                 <div key={label} className="flex items-center gap-2">
                   <div className={`w-2.5 h-2.5 rounded-full ${color.dot}`} />
@@ -442,7 +433,6 @@ export default function Calendar() {
           </CardContent>
         </Card>
 
-        {/* Dialog de Evento */}
         {showDialog && (
           <CalendarEventDialog
             event={selectedEvent}
