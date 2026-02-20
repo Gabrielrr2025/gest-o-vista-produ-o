@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await req.json();
-    const { startDate, endDate } = body;
+    const { startDate, endDate, productionDaysMap = {} } = body;
     if (!startDate || !endDate)
       return Response.json({ error: 'Missing startDate or endDate' }, { status: 400 });
 
@@ -101,7 +101,7 @@ Deno.serve(async (req) => {
 
     // 3. Queries
     const products = await sql`
-      SELECT id, nome, setor, unidade, status, dias_producao
+      SELECT id, nome, setor, unidade, status
       FROM produtos WHERE status = 'ativo' ORDER BY setor, nome
     `;
 
@@ -146,14 +146,9 @@ Deno.serve(async (req) => {
     const productAnalysis = products.map((product: any) => {
       const pid = product.id;
 
-      let diasProducao: string[] = [];
-      try {
-        if (product.dias_producao) {
-          if (Array.isArray(product.dias_producao))           diasProducao = product.dias_producao;
-          else if (typeof product.dias_producao === 'string') diasProducao = JSON.parse(product.dias_producao);
-          else                                                 diasProducao = Object.values(product.dias_producao);
-        }
-      } catch { diasProducao = []; }
+      // production_days vem do base44 (não existe no PostgreSQL)
+      // O frontend envia productionDaysMap com os dias já resolvidos
+      const diasProducao: string[] = productionDaysMap[pid] || productionDaysMap[String(pid)] || [];
 
       const prodSalesRec  = salesRecencia.filter( (s: any) => s.produto_id === pid);
       const prodLossesRec = lossesRecencia.filter((l: any) => l.produto_id === pid);
