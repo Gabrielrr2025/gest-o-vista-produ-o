@@ -162,13 +162,16 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
         id: deleteTarget.id,
         soft: false, // sempre deletar permanentemente
       });
-      if (data?.data?.success) {
+      // SDK Base44 pode retornar { data: { success } } ou { success } diretamente
+      const success = data?.data?.success ?? data?.success;
+      const errorMsg = data?.data?.error || data?.error;
+      if (success) {
         toast.success(`"${deleteTarget.name}" excluído permanentemente.`);
         queryClient.invalidateQueries({ queryKey: ['products'] });
         onRefresh?.();
         setDeleteTarget(null);
       } else {
-        toast.error(data?.data?.error || "Erro ao excluir produto.");
+        toast.error(errorMsg || "Erro ao excluir produto.");
       }
     } catch (err) {
       toast.error("Erro ao excluir: " + (err.message || "Verifique sua conexão."));

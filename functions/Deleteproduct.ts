@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
     } else {
       // Hard delete: deletar permanentemente mesmo com dependências
       // Primeiro remove registros vinculados, depois o produto
-      await sql`DELETE FROM planejamento WHERE produto_id = ${id}`;
+      try { await sql`DELETE FROM planejamento WHERE produto_id = ${id}`; } catch { /* tabela pode não existir ainda */ }
       try { await sql`DELETE FROM perdas WHERE produto_id = ${id}`; } catch { /* tabela pode ser view somente-leitura */ }
       try { await sql`DELETE FROM vendas WHERE produto_id = ${id}`; } catch { /* tabela pode ser view somente-leitura */ }
       await sql`DELETE FROM produtos WHERE id = ${id}`;
