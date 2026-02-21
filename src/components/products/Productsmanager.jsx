@@ -165,25 +165,33 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
         id: deleteTarget.id,
         soft: false,
       });
-      // Base44 pode retornar em response direto ou em response.data
+
+      // Debug: ver exatamente o que o Base44 retorna
+      console.log('🗑️ Resposta do Deleteproduct:', JSON.stringify(response));
+
+      // Verificar se houve erro explícito na resposta
       const data = response?.data || response;
-      
-      if (data?.success || data?.deleted) {
-        toast.success(`"${deleteTarget.name}" excluído com sucesso!`);
-        // Invalidar e forçar refetch de TODAS as queries relevantes
-        await queryClient.invalidateQueries({ queryKey: ['products'] });
-        await queryClient.invalidateQueries({ queryKey: ['planningData'] });
-        await queryClient.invalidateQueries({ queryKey: ['sqlData'] });
-        await queryClient.invalidateQueries({ queryKey: ['savedPlanning'] });
-        await queryClient.refetchQueries({ queryKey: ['products'] });
-        await queryClient.refetchQueries({ queryKey: ['sqlData'] });
-        onRefresh?.();
-        setDeleteTarget(null);
-      } else {
-        const errorMsg = data?.error || "Erro ao excluir produto.";
-        toast.error(errorMsg);
+      const errorMsg = data?.error || response?.error;
+
+      if (errorMsg) {
+        toast.error(`Erro ao excluir: ${errorMsg}`);
+        return;
       }
+
+      // Se chegou aqui sem erro, o produto foi deletado com sucesso
+      toast.success(`"${deleteTarget.name}" excluído com sucesso!`);
+      setDeleteTarget(null);
+
+      // Invalidar e forçar refetch de TODAS as queries relevantes
+      await queryClient.invalidateQueries({ queryKey: ['products'] });
+      await queryClient.invalidateQueries({ queryKey: ['planningData'] });
+      await queryClient.invalidateQueries({ queryKey: ['sqlData'] });
+      await queryClient.invalidateQueries({ queryKey: ['savedPlanning'] });
+      await queryClient.refetchQueries({ queryKey: ['products'] });
+      await queryClient.refetchQueries({ queryKey: ['sqlData'] });
+      onRefresh?.();
     } catch (err) {
+      console.error('❌ Erro ao excluir produto:', err);
       toast.error("Erro ao excluir: " + (err.message || "Verifique sua conexão."));
     } finally {
       setIsDeleting(false);
@@ -466,7 +474,10 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
       </Dialog>
 
       {/* ===== DIALOG EXCLUIR ===== */}
-      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => {
+        // Só permitir fechar se NÃO estiver deletando
+        if (!open && !isDeleting) setDeleteTarget(null);
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir produto?</AlertDialogTitle>
@@ -478,7 +489,10 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDelete}
+              onClick={(e) => {
+                e.preventDefault(); // Impedir que o AlertDialogAction feche o dialog automaticamente
+                handleDelete();
+              }}
               disabled={isDeleting}
               className="bg-red-600 hover:bg-red-700 text-white"
             >
