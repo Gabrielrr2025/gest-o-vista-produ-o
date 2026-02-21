@@ -117,12 +117,10 @@ export default function Planning() {
   const planningQuery = useQuery({
     queryKey: ['planningData', startDate, endDate],
     queryFn: async () => {
-      console.log('📤 Buscando dados de planejamento:', { startDate, endDate });
-      const response = await base44.functions.invoke('getPlanningData', {
+      const response = await base44.functions.invoke('Getplanningdata', {
         startDate,
         endDate
       });
-      console.log('📥 Dados recebidos:', response.data);
       return response.data;
     }
   });
@@ -168,7 +166,6 @@ export default function Planning() {
     onSuccess: () => {
       // NÃO invalidar queries aqui - causa conflito com estado local
       // A query só será invalidada ao mudar de semana ou recarregar página
-      console.log('✅ Quantidade salva no banco');
     }
   });
 
@@ -197,7 +194,6 @@ export default function Planning() {
     if (selectedProduct && filteredPlanning.length > 0) {
       const updated = filteredPlanning.find(p => p.produto_id === selectedProduct.produto_id);
       if (updated && JSON.stringify(updated) !== JSON.stringify(selectedProduct)) {
-        console.log('🔄 Atualizando selectedProduct com dados novos');
         setSelectedProduct(updated);
       }
     }

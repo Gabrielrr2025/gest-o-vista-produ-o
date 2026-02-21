@@ -27,8 +27,6 @@ export default function Dashboard() {
     const startDate = bounds.start instanceof Date ? format(bounds.start, 'yyyy-MM-dd') : bounds.start;
     const endDate = bounds.end instanceof Date ? format(bounds.end, 'yyyy-MM-dd') : bounds.end;
     
-    console.log('📅 Date range calculado:', { startDate, endDate });
-    
     return { 
       from: startDate, 
       to: endDate 
@@ -39,17 +37,11 @@ export default function Dashboard() {
   const dashboardQuery = useQuery({
     queryKey: ['dashboardData', dateRange.from, dateRange.to, selectedSector],
     queryFn: async () => {
-      console.log('📤 Enviando para getDashboardData:', {
-        startDate: dateRange.from,
-        endDate: dateRange.to,
-        sector: selectedSector
-      });
       const response = await base44.functions.invoke('getDashboardData', {
         startDate: dateRange.from,
         endDate: dateRange.to,
         sector: selectedSector
       });
-      console.log('📥 Resposta do getDashboardData:', response.data);
       return response.data;
     },
     onError: (error) => {

@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import { format } from "date-fns";
-import ProductsManager from "../components/products/ProductsManager";
+import ProductsManager from "../components/products/Productsmanager";
 import UnmappedProductsSuggestion from "../components/products/UnmappedProductsSuggestion";
 import * as XLSX from 'xlsx';
 
@@ -50,11 +50,6 @@ export default function Products() {
   });
 
   const products = productsData?.products || [];
-  
-  // Debug: verificar se vai renderizar o componente
-  const shouldRender = !sqlLoading && sqlData && sqlData.sales && sqlData.losses;
-  if (shouldRender) {
-  }
 
   const handleRefresh = async () => {
     await queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -94,6 +89,7 @@ export default function Products() {
       const fileName = `produtos_${format(new Date(), 'dd-MM-yyyy')}.xlsx`;
       XLSX.writeFile(wb, fileName);
     } catch (error) {
+      console.error('Erro ao exportar Excel:', error);
     }
   };
 

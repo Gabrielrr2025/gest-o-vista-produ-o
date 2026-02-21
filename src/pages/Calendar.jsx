@@ -151,8 +151,6 @@ export default function Calendar() {
         "Nager.Date": nager.length,
         "IA (regionais)": regionais.length,
       };
-      console.log("📅 Feriados recebidos:", fontes);
-
       // Juntar nacionais de ambas as APIs (validação cruzada)
       // Nager.Date cobre datas que BrasilAPI às vezes esquece e vice-versa
       const nacionaisUnidos = [...brasilapi, ...nager];

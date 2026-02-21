@@ -77,9 +77,9 @@ Deno.serve(async (req) => {
     const sql = neon(connectionString);
 
     // 1. Buscar configs (tabela pode não existir - ignorar erro)
-    let configRows: any[] = [];
+    const cfg: Record<string, string> = {};
     try {
-      configRows = await sql`
+      const configRows = await sql`
       SELECT chave, valor FROM configuracoes
       WHERE chave IN (
         'planejamento_semanas_historico',
@@ -87,9 +87,8 @@ Deno.serve(async (req) => {
         'planejamento_sugestao_sem_dados'
       )
     `;
-    const cfg: Record<string, string> = {};
+      configRows.forEach((r: any) => { cfg[r.chave] = r.valor; });
     } catch { /* tabela configuracoes não existe ainda - usar defaults */ }
-    configRows.forEach((r: any) => { cfg[r.chave] = r.valor; });
 
     const semanasHistorico  = Math.max(4, parseInt(cfg['planejamento_semanas_historico'] ?? '8'));
     const posturaKey        = (cfg['planejamento_postura'] ?? 'equilibrado') as keyof typeof POSTURA_CONFIG;
