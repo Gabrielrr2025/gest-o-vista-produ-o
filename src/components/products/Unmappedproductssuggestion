@@ -46,21 +46,28 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
       }
     });
 
-    // Criar índices dos produtos cadastrados (tudo em lowercase para comparação segura)
+    // Criar índices dos produtos cadastrados (tudo em lowercase + trim para comparação segura)
+    const normalize = (str) => (str || '').toLowerCase().trim().replace(/\s+/g, ' ');
+    
     const registeredByCode = new Set(
-      (products || []).filter(p => p.code).map(p => p.code.toLowerCase().trim())
+      (products || []).filter(p => p.code).map(p => normalize(p.code))
     );
     const registeredByName = new Set(
-      (products || []).map(p => `${p.name.toLowerCase().trim()}-${(p.sector || '').toLowerCase().trim()}`)
+      (products || []).map(p => `${normalize(p.name)}-${normalize(p.sector)}`)
+    );
+    // Também criar um set apenas por nome (sem setor) para capturar variações
+    const registeredByNameOnly = new Set(
+      (products || []).map(p => normalize(p.name))
     );
 
     // Filtrar produtos não cadastrados
     const unmapped = [];
     allSQLProducts.forEach((product) => {
-      const isRegisteredByCode = product.code && registeredByCode.has(product.code.toLowerCase().trim());
-      const isRegisteredByName = registeredByName.has(`${product.name.toLowerCase().trim()}-${product.sector.toLowerCase().trim()}`);
+      const isRegisteredByCode = product.code && registeredByCode.has(normalize(product.code));
+      const isRegisteredByName = registeredByName.has(`${normalize(product.name)}-${normalize(product.sector)}`);
+      const isRegisteredByNameOnly = registeredByNameOnly.has(normalize(product.name));
 
-      if (!isRegisteredByCode && !isRegisteredByName) {
+      if (!isRegisteredByCode && !isRegisteredByName && !isRegisteredByNameOnly) {
         unmapped.push(product);
       }
     });
@@ -102,7 +109,8 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
       } else if (data?.success || data?.product) {
         toast.success(`Produto "${product.name}" cadastrado com sucesso!`);
         setDismissed(prev => new Set(prev).add(key));
-        await onProductCreated?.();
+        // Aguardar refresh para garantir que a lista de produtos atualize
+        if (onProductCreated) await onProductCreated();
       } else {
         toast.error('Erro: Resposta inesperada do servidor');
       }
