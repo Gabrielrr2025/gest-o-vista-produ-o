@@ -144,6 +144,7 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
         toast.success("Produto criado com sucesso!");
       }
       queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['planningData'] });
       onRefresh?.();
       closeDialog();
     } catch (err) {
@@ -165,6 +166,7 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
       if (data?.success || data?.data?.success) {
         toast.success(`"${deleteTarget.name}" excluído com sucesso!`);
         queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['planningData'] });
         onRefresh?.();
         setDeleteTarget(null);
       } else {
