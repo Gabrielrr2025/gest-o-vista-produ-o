@@ -16,18 +16,11 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
 
   // Detectar produtos da VIEW que não existem no cadastro
   const unmappedProducts = useMemo(() => {
-    console.log('🔍 Detectando produtos não mapeados...');
-    console.log('📥 SQL Data recebida:', sqlData);
-    console.log('📦 Produtos cadastrados:', products.length);
-    
     // Verificar se sqlData existe e tem arrays válidos
     if (!sqlData || !sqlData.sales || !sqlData.losses) {
-      console.warn('⚠️ sqlData inválido ou vazio');
       return [];
     }
-    
-    console.log(`📊 Sales: ${sqlData.sales.length}, Losses: ${sqlData.losses.length}`);
-    
+
     const allSQLProducts = new Map();
     
     // Coletar produtos únicos da VIEW SQL
@@ -51,8 +44,6 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
       }
     });
 
-    console.log(`📊 Total de produtos únicos na VIEW: ${allSQLProducts.size}`);
-
     // Criar índices dos produtos cadastrados
     const registeredByCode = new Set(
       (products || []).filter(p => p.code).map(p => p.code.toLowerCase().trim())
@@ -61,22 +52,17 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
       (products || []).map(p => `${p.name.toLowerCase().trim()}-${p.sector}`)
     );
 
-    console.log(`✅ Produtos cadastrados por código: ${registeredByCode.size}`);
-    console.log(`✅ Produtos cadastrados por nome: ${registeredByName.size}`);
-
     // Filtrar produtos não cadastrados
     const unmapped = [];
-    allSQLProducts.forEach((product, key) => {
+    allSQLProducts.forEach((product) => {
       const isRegisteredByCode = product.code && registeredByCode.has(product.code.toLowerCase().trim());
       const isRegisteredByName = registeredByName.has(`${product.name.toLowerCase().trim()}-${product.sector}`);
-      
+
       if (!isRegisteredByCode && !isRegisteredByName) {
         unmapped.push(product);
-        console.log(`🆕 Produto não mapeado encontrado: ${product.name} (${product.sector})`);
       }
     });
 
-    console.log(`🎯 Total de produtos não mapeados: ${unmapped.length}`);
     return unmapped.sort((a, b) => (b.sales + b.losses) - (a.sales + a.losses));
   }, [sqlData, products]);
 
@@ -85,8 +71,6 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
     setCreating(prev => new Set(prev).add(key));
     
     try {
-      console.log('📤 Enviando produto para criar:', product);
-      
       const response = await base44.functions.invoke('Createproduct', {
         code: product.code || '',
         name: product.name,
@@ -97,31 +81,19 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
         active: true
       });
 
-      console.log('📥 Resposta do servidor:', response);
-
       // Verificar se houve erro na resposta
       if (response?.error) {
         const errorMsg = response.error;
-        console.error('❌ Erro na resposta:', errorMsg);
-        
-        // Produto já existe
+
         if (errorMsg.includes('já existe')) {
           toast.info(`Produto "${product.name}" já está cadastrado`);
-          // Remove da lista de não mapeados
           setDismissed(prev => new Set(prev).add(key));
-          // Atualiza lista de produtos para mostrar
           await onProductCreated?.();
-        } 
-        // Erro de conexão com banco
-        else if (errorMsg.includes('conexão') || errorMsg.includes('POSTGRES_CONNECTION_URL')) {
+        } else if (errorMsg.includes('conexão') || errorMsg.includes('POSTGRES_CONNECTION_URL')) {
           toast.error('Erro: Banco de dados não configurado. Verifique as variáveis de ambiente.');
-        }
-        // Tabela não existe
-        else if (errorMsg.includes('Tabela') || errorMsg.includes('não existe')) {
+        } else if (errorMsg.includes('Tabela') || errorMsg.includes('não existe')) {
           toast.error('Erro: Tabela de produtos não existe no banco. Execute o script SQL.');
-        }
-        // Outros erros
-        else {
+        } else {
           toast.error(`Erro: ${errorMsg}`);
         }
       } else if (response?.success || response?.product) {
@@ -129,11 +101,9 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
         setDismissed(prev => new Set(prev).add(key));
         await onProductCreated?.();
       } else {
-        console.error('⚠️ Resposta inesperada:', response);
         toast.error('Erro: Resposta inesperada do servidor');
       }
     } catch (error) {
-      console.error('❌ Erro ao cadastrar:', error);
       
       if (error.response?.status === 409 || error.response?.data?.error?.includes('já existe')) {
         toast.info(`Produto "${product.name}" já está cadastrado`);

@@ -135,12 +135,6 @@ export default function GeneralEvolutionChart({
         }
       });
 
-    console.log('📊 Dados agrupados por', groupBy, ':', {
-      length: chartArray.length,
-      sample: chartArray.slice(0, 3),
-      totalValue: chartArray.reduce((sum, d) => sum + d.value, 0)
-    });
-
     return chartArray;
   }, [rawData, groupBy]);
 

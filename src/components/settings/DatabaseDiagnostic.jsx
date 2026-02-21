@@ -15,7 +15,6 @@ export default function DatabaseDiagnostic() {
 
     try {
       const response = await base44.functions.invoke('diagnosticDB', {});
-      console.log('🔍 Resultado do diagnóstico:', response);
       setResult(response.data || response);
     } catch (error) {
       console.error('❌ Erro ao executar diagnóstico:', error);
