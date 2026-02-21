@@ -15,13 +15,13 @@ import { Plus, Search, Pencil, Trash2, Package, Filter } from "lucide-react";
 import SectorBadge, { SECTORS } from "../common/SectorBadge";
 
 const DAYS = [
-  { value: "seg", short: "S", full: "Seg" },
-  { value: "ter", short: "T", full: "Ter" },
-  { value: "qua", short: "Q", full: "Qua" },
-  { value: "qui", short: "Q", full: "Qui" },
-  { value: "sex", short: "S", full: "Sex" },
-  { value: "sab", short: "S", full: "Sáb" },
-  { value: "dom", short: "D", full: "Dom" },
+  { value: "Segunda",  short: "S", full: "Seg" },
+  { value: "Terça",   short: "T", full: "Ter" },
+  { value: "Quarta",  short: "Q", full: "Qua" },
+  { value: "Quinta",  short: "Q", full: "Qui" },
+  { value: "Sexta",   short: "S", full: "Sex" },
+  { value: "Sábado",  short: "S", full: "Sáb" },
+  { value: "Domingo", short: "D", full: "Dom" },
 ];
 
 // Unidades conforme solicitado
