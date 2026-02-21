@@ -58,6 +58,8 @@ export default function Products() {
   const handleRefresh = async () => {
     await queryClient.invalidateQueries({ queryKey: ['products'] });
     await queryClient.invalidateQueries({ queryKey: ['sqlData'] });
+    await queryClient.invalidateQueries({ queryKey: ['planningData'] });
+    await queryClient.invalidateQueries({ queryKey: ['savedPlanning'] });
     await queryClient.refetchQueries({ queryKey: ['products'] });
     await queryClient.refetchQueries({ queryKey: ['sqlData'] });
   };
