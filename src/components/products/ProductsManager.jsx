@@ -158,7 +158,7 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
     if (!deleteTarget) return;
     setIsDeleting(true);
     try {
-      const data = await base44.functions.invoke('deleteproduct', {
+      const data = await base44.functions.invoke('Deleteproduct', {
         id: deleteTarget.id,
         soft: false, // sempre deletar permanentemente
       });
