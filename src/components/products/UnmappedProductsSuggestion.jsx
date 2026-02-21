@@ -16,21 +16,23 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
 
   // Detectar produtos da VIEW que não existem no cadastro
   const unmappedProducts = useMemo(() => {
-    // Verificar se sqlData existe e tem arrays válidos
     if (!sqlData || !sqlData.sales || !sqlData.losses) {
       return [];
     }
 
     const allSQLProducts = new Map();
-    
+
     // Coletar produtos únicos da VIEW SQL
     [...sqlData.sales, ...sqlData.losses].forEach(record => {
-      const key = `${record.product_name}-${record.sector}`;
+      const name = (record.product_name || '').trim();
+      const sector = (record.sector || '').trim();
+      if (!name) return;
+      const key = `${name.toLowerCase()}-${sector.toLowerCase()}`;
       if (!allSQLProducts.has(key)) {
         allSQLProducts.set(key, {
-          name: record.product_name,
+          name,
           code: record.product_code,
-          sector: record.sector,
+          sector,
           sales: 0,
           losses: 0
         });
@@ -44,19 +46,19 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
       }
     });
 
-    // Criar índices dos produtos cadastrados
+    // Criar índices dos produtos cadastrados (tudo em lowercase para comparação segura)
     const registeredByCode = new Set(
       (products || []).filter(p => p.code).map(p => p.code.toLowerCase().trim())
     );
     const registeredByName = new Set(
-      (products || []).map(p => `${p.name.toLowerCase().trim()}-${p.sector}`)
+      (products || []).map(p => `${p.name.toLowerCase().trim()}-${(p.sector || '').toLowerCase().trim()}`)
     );
 
     // Filtrar produtos não cadastrados
     const unmapped = [];
     allSQLProducts.forEach((product) => {
       const isRegisteredByCode = product.code && registeredByCode.has(product.code.toLowerCase().trim());
-      const isRegisteredByName = registeredByName.has(`${product.name.toLowerCase().trim()}-${product.sector}`);
+      const isRegisteredByName = registeredByName.has(`${product.name.toLowerCase().trim()}-${product.sector.toLowerCase().trim()}`);
 
       if (!isRegisteredByCode && !isRegisteredByName) {
         unmapped.push(product);
@@ -69,22 +71,23 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
   const handleCreateProduct = async (product) => {
     const key = `${product.name}-${product.sector}`;
     setCreating(prev => new Set(prev).add(key));
-    
+
     try {
       const response = await base44.functions.invoke('Createproduct', {
         code: product.code || '',
         name: product.name,
         sector: product.sector,
         recipe_yield: 1,
-        unit: 'unidade',
+        unit: 'UN',
         production_days: ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'],
         active: true
       });
 
-      // Verificar se houve erro na resposta
-      if (response?.error) {
-        const errorMsg = response.error;
+      // Base44 pode retornar dados em response direto ou em response.data
+      const data = response?.data || response;
+      const errorMsg = data?.error || response?.error;
 
+      if (errorMsg) {
         if (errorMsg.includes('já existe')) {
           toast.info(`Produto "${product.name}" já está cadastrado`);
           setDismissed(prev => new Set(prev).add(key));
@@ -96,7 +99,7 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
         } else {
           toast.error(`Erro: ${errorMsg}`);
         }
-      } else if (response?.success || response?.product) {
+      } else if (data?.success || data?.product) {
         toast.success(`Produto "${product.name}" cadastrado com sucesso!`);
         setDismissed(prev => new Set(prev).add(key));
         await onProductCreated?.();
@@ -104,7 +107,6 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
         toast.error('Erro: Resposta inesperada do servidor');
       }
     } catch (error) {
-      
       if (error.response?.status === 409 || error.response?.data?.error?.includes('já existe')) {
         toast.info(`Produto "${product.name}" já está cadastrado`);
         setDismissed(prev => new Set(prev).add(key));
@@ -128,7 +130,7 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
   };
 
   const handleCreateAll = async () => {
-    for (const product of unmappedProducts) {
+    for (const product of visibleProducts) {
       await handleCreateProduct(product);
     }
   };
@@ -174,11 +176,11 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
           </Button>
         </div>
       </CardHeader>
-      
+
       {isExpanded && (
         <CardContent className="space-y-3">
           <p className="text-sm text-orange-800">
-            Encontramos produtos na VIEW SQL que ainda não estão cadastrados no sistema. 
+            Encontramos produtos na VIEW SQL que ainda não estão cadastrados no sistema.
             Cadastre-os para ativar o planejamento de produção e rastreamento completo.
           </p>
 
@@ -192,8 +194,8 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
                 className="pl-9 border-orange-200 focus:border-orange-400"
               />
             </div>
-            <Button 
-              size="sm" 
+            <Button
+              size="sm"
               onClick={handleCreateAll}
               disabled={creating.size > 0 || visibleProducts.length === 0}
               className="bg-orange-600 hover:bg-orange-700"
@@ -207,9 +209,9 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
           {visibleProducts.map((product, idx) => {
             const key = `${product.name}-${product.sector}`;
             const isCreating = creating.has(key);
-            
+
             return (
-              <div 
+              <div
                 key={idx}
                 className="bg-white border border-orange-200 rounded-lg p-3 flex items-center justify-between"
               >
