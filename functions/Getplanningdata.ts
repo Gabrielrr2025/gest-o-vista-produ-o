@@ -76,17 +76,10 @@ Deno.serve(async (req) => {
 
     const sql = neon(connectionString);
 
-    // 1. Garantir que tabela configuracoes existe antes de consultar
-    await sql`
-      CREATE TABLE IF NOT EXISTS configuracoes (
-        chave VARCHAR(100) PRIMARY KEY,
-        valor TEXT,
-        descricao TEXT,
-        updated_at TIMESTAMP DEFAULT NOW()
-      )
-    `;
-
-    const configRows = await sql`
+    // 1. Buscar configs (tabela pode não existir - ignorar erro)
+    let configRows: any[] = [];
+    try {
+      configRows = await sql`
       SELECT chave, valor FROM configuracoes
       WHERE chave IN (
         'planejamento_semanas_historico',
@@ -95,6 +88,7 @@ Deno.serve(async (req) => {
       )
     `;
     const cfg: Record<string, string> = {};
+    } catch { /* tabela configuracoes não existe ainda - usar defaults */ }
     configRows.forEach((r: any) => { cfg[r.chave] = r.valor; });
 
     const semanasHistorico  = Math.max(4, parseInt(cfg['planejamento_semanas_historico'] ?? '8'));
