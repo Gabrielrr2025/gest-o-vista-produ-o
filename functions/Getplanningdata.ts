@@ -107,42 +107,62 @@ Deno.serve(async (req) => {
       FROM produtos WHERE status = 'ativo' ORDER BY setor, nome
     `;
 
-    const salesRecencia = await sql`
-      SELECT p.id as produto_id, v.data, v.quantidade
-      FROM vendas v JOIN produtos p ON v.produto_id = p.id
-      WHERE v.data >= ${recStartStr} AND v.data < ${startDate}
-    `;
-    const lossesRecencia = await sql`
-      SELECT p.id as produto_id, pe.data, pe.quantidade
-      FROM perdas pe JOIN produtos p ON pe.produto_id = p.id
-      WHERE pe.data >= ${recStartStr} AND pe.data < ${startDate}
-    `;
+    let salesRecencia: any[] = [];
+    try {
+      salesRecencia = await sql`
+        SELECT p.id as produto_id, v.data, v.quantidade
+        FROM vendas v JOIN produtos p ON v.produto_id = p.id
+        WHERE v.data >= ${recStartStr} AND v.data < ${startDate}
+      `;
+    } catch { /* tabela vendas não existe ou inacessível */ }
 
-    const currentWeekSales = await sql`
-      SELECT p.id as produto_id, SUM(v.quantidade) as quantidade_total
-      FROM vendas v JOIN produtos p ON v.produto_id = p.id
-      WHERE v.data >= ${startDate} AND v.data <= ${endDate} GROUP BY p.id
-    `;
-    const currentWeekLoss = await sql`
-      SELECT p.id as produto_id, SUM(pe.quantidade) as quantidade_total
-      FROM perdas pe JOIN produtos p ON pe.produto_id = p.id
-      WHERE pe.data >= ${startDate} AND pe.data <= ${endDate} GROUP BY p.id
-    `;
+    let lossesRecencia: any[] = [];
+    try {
+      lossesRecencia = await sql`
+        SELECT p.id as produto_id, pe.data, pe.quantidade
+        FROM perdas pe JOIN produtos p ON pe.produto_id = p.id
+        WHERE pe.data >= ${recStartStr} AND pe.data < ${startDate}
+      `;
+    } catch { /* tabela perdas não existe ou inacessível */ }
 
-    const calendarHistorico = await sql`
-      SELECT name, date, impact_percentage, sectors, type
-      FROM calendar_events
-      WHERE date >= ${recStartStr} AND date < ${startDate}
-      AND impact_percentage != 0
-      ORDER BY date
-    `;
+    let currentWeekSales: any[] = [];
+    try {
+      currentWeekSales = await sql`
+        SELECT p.id as produto_id, SUM(v.quantidade) as quantidade_total
+        FROM vendas v JOIN produtos p ON v.produto_id = p.id
+        WHERE v.data >= ${startDate} AND v.data <= ${endDate} GROUP BY p.id
+      `;
+    } catch { /* tabela vendas não existe ou inacessível */ }
 
-    const calendarSemanaAlvo = await sql`
-      SELECT name, date, impact_percentage, sectors, type, priority, notes
-      FROM calendar_events
-      WHERE date >= ${startDate} AND date <= ${endDate}
-      ORDER BY date
-    `;
+    let currentWeekLoss: any[] = [];
+    try {
+      currentWeekLoss = await sql`
+        SELECT p.id as produto_id, SUM(pe.quantidade) as quantidade_total
+        FROM perdas pe JOIN produtos p ON pe.produto_id = p.id
+        WHERE pe.data >= ${startDate} AND pe.data <= ${endDate} GROUP BY p.id
+      `;
+    } catch { /* tabela perdas não existe ou inacessível */ }
+
+    let calendarHistorico: any[] = [];
+    try {
+      calendarHistorico = await sql`
+        SELECT name, date, impact_percentage, sectors, type
+        FROM calendar_events
+        WHERE date >= ${recStartStr} AND date < ${startDate}
+        AND impact_percentage != 0
+        ORDER BY date
+      `;
+    } catch { /* tabela calendar_events não existe */ }
+
+    let calendarSemanaAlvo: any[] = [];
+    try {
+      calendarSemanaAlvo = await sql`
+        SELECT name, date, impact_percentage, sectors, type, priority, notes
+        FROM calendar_events
+        WHERE date >= ${startDate} AND date <= ${endDate}
+        ORDER BY date
+      `;
+    } catch { /* tabela calendar_events não existe */ }
 
     // 4. Processar por produto
     const productAnalysis = products.map((product: any) => {
