@@ -26,39 +26,33 @@ Deno.serve(async (req) => {
 
     // Verificar se produto existe
     const existing = await sql`
-      SELECT id, nome FROM produtos WHERE id = ${id}
+      SELECT id, nome, status FROM produtos WHERE id = ${id}
     `;
 
     if (existing.length === 0) {
       return Response.json({ error: 'Produto não encontrado' }, { status: 404 });
     }
 
-    console.log(`🗑️ Deletando produto ID: ${id} (${existing[0].nome})`);
+    console.log(`🗑️ Desativando produto ID: ${id} (${existing[0].nome})`);
 
-    // 1. Desvincular vendas (setar produto_id como NULL para manter histórico)
-    await sql`UPDATE vendas SET produto_id = NULL WHERE produto_id = ${id}`;
-    console.log(`  ↳ Vendas desvinculadas`);
+    // Soft delete: mudar status para 'inativo'
+    // O produto sai da lista de cadastrados e do planejamento
+    // Mas continua no banco com vendas e perdas vinculadas
+    await sql`UPDATE produtos SET status = 'inativo', updated_at = NOW() WHERE id = ${id}`;
 
-    // 2. Desvincular perdas (setar produto_id como NULL para manter histórico)
-    await sql`UPDATE perdas SET produto_id = NULL WHERE produto_id = ${id}`;
-    console.log(`  ↳ Perdas desvinculadas`);
-
-    // 3. Apagar planejamento vinculado
+    // Remover planejamento futuro desse produto
     await sql`DELETE FROM planejamento WHERE produto_id = ${id}`;
-    console.log(`  ↳ Planejamento removido`);
 
-    // 4. Agora sim, deletar o produto
-    await sql`DELETE FROM produtos WHERE id = ${id}`;
-    console.log(`✅ Produto deletado com sucesso. Vendas e perdas históricas mantidas (desvinculadas).`);
+    console.log(`✅ Produto desativado. Voltará ao card laranja como não cadastrado.`);
 
     return Response.json({
       success: true,
       deleted: true,
-      message: 'Produto removido. Vendas e perdas históricas mantidas.'
+      message: 'Produto desativado. Vendas e perdas históricas mantidas.'
     });
 
   } catch (error) {
-    console.error('❌ Erro ao deletar produto:', error.message);
+    console.error('❌ Erro ao desativar produto:', error.message);
     return Response.json({ error: error.message }, { status: 500 });
   }
 });
