@@ -34,12 +34,48 @@ Deno.serve(async (req) => {
 
     // Verificar se já existe produto com mesmo nome E setor
     const existing = await sql`
-      SELECT id, nome, setor FROM produtos 
+      SELECT id, nome, setor, status FROM produtos 
       WHERE LOWER(nome) = LOWER(${name}) 
       AND LOWER(setor) = LOWER(${sector})
     `;
 
     if (existing.length > 0) {
+      // Se o produto existe mas está INATIVO, reativar
+      if (existing[0].status === 'inativo') {
+        console.log(`♻️ Reativando produto "${name}" (${sector}) - ID ${existing[0].id}`);
+        const reactivated = await sql`
+          UPDATE produtos 
+          SET status = 'ativo', 
+              codigo = ${code || null},
+              unidade = ${unit || 'UN'},
+              rendimento = ${recipe_yield || 1},
+              dias_producao = ${JSON.stringify(production_days || [])},
+              horario_fabricacao = ${manufacturing_time || null},
+              horario_venda = ${sale_time || null},
+              updated_at = NOW()
+          WHERE id = ${existing[0].id}
+          RETURNING *
+        `;
+        const react = reactivated[0];
+        return Response.json({
+          success: true,
+          reactivated: true,
+          product: {
+            id: react.id,
+            name: react.nome,
+            code: react.codigo,
+            sector: react.setor,
+            unit: react.unidade,
+            recipe_yield: parseFloat(react.rendimento) || 1,
+            production_days: react.dias_producao || [],
+            active: true,
+            manufacturing_time: react.horario_fabricacao || null,
+            sale_time: react.horario_venda || null,
+          }
+        });
+      }
+
+      // Se está ativo, é duplicata real
       console.log(`⚠️ Produto "${name}" (${sector}) já existe com ID ${existing[0].id}`);
       return Response.json({ 
         error: `Produto "${name}" no setor "${sector}" já existe`,
