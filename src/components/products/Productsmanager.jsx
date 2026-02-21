@@ -145,6 +145,8 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
       }
       queryClient.invalidateQueries({ queryKey: ['products'] });
       queryClient.invalidateQueries({ queryKey: ['planningData'] });
+      queryClient.invalidateQueries({ queryKey: ['sqlData'] });
+      queryClient.invalidateQueries({ queryKey: ['savedPlanning'] });
       onRefresh?.();
       closeDialog();
     } catch (err) {
@@ -159,18 +161,27 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
     if (!deleteTarget) return;
     setIsDeleting(true);
     try {
-      const data = await base44.functions.invoke('Deleteproduct', {
+      const response = await base44.functions.invoke('Deleteproduct', {
         id: deleteTarget.id,
-        soft: false, // sempre deletar permanentemente
+        soft: false,
       });
-      if (data?.success || data?.data?.success) {
+      // Base44 pode retornar em response direto ou em response.data
+      const data = response?.data || response;
+      
+      if (data?.success || data?.deleted) {
         toast.success(`"${deleteTarget.name}" excluído com sucesso!`);
-        queryClient.invalidateQueries({ queryKey: ['products'] });
-      queryClient.invalidateQueries({ queryKey: ['planningData'] });
+        // Invalidar e forçar refetch de TODAS as queries relevantes
+        await queryClient.invalidateQueries({ queryKey: ['products'] });
+        await queryClient.invalidateQueries({ queryKey: ['planningData'] });
+        await queryClient.invalidateQueries({ queryKey: ['sqlData'] });
+        await queryClient.invalidateQueries({ queryKey: ['savedPlanning'] });
+        await queryClient.refetchQueries({ queryKey: ['products'] });
+        await queryClient.refetchQueries({ queryKey: ['sqlData'] });
         onRefresh?.();
         setDeleteTarget(null);
       } else {
-        toast.error(data?.error || data?.data?.error || "Erro ao excluir produto.");
+        const errorMsg = data?.error || "Erro ao excluir produto.";
+        toast.error(errorMsg);
       }
     } catch (err) {
       toast.error("Erro ao excluir: " + (err.message || "Verifique sua conexão."));
