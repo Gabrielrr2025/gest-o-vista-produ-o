@@ -87,7 +87,7 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
     try {
       console.log('📤 Enviando produto para criar:', product);
       
-      const response = await base44.functions.invoke('Createproduct', {
+      const response = await base44.functions.invoke('createProduct', {
         code: product.code || '',
         name: product.name,
         sector: product.sector,

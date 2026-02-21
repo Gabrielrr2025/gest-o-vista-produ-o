@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useQuery } from "@tanstack/react-query";
+import { useQueries } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,6 @@ import {
   Plus, 
   X, 
   FileSpreadsheet,
-  DollarSign,
   BarChart3,
   Package,
   AlertTriangle
@@ -27,8 +26,7 @@ import {
   ResponsiveContainer,
   LineChart,
   Line,
-  ComposedChart,
-  Area
+  ComposedChart
 } from 'recharts';
 import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { toast } from "sonner";
@@ -73,8 +71,8 @@ export default function SalesComparison() {
   ];
 
   // Buscar dados de VENDAS para cada período
-  const salesQueries = periods.map((period) => 
-    useQuery({
+  const salesQueries = useQueries({
+    queries: periods.map((period) => ({
       queryKey: ['salesComparison', 'sales', period.id, period.dateRange],
       queryFn: async () => {
         const response = await base44.functions.invoke('getSalesReport', {
@@ -90,12 +88,12 @@ export default function SalesComparison() {
         };
       },
       enabled: !!period.dateRange?.from && !!period.dateRange?.to
-    })
-  );
+    }))
+  });
 
   // Buscar dados de PERDAS para cada período
-  const lossesQueries = periods.map((period) => 
-    useQuery({
+  const lossesQueries = useQueries({
+    queries: periods.map((period) => ({
       queryKey: ['salesComparison', 'losses', period.id, period.dateRange],
       queryFn: async () => {
         const response = await base44.functions.invoke('getLossesReport', {
@@ -111,8 +109,8 @@ export default function SalesComparison() {
         };
       },
       enabled: !!period.dateRange?.from && !!period.dateRange?.to
-    })
-  );
+    }))
+  });
 
   // Processar dados para comparação
   const comparisonData = useMemo(() => {

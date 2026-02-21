@@ -56,7 +56,7 @@ export default function ProductComparisonModal({
     queryFn: async () => {
       if (!initialProduct || !dateRange?.from || !dateRange?.to) return null;
 
-      const response = await base44.functions.invoke('Getproductevolution', {
+      const response = await base44.functions.invoke('getProductEvolutionDetailed', {
         produtoId: initialProduct.produto_id,
         startDate: format(dateRange.from, 'yyyy-MM-dd'),
         endDate: format(dateRange.to, 'yyyy-MM-dd'),
@@ -74,7 +74,7 @@ export default function ProductComparisonModal({
     queryFn: async () => {
       if (!initialProduct || !dateRange?.from || !dateRange?.to) return null;
 
-      const response = await base44.functions.invoke('Getproductevolution', {
+      const response = await base44.functions.invoke('getProductEvolutionDetailed', {
         produtoId: initialProduct.produto_id,
         startDate: format(dateRange.from, 'yyyy-MM-dd'),
         endDate: format(dateRange.to, 'yyyy-MM-dd'),
@@ -92,7 +92,7 @@ export default function ProductComparisonModal({
     queryFn: async () => {
       if (!initialProduct || !compareDateRange?.from || !compareDateRange?.to) return null;
 
-      const response = await base44.functions.invoke('Getproductevolution', {
+      const response = await base44.functions.invoke('getProductEvolutionDetailed', {
         produtoId: initialProduct.produto_id,
         startDate: format(compareDateRange.from, 'yyyy-MM-dd'),
         endDate: format(compareDateRange.to, 'yyyy-MM-dd'),
@@ -110,7 +110,7 @@ export default function ProductComparisonModal({
     queryFn: async () => {
       if (!initialProduct || !compareDateRange?.from || !compareDateRange?.to) return null;
 
-      const response = await base44.functions.invoke('Getproductevolution', {
+      const response = await base44.functions.invoke('getProductEvolutionDetailed', {
         produtoId: initialProduct.produto_id,
         startDate: format(compareDateRange.from, 'yyyy-MM-dd'),
         endDate: format(compareDateRange.to, 'yyyy-MM-dd'),

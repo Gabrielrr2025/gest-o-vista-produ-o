@@ -134,7 +134,7 @@ export default function Reports() {
     queryKey: ['lossesReport', apiParams],
     queryFn: async () => {
       try {
-        const response = await base44.functions.invoke('Getlossesreport', apiParams);
+        const response = await base44.functions.invoke('getLossesReport', apiParams);
         return response.data;
       } catch (error) {
         return {
@@ -170,7 +170,7 @@ export default function Reports() {
     queryKey: ['lossesReportYear', yearParams],
     queryFn: async () => {
       try {
-        const response = await base44.functions.invoke('Getlossesreport', yearParams);
+        const response = await base44.functions.invoke('getLossesReport', yearParams);
         return response.data;
       } catch (error) {
         return {
@@ -196,7 +196,7 @@ export default function Reports() {
     queryKey: ['lossesReportCompareYear', compareYearParams],
     queryFn: async () => {
       try {
-        const response = await base44.functions.invoke('Getlossesreport', compareYearParams);
+        const response = await base44.functions.invoke('getLossesReport', compareYearParams);
         return response.data;
       } catch (error) {
         return {
