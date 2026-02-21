@@ -34,6 +34,7 @@ Deno.serve(async (req) => {
         dias_producao, status, horario_fabricacao, horario_venda,
         tempo_preparo, created_at
       FROM produtos
+      WHERE status = 'ativo'
       ORDER BY setor, nome
     `;
 
