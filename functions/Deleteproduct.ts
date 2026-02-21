@@ -35,12 +35,21 @@ Deno.serve(async (req) => {
 
     console.log(`🗑️ Deletando produto ID: ${id} (${existing[0].nome})`);
 
-    // Apagar apenas o planejamento vinculado (não apaga vendas nem perdas)
-    // Assim o produto volta a aparecer no card laranja como não mapeado
-    await sql`DELETE FROM planejamento WHERE produto_id = ${id}`;
-    await sql`DELETE FROM produtos WHERE id = ${id}`;
+    // 1. Desvincular vendas (setar produto_id como NULL para manter histórico)
+    await sql`UPDATE vendas SET produto_id = NULL WHERE produto_id = ${id}`;
+    console.log(`  ↳ Vendas desvinculadas`);
 
-    console.log(`✅ Produto deletado. Vendas e perdas mantidas.`);
+    // 2. Desvincular perdas (setar produto_id como NULL para manter histórico)
+    await sql`UPDATE perdas SET produto_id = NULL WHERE produto_id = ${id}`;
+    console.log(`  ↳ Perdas desvinculadas`);
+
+    // 3. Apagar planejamento vinculado
+    await sql`DELETE FROM planejamento WHERE produto_id = ${id}`;
+    console.log(`  ↳ Planejamento removido`);
+
+    // 4. Agora sim, deletar o produto
+    await sql`DELETE FROM produtos WHERE id = ${id}`;
+    console.log(`✅ Produto deletado com sucesso. Vendas e perdas históricas mantidas (desvinculadas).`);
 
     return Response.json({
       success: true,
