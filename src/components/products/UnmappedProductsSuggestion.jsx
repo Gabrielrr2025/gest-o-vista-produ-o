@@ -11,7 +11,7 @@ import SectorBadge from "../common/SectorBadge";
 export default function UnmappedProductsSuggestion({ sqlData, products, onProductCreated }) {
   const [creating, setCreating] = useState(new Set());
   const [dismissed, setDismissed] = useState(new Set());
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
   // Detectar produtos da VIEW que não existem no cadastro
@@ -100,8 +100,8 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
       console.log('📥 Resposta do servidor:', response);
 
       // Verificar se houve erro na resposta
-      if (response.data?.error || response.error) {
-        const errorMsg = response.data?.error || response.error;
+      if (response?.error) {
+        const errorMsg = response.error;
         console.error('❌ Erro na resposta:', errorMsg);
         
         // Produto já existe
@@ -124,9 +124,9 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
         else {
           toast.error(`Erro: ${errorMsg}`);
         }
-      } else if (response.data?.success) {
-        console.log('✅ Produto criado com sucesso:', response.data.product);
-        toast.success(`Produto "${product.name}" cadastrado`);
+      } else if (response?.success || response?.product) {
+        toast.success(`Produto "${product.name}" cadastrado com sucesso!`);
+        setDismissed(prev => new Set(prev).add(key));
         await onProductCreated?.();
       } else {
         console.error('⚠️ Resposta inesperada:', response);
