@@ -158,8 +158,19 @@ Deno.serve(async (req) => {
         }
       } catch { diasProducao = []; }
 
-      const prodSalesRec  = salesRecencia.filter( (s: any) => s.produto_id === pid);
-      const prodLossesRec = lossesRecencia.filter((l: any) => l.produto_id === pid);
+      const prodSalesRec  = salesRecencia.filter( (s: any) => String(s.produto_id) === String(pid));
+      const prodLossesRec = lossesRecencia.filter((l: any) => String(l.produto_id) === String(pid));
+
+      // Debug: log para o primeiro produto
+      if (pid === products[0]?.id) {
+        console.log(`🔍 Debug produto ${product.nome} (ID ${pid}):`);
+        console.log(`   salesRecencia total: ${salesRecencia.length}, filtrado: ${prodSalesRec.length}`);
+        console.log(`   lossesRecencia total: ${lossesRecencia.length}, filtrado: ${prodLossesRec.length}`);
+        if (salesRecencia.length > 0) {
+          console.log(`   Tipo produto_id no SQL: ${typeof salesRecencia[0].produto_id}, valor: ${salesRecencia[0].produto_id}`);
+          console.log(`   Tipo pid: ${typeof pid}, valor: ${pid}`);
+        }
+      }
 
       // Agrupar por semana
       type WeekData = { sales: number; losses: number; hasData: boolean; pesoCalendario: number; };
@@ -269,8 +280,8 @@ Deno.serve(async (req) => {
       const avgLosses   = mean(perdasBrutas);
       const avgLossRate = taxaPerdaFinal * 100;
 
-      const currentSales  = parseFloat(currentWeekSales.find((s: any) => s.produto_id === pid)?.quantidade_total ?? '0');
-      const currentLosses = parseFloat(currentWeekLoss.find( (l: any) => l.produto_id === pid)?.quantidade_total ?? '0');
+      const currentSales  = parseFloat(currentWeekSales.find((s: any) => String(s.produto_id) === String(pid))?.quantidade_total ?? '0');
+      const currentLosses = parseFloat(currentWeekLoss.find( (l: any) => String(l.produto_id) === String(pid))?.quantidade_total ?? '0');
       const currentLossRate = (currentSales + currentLosses) > 0
         ? (currentLosses / (currentSales + currentLosses)) * 100 : 0;
 
