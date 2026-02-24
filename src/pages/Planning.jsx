@@ -687,6 +687,19 @@ export default function Planning() {
         </Select>
       </div>
 
+      {/* DEBUG TEMPORÁRIO - remover após diagnóstico */}
+      {planningQuery.data?._debug && (
+        <div className="p-3 bg-yellow-50 border border-yellow-300 rounded text-xs font-mono space-y-1">
+          <p className="font-bold text-yellow-800">🔍 Debug Getplanningdata:</p>
+          <p>Período histórico: <b>{planningQuery.data._debug.recStartStr}</b> até <b>{planningQuery.data._debug.startDate}</b></p>
+          <p>Semana planejada: <b>{planningQuery.data._debug.startDate}</b> até <b>{planningQuery.data._debug.endDate}</b></p>
+          <p>Total produtos: <b>{planningQuery.data._debug.total_products}</b></p>
+          <p>Registros vendas histórico: <b>{planningQuery.data._debug.total_salesRecencia}</b></p>
+          <p>Registros perdas histórico: <b>{planningQuery.data._debug.total_lossesRecencia}</b></p>
+          <p>Amostra vendas: <b>{JSON.stringify(planningQuery.data._debug.amostra_sales)}</b></p>
+        </div>
+      )}
+
       {/* Layout: Tabela (70%) + Painel Lateral (30%) */}
       <div className="flex gap-6">
         {/* Tabela de Planejamento */}
