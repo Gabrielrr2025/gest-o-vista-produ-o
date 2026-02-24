@@ -21,6 +21,7 @@ import {
   AlertDescription,
 } from "@/components/ui/alert";
 import DatabaseDiagnostic from "@/components/settings/DatabaseDiagnostic";
+import PlanningDiagnostic from "@/components/settings/PlanningDiagnostic";
 import ProductionRationalSettings from "@/components/settings/ProductionRationalSettings";
 
 export default function Settings() {
@@ -161,6 +162,11 @@ export default function Settings() {
 
       {/* Diagnóstico do Banco de Dados */}
       <DatabaseDiagnostic />
+
+      <Separator />
+
+      {/* Diagnóstico do Planejamento */}
+      <PlanningDiagnostic />
 
       <Separator />
 
