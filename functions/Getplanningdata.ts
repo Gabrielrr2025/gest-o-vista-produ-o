@@ -349,17 +349,6 @@ Deno.serve(async (req) => {
     return Response.json({
       products: productAnalysis,
       period: { start: startDate, end: endDate },
-      _debug: {
-        recStartStr,
-        startDate,
-        endDate,
-        total_salesRecencia: salesRecencia.length,
-        total_lossesRecencia: lossesRecencia.length,
-        total_products: products.length,
-        amostra_sales_raw: salesRecencia.slice(0, 3),
-        primeiro_produto: { id: products[0]?.id, nome: products[0]?.nome, tipo_id: typeof products[0]?.id },
-        amostra_produto_id_vendas: salesRecencia.length > 0 ? { produto_id: salesRecencia[0].produto_id, tipo: typeof salesRecencia[0].produto_id } : null,
-      },
       config_used: {
         semanas_historico:  semanasHistorico,
         postura:            postura.label,
