@@ -107,37 +107,26 @@ Deno.serve(async (req) => {
       FROM produtos WHERE status = 'ativo' ORDER BY setor, nome
     `;
 
-    // Buscar da vw_movimentacoes separando por tipo (fonte única de verdade)
     const salesRecencia = await sql`
-      SELECT p.id as produto_id, m.data, m.quantidade
-      FROM vw_movimentacoes m
-      JOIN produtos p ON m.produto = p.nome
-      WHERE m.tipo = 'venda'
-        AND m.data >= ${recStartStr} AND m.data < ${startDate}
+      SELECT p.id as produto_id, v.data, v.quantidade
+      FROM vendas v JOIN produtos p ON v.produto_id = p.id
+      WHERE v.data >= ${recStartStr} AND v.data < ${startDate}
     `;
     const lossesRecencia = await sql`
-      SELECT p.id as produto_id, m.data, m.quantidade
-      FROM vw_movimentacoes m
-      JOIN produtos p ON m.produto = p.nome
-      WHERE m.tipo = 'perda'
-        AND m.data >= ${recStartStr} AND m.data < ${startDate}
+      SELECT p.id as produto_id, pe.data, pe.quantidade
+      FROM perdas pe JOIN produtos p ON pe.produto_id = p.id
+      WHERE pe.data >= ${recStartStr} AND pe.data < ${startDate}
     `;
 
     const currentWeekSales = await sql`
-      SELECT p.id as produto_id, SUM(m.quantidade) as quantidade_total
-      FROM vw_movimentacoes m
-      JOIN produtos p ON m.produto = p.nome
-      WHERE m.tipo = 'venda'
-        AND m.data >= ${startDate} AND m.data <= ${endDate}
-      GROUP BY p.id
+      SELECT p.id as produto_id, SUM(v.quantidade) as quantidade_total
+      FROM vendas v JOIN produtos p ON v.produto_id = p.id
+      WHERE v.data >= ${startDate} AND v.data <= ${endDate} GROUP BY p.id
     `;
     const currentWeekLoss = await sql`
-      SELECT p.id as produto_id, SUM(m.quantidade) as quantidade_total
-      FROM vw_movimentacoes m
-      JOIN produtos p ON m.produto = p.nome
-      WHERE m.tipo = 'perda'
-        AND m.data >= ${startDate} AND m.data <= ${endDate}
-      GROUP BY p.id
+      SELECT p.id as produto_id, SUM(pe.quantidade) as quantidade_total
+      FROM perdas pe JOIN produtos p ON pe.produto_id = p.id
+      WHERE pe.data >= ${startDate} AND pe.data <= ${endDate} GROUP BY p.id
     `;
 
     const calendarHistorico = await sql`
@@ -358,6 +347,15 @@ Deno.serve(async (req) => {
     return Response.json({
       products: productAnalysis,
       period: { start: startDate, end: endDate },
+      _debug: {
+        recStartStr,
+        startDate,
+        endDate,
+        total_salesRecencia: salesRecencia.length,
+        total_lossesRecencia: lossesRecencia.length,
+        total_products: products.length,
+        amostra_sales: salesRecencia.slice(0, 3),
+      },
       config_used: {
         semanas_historico:  semanasHistorico,
         postura:            postura.label,
