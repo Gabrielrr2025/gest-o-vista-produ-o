@@ -26,56 +26,58 @@ Deno.serve(async (req) => {
     const totalPerdas = await sql`SELECT COUNT(*) as total, MIN(data) as mais_antiga, MAX(data) as mais_recente FROM perdas`;
     const totalProdutos = await sql`SELECT COUNT(*) as total FROM produtos WHERE status = 'ativo'`;
 
-    // 2. Vendas nas últimas 8 semanas (janela usada pelo planejamento)
+    // 2. Vendas/perdas reais via view (separando por tipo)
     const vendasRecentes = await sql`
       SELECT COUNT(*) as total, SUM(quantidade) as soma_qtd
-      FROM vendas
-      WHERE data >= ${recStartStr} AND data < ${hojeStr}
+      FROM vw_movimentacoes
+      WHERE tipo = 'venda' AND data >= ${recStartStr} AND data < ${hojeStr}
     `;
     const perdasRecentes = await sql`
       SELECT COUNT(*) as total, SUM(quantidade) as soma_qtd
-      FROM perdas
-      WHERE data >= ${recStartStr} AND data < ${hojeStr}
+      FROM vw_movimentacoes
+      WHERE tipo = 'perda' AND data >= ${recStartStr} AND data < ${hojeStr}
     `;
 
     // 3. Top 5 produtos com mais vendas no período
     const topProdutos = await sql`
-      SELECT p.nome, p.setor, COUNT(v.id) as qtd_registros, SUM(v.quantidade) as soma_vendas
-      FROM vendas v
-      JOIN produtos p ON v.produto_id = p.id
-      WHERE v.data >= ${recStartStr} AND v.data < ${hojeStr}
-      GROUP BY p.nome, p.setor
+      SELECT m.produto as nome, p.setor, COUNT(*) as qtd_registros, SUM(m.quantidade) as soma_vendas
+      FROM vw_movimentacoes m
+      JOIN produtos p ON m.produto = p.nome
+      WHERE m.tipo = 'venda' AND m.data >= ${recStartStr} AND m.data < ${hojeStr}
+      GROUP BY m.produto, p.setor
       ORDER BY soma_vendas DESC
       LIMIT 5
     `;
 
-    // 4. Verificar se produto_id bate entre tabelas (JOIN ok?)
+    // 4. Verificar JOIN por nome
     const amostraVendas = await sql`
-      SELECT v.produto_id, p.nome, p.id as produto_id_produtos
-      FROM vendas v
-      LEFT JOIN produtos p ON v.produto_id = p.id
+      SELECT m.produto as nome_view, p.id as produto_id_produtos, p.nome as nome_tabela
+      FROM vw_movimentacoes m
+      LEFT JOIN produtos p ON m.produto = p.nome
+      WHERE m.tipo = 'venda'
       LIMIT 5
     `;
 
-    // 5. Produtos SEM nenhuma venda no histórico
+    // 5. Produtos SEM vendas no histórico
     const produtosSemVenda = await sql`
       SELECT p.nome, p.setor
       FROM produtos p
       WHERE p.status = 'ativo'
       AND NOT EXISTS (
-        SELECT 1 FROM vendas v WHERE v.produto_id = p.id AND v.data >= ${recStartStr}
+        SELECT 1 FROM vw_movimentacoes m
+        WHERE m.produto = p.nome AND m.tipo = 'venda' AND m.data >= ${recStartStr}
       )
       LIMIT 10
     `;
 
-    // 6. Distribuição de vendas por semana
+    // 6. Distribuição por semana via view
     const vendasPorSemana = await sql`
       SELECT 
         date_trunc('week', data::date) as semana,
         COUNT(*) as registros,
         SUM(quantidade) as total_qtd
-      FROM vendas
-      WHERE data >= ${recStartStr} AND data < ${hojeStr}
+      FROM vw_movimentacoes
+      WHERE tipo = 'venda' AND data >= ${recStartStr} AND data < ${hojeStr}
       GROUP BY semana
       ORDER BY semana
     `;
@@ -110,12 +112,10 @@ Deno.serve(async (req) => {
         produtos_sem_vendas_no_periodo: produtosSemVenda,
         vendas_por_semana: vendasPorSemana,
         amostra_join_produto_id: amostraVendas.map((r: any) => ({
-          venda_produto_id: r.produto_id,
-          tipo_venda_id: typeof r.produto_id,
-          produto_nome: r.nome,
-          produto_tabela_id: r.produto_id_produtos,
-          tipo_produto_id: typeof r.produto_id_produtos,
-          join_ok: r.nome !== null,
+          nome_na_view: r.nome_view,
+          produto_id_encontrado: r.produto_id_produtos,
+          nome_na_tabela: r.nome_tabela,
+          join_ok: r.produto_id_produtos !== null,
         })),
       }
     });
