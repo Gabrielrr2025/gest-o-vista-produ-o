@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
       )
     `;
       configRows.forEach((r: any) => { cfg[r.chave] = r.valor; });
-    } catch { /* tabela configuracoes não existe ainda - usar defaults */ }
+    } catch { /* tabela configuracoes não existe ainda - usar default */ }
 
     const semanasHistorico  = Math.max(4, parseInt(cfg['planejamento_semanas_historico'] ?? '8'));
     const posturaKey        = (cfg['planejamento_postura'] ?? 'equilibrado') as keyof typeof POSTURA_CONFIG;
