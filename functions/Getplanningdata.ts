@@ -107,36 +107,6 @@ Deno.serve(async (req) => {
       FROM produtos WHERE status = 'ativo' ORDER BY setor, nome
     `;
 
-    // Buscar média de vendas por produto (últimas N semanas) direto do SQL
-    const salesPorProduto = await sql`
-      SELECT 
-        v.produto_id,
-        COUNT(DISTINCT date_trunc('week', v.data::date)) as semanas_com_dados,
-        SUM(v.quantidade) as total_quantidade,
-        AVG(v.quantidade_diaria) as media_diaria
-      FROM (
-        SELECT 
-          produto_id,
-          date_trunc('week', data::date) as semana,
-          SUM(quantidade) as quantidade_diaria,
-          data
-        FROM vendas
-        WHERE data >= ${recStartStr} AND data < ${startDate}
-        GROUP BY produto_id, data
-      ) v
-      GROUP BY v.produto_id
-    `;
-
-    const lossesPorProduto = await sql`
-      SELECT 
-        pe.produto_id,
-        SUM(pe.quantidade) as total_quantidade
-      FROM perdas pe
-      WHERE pe.data >= ${recStartStr} AND pe.data < ${startDate}
-      GROUP BY pe.produto_id
-    `;
-
-    // Manter queries detalhadas para cálculo semanal
     const salesRecencia = await sql`
       SELECT v.produto_id, v.data, v.quantidade
       FROM vendas v
@@ -386,11 +356,9 @@ Deno.serve(async (req) => {
         total_salesRecencia: salesRecencia.length,
         total_lossesRecencia: lossesRecencia.length,
         total_products: products.length,
-        produtos_com_vendas: salesPorProduto.length,
-        amostra_sales_raw: salesRecencia.slice(0, 2),
-        amostra_sales_agregado: salesPorProduto.slice(0, 3),
-        primeiro_produto_id: products[0]?.id,
-        tipo_produto_id: typeof products[0]?.id,
+        amostra_sales_raw: salesRecencia.slice(0, 3),
+        primeiro_produto: { id: products[0]?.id, nome: products[0]?.nome, tipo_id: typeof products[0]?.id },
+        amostra_produto_id_vendas: salesRecencia.length > 0 ? { produto_id: salesRecencia[0].produto_id, tipo: typeof salesRecencia[0].produto_id } : null,
       },
       config_used: {
         semanas_historico:  semanasHistorico,
