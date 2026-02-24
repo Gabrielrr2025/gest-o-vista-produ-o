@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
       )
     `;
       configRows.forEach((r: any) => { cfg[r.chave] = r.valor; });
-    } catch { /* tabela configuracoes não existe ainda - usar default */ }
+    } catch { /* tabela configuracoes não existe ainda - usar defaults */ }
 
     const semanasHistorico  = Math.max(4, parseInt(cfg['planejamento_semanas_historico'] ?? '8'));
     const posturaKey        = (cfg['planejamento_postura'] ?? 'equilibrado') as keyof typeof POSTURA_CONFIG;
@@ -108,12 +108,12 @@ Deno.serve(async (req) => {
     `;
 
     const salesRecencia = await sql`
-      SELECT v.produto_id, v.data, v.quantidade
+      SELECT v.produto_id, v.data::text as data, v.quantidade
       FROM vendas v
       WHERE v.data >= ${recStartStr} AND v.data < ${startDate}
     `;
     const lossesRecencia = await sql`
-      SELECT pe.produto_id, pe.data, pe.quantidade
+      SELECT pe.produto_id, pe.data::text as data, pe.quantidade
       FROM perdas pe
       WHERE pe.data >= ${recStartStr} AND pe.data < ${startDate}
     `;
