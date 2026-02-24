@@ -107,26 +107,58 @@ Deno.serve(async (req) => {
       FROM produtos WHERE status = 'ativo' ORDER BY setor, nome
     `;
 
+    // Buscar média de vendas por produto (últimas N semanas) direto do SQL
+    const salesPorProduto = await sql`
+      SELECT 
+        v.produto_id,
+        COUNT(DISTINCT date_trunc('week', v.data::date)) as semanas_com_dados,
+        SUM(v.quantidade) as total_quantidade,
+        AVG(v.quantidade_diaria) as media_diaria
+      FROM (
+        SELECT 
+          produto_id,
+          date_trunc('week', data::date) as semana,
+          SUM(quantidade) as quantidade_diaria,
+          data
+        FROM vendas
+        WHERE data >= ${recStartStr} AND data < ${startDate}
+        GROUP BY produto_id, data
+      ) v
+      GROUP BY v.produto_id
+    `;
+
+    const lossesPorProduto = await sql`
+      SELECT 
+        pe.produto_id,
+        SUM(pe.quantidade) as total_quantidade
+      FROM perdas pe
+      WHERE pe.data >= ${recStartStr} AND pe.data < ${startDate}
+      GROUP BY pe.produto_id
+    `;
+
+    // Manter queries detalhadas para cálculo semanal
     const salesRecencia = await sql`
-      SELECT p.id as produto_id, v.data, v.quantidade
-      FROM vendas v JOIN produtos p ON v.produto_id = p.id
+      SELECT v.produto_id, v.data, v.quantidade
+      FROM vendas v
       WHERE v.data >= ${recStartStr} AND v.data < ${startDate}
     `;
     const lossesRecencia = await sql`
-      SELECT p.id as produto_id, pe.data, pe.quantidade
-      FROM perdas pe JOIN produtos p ON pe.produto_id = p.id
+      SELECT pe.produto_id, pe.data, pe.quantidade
+      FROM perdas pe
       WHERE pe.data >= ${recStartStr} AND pe.data < ${startDate}
     `;
 
     const currentWeekSales = await sql`
-      SELECT p.id as produto_id, SUM(v.quantidade) as quantidade_total
-      FROM vendas v JOIN produtos p ON v.produto_id = p.id
-      WHERE v.data >= ${startDate} AND v.data <= ${endDate} GROUP BY p.id
+      SELECT v.produto_id, SUM(v.quantidade) as quantidade_total
+      FROM vendas v
+      WHERE v.data >= ${startDate} AND v.data <= ${endDate}
+      GROUP BY v.produto_id
     `;
     const currentWeekLoss = await sql`
-      SELECT p.id as produto_id, SUM(pe.quantidade) as quantidade_total
-      FROM perdas pe JOIN produtos p ON pe.produto_id = p.id
-      WHERE pe.data >= ${startDate} AND pe.data <= ${endDate} GROUP BY p.id
+      SELECT pe.produto_id, SUM(pe.quantidade) as quantidade_total
+      FROM perdas pe
+      WHERE pe.data >= ${startDate} AND pe.data <= ${endDate}
+      GROUP BY pe.produto_id
     `;
 
     const calendarHistorico = await sql`
@@ -354,7 +386,11 @@ Deno.serve(async (req) => {
         total_salesRecencia: salesRecencia.length,
         total_lossesRecencia: lossesRecencia.length,
         total_products: products.length,
-        amostra_sales: salesRecencia.slice(0, 3),
+        produtos_com_vendas: salesPorProduto.length,
+        amostra_sales_raw: salesRecencia.slice(0, 2),
+        amostra_sales_agregado: salesPorProduto.slice(0, 3),
+        primeiro_produto_id: products[0]?.id,
+        tipo_produto_id: typeof products[0]?.id,
       },
       config_used: {
         semanas_historico:  semanasHistorico,
