@@ -138,9 +138,9 @@ export default function PlanningDiagnostic() {
               <div className="space-y-1">
                 {d.amostra_join_produto_id.map((r, i) => (
                   <div key={i} className="flex items-center justify-between text-xs">
-                    <span className="text-slate-600">ID venda: <code className="bg-slate-100 px-1 rounded">{r.venda_produto_id}</code> ({r.tipo_venda_id}) → produto: <code className="bg-slate-100 px-1 rounded">{r.produto_id_produtos}</code> ({r.tipo_produto_id})</span>
+                    <span className="text-slate-600">View: <code className="bg-slate-100 px-1 rounded">{r.nome_na_view}</code> → Tabela: <code className="bg-slate-100 px-1 rounded">{r.nome_na_tabela || '❌ não encontrado'}</code></span>
                     <Badge variant={r.join_ok ? 'outline' : 'destructive'} className="text-xs">
-                      {r.join_ok ? '✅ ' + r.produto_nome : '❌ sem match'}
+                      {r.join_ok ? '✅ ID: ' + r.produto_id_encontrado : '❌ sem match'}
                     </Badge>
                   </div>
                 ))}
