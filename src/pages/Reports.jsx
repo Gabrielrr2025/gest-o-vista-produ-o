@@ -523,8 +523,8 @@ export default function Reports() {
       {/* Cabeçalho */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Relatórios de Vendas</h1>
-          <p className="text-slate-600 mt-1">Análise integrada de vendas e perdas</p>
+          <h1 className="text-2xl font-bold text-gray-900">Relatórios de Vendas</h1>
+          <p className="text-gray-500 mt-1">Análise integrada de vendas e perdas</p>
         </div>
         {salesData && (
           <Button 
