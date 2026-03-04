@@ -115,8 +115,8 @@ export default function Settings() {
     <div className="space-y-6">
       {/* Cabeçalho */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Configurações</h1>
-        <p className="text-sm text-slate-500 mt-1">
+        <h1 className="text-2xl font-bold text-gray-900">Configurações</h1>
+        <p className="text-sm text-gray-500 mt-1">
           Gerencie as configurações do sistema
         </p>
       </div>
