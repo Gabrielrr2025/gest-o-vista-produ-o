@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import { format } from "date-fns";
-import ProductsManager from "../components/products/ProductsManager";
+import ProductsManager from "../components/products/Productsmanager";
 import UnmappedProductsSuggestion from "../components/products/UnmappedProductsSuggestion";
 import * as XLSX from 'xlsx';
 
