@@ -101,8 +101,8 @@ export default function Products() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Produtos</h1>
-          <p className="text-sm text-slate-500 mt-1">Gerencie o catálogo de produtos por setor</p>
+          <h1 className="text-2xl font-bold text-gray-900">Produtos</h1>
+          <p className="text-sm text-gray-500 mt-1">Gerencie o catálogo de produtos por setor</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={() => window.print()}>
