@@ -310,5 +310,6 @@ export default function Layout({ children, currentPageName }) {
         </div>
       </main>
     </div>
+    </ThemeProvider>
   );
 }
