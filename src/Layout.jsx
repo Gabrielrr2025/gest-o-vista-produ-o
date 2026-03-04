@@ -300,8 +300,8 @@ export default function Layout({ children, currentPageName }) {
       </aside>
 
       {/* Main Content */}
-      <main className={`pt-16 lg:pt-0 transition-all duration-300 ${sidebarMinimized ? 'lg:ml-20' : 'lg:ml-72'}`}>
-        <div className="p-4 lg:p-8 max-w-[1600px] mx-auto fade-in">
+      <main className={`pt-14 lg:pt-0 transition-all duration-300 ${sidebarMinimized ? 'lg:ml-20' : 'lg:ml-64'}`}>
+        <div className="p-4 lg:p-6 max-w-[1600px] mx-auto">
           {children}
         </div>
       </main>
