@@ -88,24 +88,18 @@ export default function Layout({ children, currentPageName }) {
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Mobile Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 glass-strong z-50 flex items-center justify-between px-4 border-b border-[hsl(var(--border-subtle))]">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[hsl(var(--accent-neon))] to-[hsl(var(--accent-purple))] flex items-center justify-center glow-cyan">
-            <Zap className="w-5 h-5 text-[hsl(var(--bg-void))]" strokeWidth={2.5} />
+      <div className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-slate-900 z-50 flex items-center justify-between px-4 border-b border-slate-700">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center">
+            <Zap className="w-4 h-4 text-white" strokeWidth={2.5} />
           </div>
-          <div>
-            <span className="font-bold text-[hsl(var(--text-primary))] text-gradient">Gestão à Vista</span>
-            <div className="flex items-center gap-1.5 text-xs text-[hsl(var(--text-tertiary))]">
-              <Activity className="w-3 h-3" />
-              <span>Sistema Ativo</span>
-            </div>
-          </div>
+          <span className="font-bold text-white text-sm">Gestão à Vista</span>
         </div>
         <Button 
           variant="ghost" 
           size="icon" 
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="btn-ghost-futuristic"
+          className="text-slate-300 hover:text-white hover:bg-slate-700"
         >
           {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </Button>
