@@ -71,7 +71,7 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
   // Mutation para deletar produto
   const deleteMutation = useMutation({
     mutationFn: async ({ id, soft }) => {
-      const response = await base44.functions.invoke('deleteProduct', { id, soft });
+      const response = await base44.functions.invoke('Deleteproduct', { id, soft });
       return response.data;
     },
     onSuccess: (data) => {
