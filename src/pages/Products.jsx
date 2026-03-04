@@ -16,7 +16,6 @@ export default function Products() {
     queryKey: ['products'],
     queryFn: async () => {
       const response = await base44.functions.invoke('Getproducts', {});
-      // Base44 pode retornar em response direto ou em response.data
       return response?.data || response;
     },
     staleTime: 5 * 60 * 1000,
