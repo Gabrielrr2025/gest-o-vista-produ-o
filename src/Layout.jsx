@@ -153,7 +153,7 @@ export default function Layout({ children, currentPageName }) {
 
           {/* Navigation */}
           <TooltipProvider delayDuration={300}>
-            <nav className="flex-1 p-4 space-y-2 overflow-y-auto scrollbar-thin">
+            <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
               {navigation.map((item) => {
                 if (currentUser && currentUser.role !== 'admin') {
                   const permissions = currentUser.permissions || {};
