@@ -2,6 +2,108 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ==================== TEMA LIGHT ==================== */
+:root,
+.theme-light {
+  --bg:          #f8f9fb;
+  --surface:     #ffffff;
+  --surface2:    #f1f3f7;
+  --text:        #111827;
+  --muted:       #6b7280;
+  --primary:     #0ea5e9;
+  --primary-fg:  #ffffff;
+  --border:      #e2e8ef;
+  --sidebar-bg:  #1e293b;
+  --sidebar-text:#cbd5e1;
+  --sidebar-active-bg: rgba(14,165,233,0.15);
+  --sidebar-active-text: #7dd3fc;
+  --input-bg:    #ffffff;
+  --card-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  --accent:      #0ea5e9;
+}
+
+/* ==================== TEMA DARK ==================== */
+.theme-dark {
+  --bg:          #0f1117;
+  --surface:     #1a1d27;
+  --surface2:    #21253a;
+  --text:        #e8eaf0;
+  --muted:       #8b92a9;
+  --primary:     #38bdf8;
+  --primary-fg:  #0f1117;
+  --border:      #2a2f45;
+  --sidebar-bg:  #0d1117;
+  --sidebar-text:#8b92a9;
+  --sidebar-active-bg: rgba(56,189,248,0.15);
+  --sidebar-active-text: #7dd3fc;
+  --input-bg:    #1a1d27;
+  --card-shadow: 0 1px 6px rgba(0,0,0,0.4);
+  --accent:      #38bdf8;
+}
+
+/* ==================== APLICAÇÃO GLOBAL DAS VARIÁVEIS ==================== */
+html {
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+body {
+  background-color: var(--bg) !important;
+  color: var(--text) !important;
+}
+
+/* Cards / Containers (shadcn) */
+.bg-white, [class*="bg-white"] { background-color: var(--surface) !important; color: var(--text) !important; }
+.bg-slate-50 { background-color: var(--bg) !important; }
+.bg-slate-100 { background-color: var(--surface2) !important; }
+
+/* Borders */
+.border, .border-slate-200, .border-slate-100, .border-slate-300 { border-color: var(--border) !important; }
+
+/* Text */
+.text-slate-900, .text-gray-900 { color: var(--text) !important; }
+.text-slate-700, .text-gray-700 { color: var(--text) !important; }
+.text-slate-600, .text-gray-600, .text-slate-500, .text-gray-500 { color: var(--muted) !important; }
+.text-slate-400, .text-gray-400 { color: var(--muted) !important; opacity: 0.75; }
+
+/* Inputs */
+input:not([type="radio"]):not([type="checkbox"]):not([type="range"]),
+textarea,
+select {
+  background-color: var(--input-bg) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+input::placeholder, textarea::placeholder { color: var(--muted) !important; }
+
+/* Tables */
+thead, th { background-color: var(--surface2) !important; color: var(--muted) !important; }
+tbody tr { border-color: var(--border) !important; }
+tbody tr:hover { background-color: var(--surface2) !important; }
+td { color: var(--text) !important; }
+
+/* Shadcn Card */
+.rounded-lg.border { background-color: var(--surface) !important; border-color: var(--border) !important; }
+
+/* Popovers / Dropdowns */
+[data-radix-popper-content-wrapper] > div,
+[role="listbox"],
+[role="menu"],
+[data-radix-select-content] {
+  background-color: var(--surface) !important;
+  border-color: var(--border) !important;
+  color: var(--text) !important;
+}
+
+/* Dialog / Modal */
+[role="dialog"] > div { background-color: var(--surface) !important; }
+
+/* Transition suave */
+*, *::before, *::after {
+  transition-property: background-color, border-color, color;
+  transition-duration: 0.2s;
+  transition-timing-function: ease;
+}
+
 @layer base {
   :root {
     /* Tema Futurista - Cores Base */
