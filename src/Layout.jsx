@@ -152,6 +152,7 @@ export default function Layout({ children, currentPageName }) {
                 </div>
               </div>
             )}
+            <ThemeToggle className="text-slate-400 hover:text-white hover:bg-slate-700/60 ml-auto flex-shrink-0" />
           </div>
 
           {/* Navigation */}
