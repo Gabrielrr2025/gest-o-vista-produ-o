@@ -219,7 +219,7 @@ export default function Layout({ children, currentPageName }) {
               {/* Admin Section */}
               {(currentUser?.role === 'admin' || currentUser?.permissions?.admin) && (
                 <>
-                  <div className="my-4 border-t border-[hsl(var(--border-subtle))]"></div>
+                  <div className="my-3 border-t border-slate-700/60"></div>
                   {(() => {
                     const isActive = currentPageName === "Admin";
                     const linkContent = (
@@ -227,26 +227,21 @@ export default function Layout({ children, currentPageName }) {
                         to={createPageUrl("Admin")}
                         onClick={() => setSidebarOpen(false)}
                         className={`
-                          group flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-medium
-                          transition-all duration-200 relative overflow-hidden
-                          ${sidebarMinimized ? 'justify-center' : ''}
+                          flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+                          transition-all duration-200
+                          ${sidebarMinimized ? 'justify-center px-0' : ''}
                           ${isActive
-                            ? 'bg-gradient-to-r from-cyan-500 to-purple-600 text-white shadow-lg glow-purple' 
-                            : 'text-[hsl(var(--sidebar-foreground))] hover:text-[hsl(var(--sidebar-primary-foreground))] hover:bg-[hsl(var(--sidebar-accent))]'
+                            ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' 
+                            : 'text-slate-400 hover:text-white hover:bg-slate-700/60'
                           }
                         `}
                       >
-                        {!isActive && (
-                          <div className="absolute inset-0 bg-gradient-to-r from-[hsl(var(--accent-purple))]/10 to-[hsl(var(--accent-neon))]/10 opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
-                        )}
-                        
-                        <Shield className={`w-5 h-5 flex-shrink-0 relative z-10 ${isActive ? 'animate-pulse' : ''}`} strokeWidth={2} />
+                        <Shield className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-purple-400' : ''}`} strokeWidth={1.75} />
                         {!sidebarMinimized && (
-                          <span className="transition-opacity duration-200 relative z-10 whitespace-nowrap">Administrativo</span>
+                          <span className="whitespace-nowrap">Administrativo</span>
                         )}
-                        
                         {isActive && !sidebarMinimized && (
-                          <div className="ml-auto w-1.5 h-1.5 rounded-full bg-white"></div>
+                          <div className="ml-auto w-1.5 h-1.5 rounded-full bg-purple-400"></div>
                         )}
                       </Link>
                     );
@@ -259,7 +254,7 @@ export default function Layout({ children, currentPageName }) {
                         <TooltipContent 
                           side="right" 
                           sideOffset={10}
-                          className="bg-white text-slate-900 border-slate-200 shadow-lg z-[60]"
+                          className="bg-slate-800 text-white border-slate-600 shadow-lg z-[60]"
                         >
                           Administrativo
                         </TooltipContent>
