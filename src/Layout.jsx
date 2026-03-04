@@ -33,7 +33,7 @@ const navigation = [
 // Página inicial ao abrir o app
 const DEFAULT_PAGE = "Products";
 
-export default function Layout({ children, currentPageName }) {
+function AppLayout({ children, currentPageName }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarMinimized, setSidebarMinimized] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
