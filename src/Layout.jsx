@@ -170,13 +170,8 @@ export default function Layout({ children, currentPageName }) {
                     'Reports': 'reports',
                     'Settings': 'settings'
                   };
-                  
                   const permKey = pagePermissionMap[item.page];
-                  console.log(`🔍 Verificando ${item.page}: permissão '${permKey}' = ${permissions[permKey]}`);
-                  if (permKey && !permissions[permKey]) {
-                    console.log(`❌ ${item.page} bloqueado - usuário não tem permissão`);
-                    return null;
-                  }
+                  if (permKey && !permissions[permKey]) return null;
                 }
 
                 const isActive = currentPageName === item.page;
@@ -186,33 +181,25 @@ export default function Layout({ children, currentPageName }) {
                     to={createPageUrl(item.page)}
                     onClick={() => setSidebarOpen(false)}
                     className={`
-                      group flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-medium
-                      transition-all duration-200 relative overflow-hidden
-                      ${sidebarMinimized ? 'justify-center' : ''}
+                      flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+                      transition-all duration-200
+                      ${sidebarMinimized ? 'justify-center px-0' : ''}
                       ${isActive 
-                        ? 'bg-gradient-to-r from-cyan-500 to-purple-600 text-white shadow-lg glow-cyan' 
-                        : 'text-[hsl(var(--sidebar-foreground))] hover:text-[hsl(var(--sidebar-primary-foreground))] hover:bg-[hsl(var(--sidebar-accent))]'
+                        ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' 
+                        : 'text-slate-400 hover:text-white hover:bg-slate-700/60'
                       }
                     `}
                   >
-                    {/* Hover effect background */}
-                    {!isActive && (
-                      <div className="absolute inset-0 bg-gradient-to-r from-[hsl(var(--accent-neon))]/10 to-[hsl(var(--accent-purple))]/10 opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
-                    )}
-                    
-                    <item.icon className={`w-5 h-5 flex-shrink-0 relative z-10 ${isActive ? 'animate-pulse' : ''}`} strokeWidth={2} />
+                    <item.icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-cyan-400' : ''}`} strokeWidth={1.75} />
                     {!sidebarMinimized && (
-                      <span className="transition-opacity duration-200 relative z-10 whitespace-nowrap">{item.name}</span>
+                      <span className="whitespace-nowrap">{item.name}</span>
                     )}
-                    
-                    {/* Active indicator */}
                     {isActive && !sidebarMinimized && (
-                      <div className="ml-auto w-1.5 h-1.5 rounded-full bg-white"></div>
+                      <div className="ml-auto w-1.5 h-1.5 rounded-full bg-cyan-400"></div>
                     )}
                   </Link>
                 );
 
-                // Só mostra tooltip quando minimizado
                 return sidebarMinimized ? (
                   <Tooltip key={item.page}>
                     <TooltipTrigger asChild>
@@ -221,7 +208,7 @@ export default function Layout({ children, currentPageName }) {
                     <TooltipContent 
                       side="right" 
                       sideOffset={10}
-                      className="bg-white text-slate-900 border-slate-200 shadow-lg z-[60]"
+                      className="bg-slate-800 text-white border-slate-600 shadow-lg z-[60]"
                     >
                       {item.name}
                     </TooltipContent>
