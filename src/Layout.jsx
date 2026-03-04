@@ -271,35 +271,35 @@ export default function Layout({ children, currentPageName }) {
             onClick={toggleSidebar}
             className={`
               hidden lg:flex
-              absolute -right-3 top-24
+              absolute -right-3 top-20
               w-6 h-6
               items-center justify-center
-              glass-strong hover:glass
-              border border-[hsl(var(--border-medium))]
+              bg-slate-700 hover:bg-slate-600
+              border border-slate-600
               rounded-full
               transition-all duration-300
               opacity-0 group-hover/sidebar:opacity-100
               hover:scale-110
-              glow-cyan
+              shadow-md
             `}
             title={sidebarMinimized ? "Expandir menu" : "Minimizar menu"}
           >
             {sidebarMinimized ? (
-              <ChevronRight className="w-3 h-3 text-[hsl(var(--accent-neon))]" strokeWidth={2.5} />
+              <ChevronRight className="w-3 h-3 text-slate-300" strokeWidth={2.5} />
             ) : (
-              <ChevronLeft className="w-3 h-3 text-[hsl(var(--accent-neon))]" strokeWidth={2.5} />
+              <ChevronLeft className="w-3 h-3 text-slate-300" strokeWidth={2.5} />
             )}
           </button>
 
           {/* Bottom Decoration */}
-          <div className="h-16 border-t border-[hsl(var(--border-subtle))] flex items-center justify-center">
+          <div className="h-14 border-t border-slate-700/60 flex items-center px-4">
             {!sidebarMinimized ? (
-              <div className="text-xs text-[hsl(var(--text-tertiary))] flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-[hsl(var(--success-neon))] animate-pulse"></div>
-                <span>Sistema Online</span>
+              <div className="text-xs text-slate-500 flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></div>
+                <span>v1.0.0</span>
               </div>
             ) : (
-              <div className="w-2 h-2 rounded-full bg-[hsl(var(--success-neon))] animate-pulse"></div>
+              <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse mx-auto"></div>
             )}
           </div>
         </div>
