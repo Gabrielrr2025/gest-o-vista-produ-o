@@ -13,6 +13,9 @@ export function ThemeProvider({ children }) {
     const root = document.documentElement;
     root.classList.remove('theme-light', 'theme-dark');
     root.classList.add(`theme-${theme}`);
+    // Atualiza background do body diretamente para evitar flash
+    document.body.style.backgroundColor = theme === 'light' ? '#f8f9fb' : '#0f1117';
+    document.body.style.color = theme === 'light' ? '#111827' : '#e8eaf0';
     localStorage.setItem('app-theme', theme);
   }, [theme]);
 
