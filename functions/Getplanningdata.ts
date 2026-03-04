@@ -131,20 +131,40 @@ Deno.serve(async (req) => {
       GROUP BY pe.produto_id
     `;
 
-    const calendarHistorico = await sql`
-      SELECT name, date, impact_percentage, sectors, type
-      FROM calendar_events
-      WHERE date >= ${recStartStr} AND date < ${startDate}
-      AND impact_percentage != 0
-      ORDER BY date
-    `;
+    // Buscar eventos do calendário via Base44 SDK (entidade CalendarEvent)
+    let allCalendarEvents: any[] = [];
+    try {
+      allCalendarEvents = await base44.asServiceRole.entities.CalendarEvent.list();
+    } catch (e) {
+      console.warn('Aviso: não foi possível buscar CalendarEvent:', e);
+    }
 
-    const calendarSemanaAlvo = await sql`
-      SELECT name, date, impact_percentage, sectors, type, priority, notes
-      FROM calendar_events
-      WHERE date >= ${startDate} AND date <= ${endDate}
-      ORDER BY date
-    `;
+    // Normalizar datas (remover parte de hora se vier com T)
+    const normalizeDate = (d: string) => d ? d.split('T')[0] : '';
+
+    const calendarHistorico = allCalendarEvents.filter((ev: any) => {
+      const evDate = normalizeDate(ev.date);
+      return evDate >= recStartStr && evDate < startDate && parseFloat(ev.impact_percentage ?? '0') !== 0;
+    }).map((ev: any) => ({
+      name: ev.name,
+      date: normalizeDate(ev.date),
+      impact_percentage: ev.impact_percentage,
+      sectors: ev.sectors,
+      type: ev.type,
+    }));
+
+    const calendarSemanaAlvo = allCalendarEvents.filter((ev: any) => {
+      const evDate = normalizeDate(ev.date);
+      return evDate >= startDate && evDate <= endDate;
+    }).map((ev: any) => ({
+      name: ev.name,
+      date: normalizeDate(ev.date),
+      impact_percentage: ev.impact_percentage,
+      sectors: ev.sectors,
+      type: ev.type,
+      priority: ev.priority,
+      notes: ev.notes,
+    }));
 
     // 4. Processar por produto
     const productAnalysis = products.map((product: any) => {
