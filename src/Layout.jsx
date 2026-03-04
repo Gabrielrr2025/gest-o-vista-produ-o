@@ -86,7 +86,7 @@ export default function Layout({ children, currentPageName }) {
   };
 
   return (
-    <div className="min-h-screen gradient-bg cyber-grid">
+    <div className="min-h-screen bg-slate-50">
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-16 glass-strong z-50 flex items-center justify-between px-4 border-b border-[hsl(var(--border-subtle))]">
         <div className="flex items-center gap-3">
