@@ -28,6 +28,9 @@ const navigation = [
   { name: "Configurações", page: "Settings", icon: Settings },
 ];
 
+// Página inicial ao abrir o app
+const DEFAULT_PAGE = "Products";
+
 export default function Layout({ children, currentPageName }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarMinimized, setSidebarMinimized] = useState(false);
