@@ -314,3 +314,11 @@ function AppLayout({ children, currentPageName }) {
     </ThemeProvider>
   );
 }
+
+export default function Layout({ children, currentPageName }) {
+  return (
+    <ThemeProvider>
+      <AppLayout currentPageName={currentPageName}>{children}</AppLayout>
+    </ThemeProvider>
+  );
+}
