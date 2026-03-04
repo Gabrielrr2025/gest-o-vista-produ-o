@@ -309,7 +309,6 @@ function AppLayout({ children, currentPageName }) {
         </div>
       </main>
     </div>
-    </ThemeProvider>
   );
 }
 
