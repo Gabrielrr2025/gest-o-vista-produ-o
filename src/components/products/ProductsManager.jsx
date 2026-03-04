@@ -54,7 +54,7 @@ export default function ProductsManager({ products, onRefresh, showAddButton = f
   // Mutation para atualizar produto
   const updateMutation = useMutation({
     mutationFn: async ({ id, ...data }) => {
-      const response = await base44.functions.invoke('updateProduct', { id, ...data });
+      const response = await base44.functions.invoke('Updateproduct', { id, ...data });
       return response.data;
     },
     onSuccess: () => {
