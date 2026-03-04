@@ -108,7 +108,7 @@ export default function Layout({ children, currentPageName }) {
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div 
-          className="lg:hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-40"
+          className="lg:hidden fixed inset-0 bg-black/50 z-40"
           onClick={() => setSidebarOpen(false)}
         />
       )}
