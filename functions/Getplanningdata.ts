@@ -273,11 +273,14 @@ Deno.serve(async (req) => {
         const pctPerda   = (taxaPerdaFinal * 100).toFixed(1);
         const sigmaRound = Math.round(sigma * 10) / 10;
         const bufRound   = Math.round(buffer * 10) / 10;
-        estrategiaDesc = `MMP de ${semanasComDados} sem. | σ = ${sigmaRound} ${product.unidade} | Buffer = ${postura.k}×${sigmaRound} = ${bufRound} | Perda: ${pctPerda}%.`;
+
         if (eventosAlvo.length > 0) {
           const sinal  = multiplicadorCalendario >= 1 ? '+' : '';
           const pctCal = ((multiplicadorCalendario - 1) * 100).toFixed(0);
-          estrategiaDesc += ` Calendario: ${sinal}${pctCal}% (${eventosAlvo.map((e: any) => e.name).join(', ')}).`;
+          const nomes  = eventosAlvo.map((e: any) => e.name).join(', ');
+          estrategiaDesc = `Com base nas últimas ${semanasComDados} semanas, a sugestão base era de ${Math.ceil(mmpVendas)} ${product.unidade}. Por causa do(s) evento(s) "${nomes}" na semana (${sinal}${pctCal}%), a sugestão foi ajustada para ${suggestedProduction} ${product.unidade} (incluindo buffer de segurança e taxa de perda de ${pctPerda}%).`;
+        } else {
+          estrategiaDesc = `Baseado nas últimas ${semanasComDados} semanas, média de ${Math.ceil(mmpVendas)} ${product.unidade}/sem. com variabilidade de ±${sigmaRound}. Buffer de segurança: ${bufRound} ${product.unidade}. Taxa de perda histórica: ${pctPerda}%.`;
         }
       }
 
