@@ -137,22 +137,21 @@ export default function Layout({ children, currentPageName }) {
       >
         <div className="flex flex-col h-full relative">
           {/* Decorative line at top */}
-          <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-[hsl(var(--accent-neon))] to-transparent opacity-50"></div>
+          <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-cyan-400 to-transparent opacity-60"></div>
           
           {/* Logo Section */}
-          <div className="h-20 flex items-center gap-3 px-5 border-b border-[hsl(var(--border-subtle))] relative">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[hsl(var(--accent-neon))] to-[hsl(var(--accent-purple))] flex items-center justify-center glow-cyan flex-shrink-0 relative">
-              <Zap className="w-6 h-6 text-[hsl(var(--bg-void))]" strokeWidth={2.5} />
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-[hsl(var(--success-neon))] rounded-full border-2 border-[hsl(var(--bg-surface))] pulse-glow"></div>
+          <div className="h-16 flex items-center gap-3 px-4 border-b border-slate-700/60 relative">
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center flex-shrink-0">
+              <Zap className="w-5 h-5 text-white" strokeWidth={2.5} />
             </div>
             {!sidebarMinimized && (
-              <div className="transition-opacity duration-300 flex-1">
-                <h1 className="font-bold text-[hsl(var(--text-primary))] leading-tight text-lg">
+              <div className="transition-opacity duration-300 flex-1 min-w-0">
+                <h1 className="font-bold text-white leading-tight text-sm truncate">
                   Gestão à Vista
                 </h1>
-                <div className="flex items-center gap-1.5 text-xs text-[hsl(var(--text-tertiary))]">
-                  <Activity className="w-3 h-3" />
-                  <span>Sistema Ativo</span>
+                <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-0.5">
+                  <div className="w-1.5 h-1.5 rounded-full bg-green-400"></div>
+                  <span>Sistema Online</span>
                 </div>
               </div>
             )}
