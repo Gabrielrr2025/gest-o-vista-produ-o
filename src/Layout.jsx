@@ -90,6 +90,7 @@ export default function Layout({ children, currentPageName }) {
   return (
     <ThemeProvider>
     <div className="min-h-screen" style={{ backgroundColor: 'var(--bg)', color: 'var(--text)' }}>
+
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-slate-900 z-50 flex items-center justify-between px-4 border-b border-slate-700">
         <div className="flex items-center gap-2">
