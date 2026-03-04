@@ -123,14 +123,16 @@ export default function Layout({ children, currentPageName }) {
       <aside 
         className={`
           group/sidebar
-          fixed top-0 left-0 h-full glass-strong border-r border-[hsl(var(--border-medium))] z-50
+          fixed top-0 left-0 h-full z-50
           transform transition-all duration-300 ease-in-out
           lg:translate-x-0
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-          ${sidebarMinimized ? 'w-20' : 'w-72'}
+          ${sidebarMinimized ? 'w-20' : 'w-64'}
         `}
         style={{
-          boxShadow: '0 0 40px rgba(0, 255, 255, 0.1)'
+          background: 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)',
+          borderRight: '1px solid rgba(148,163,184,0.15)',
+          boxShadow: '4px 0 20px rgba(0,0,0,0.3)'
         }}
       >
         <div className="flex flex-col h-full relative">
