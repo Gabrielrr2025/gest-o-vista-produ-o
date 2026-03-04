@@ -569,8 +569,8 @@ export default function Planning() {
       {/* Cabeçalho */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Planejamento de Produção</h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <h1 className="text-2xl font-bold text-gray-900">Planejamento de Produção</h1>
+          <p className="text-sm text-gray-500 mt-1">
             Organize a produção semanal com base em dados históricos
           </p>
         </div>
