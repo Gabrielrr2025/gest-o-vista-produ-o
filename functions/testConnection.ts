@@ -18,18 +18,14 @@ Deno.serve(async (req) => {
 
     const sql = neon(connectionString);
     
-    const [vendaColumns, perdaColumns, vendaSample, perdaSample] = await Promise.all([
-      sql`SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'vendas' ORDER BY ordinal_position`,
-      sql`SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'perdas' ORDER BY ordinal_position`,
-      sql`SELECT * FROM vendas LIMIT 1`,
-      sql`SELECT * FROM perdas LIMIT 1`
+    const [produtosColumns, produtoSample] = await Promise.all([
+      sql`SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'produtos' ORDER BY ordinal_position`,
+      sql`SELECT * FROM produtos LIMIT 1`
     ]);
 
     return Response.json({
-      vendas_columns: vendaColumns,
-      perdas_columns: perdaColumns,
-      venda_sample: vendaSample,
-      perda_sample: perdaSample
+      produtos_columns: produtosColumns,
+      produto_sample: produtoSample
     });
   } catch (error) {
     return Response.json({ 
