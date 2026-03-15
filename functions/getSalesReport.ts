@@ -80,10 +80,12 @@ Deno.serve(async (req) => {
         SELECT 
           v.data,
           COALESCE(p.departamento_desc, v.departamento_descricao, 'Sem Setor') as setor,
-          v.valor_total as valor_reais
+          SUM(v.valor_total) as valor_reais
         FROM vendas v
         LEFT JOIN produtos p ON v.produto_codigo = p.codigo
         WHERE v.data BETWEEN ${startDate}::date AND ${endDate}::date
+        GROUP BY v.data, COALESCE(p.departamento_desc, v.departamento_descricao, 'Sem Setor')
+        ORDER BY v.data
       `
     ]);
 
