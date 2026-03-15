@@ -336,6 +336,13 @@ export default function Reports() {
     return result;
   }, [yearSalesQuery.data, yearLossesQuery.data, compareYearsEnabled, compareYearSalesQuery.data, compareYearLossesQuery.data]);
 
+  // Calcular melhor mês (depois de monthlyChartData)
+  const bestMonth = useMemo(() => {
+    if (!monthlyChartData || monthlyChartData.length === 0) return null;
+    const best = monthlyChartData.reduce((max, item) => item.sales > (max?.sales || 0) ? item : max, null);
+    return best?.sales > 0 ? best.month : null;
+  }, [monthlyChartData]);
+
   const sectorsWithLosses = useMemo(() => {
     if (!salesData?.salesBySector) return [];
     return salesData.salesBySector.map(sector => {
