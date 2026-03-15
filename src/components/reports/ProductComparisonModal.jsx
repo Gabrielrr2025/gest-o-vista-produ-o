@@ -124,10 +124,10 @@ export default function ProductComparisonModal({
 
   // Processar dados com agrupamento
   const chartData = useMemo(() => {
-    const salesData = salesEvolutionQuery.data?.data?.evolution || [];
-    const lossesData = lossesEvolutionQuery.data?.data?.evolution || [];
-    const compareSalesData = compareEnabled ? (compareSalesQuery.data?.data?.evolution || []) : [];
-    const compareLossesData = compareEnabled ? (compareLossesQuery.data?.data?.evolution || []) : [];
+    const salesData = salesEvolutionQuery.data?.data?.evolution || salesEvolutionQuery.data?.evolution || [];
+    const lossesData = lossesEvolutionQuery.data?.data?.evolution || lossesEvolutionQuery.data?.evolution || [];
+    const compareSalesData = compareEnabled ? (compareSalesQuery.data?.data?.evolution || compareSalesQuery.data?.evolution || []) : [];
+    const compareLossesData = compareEnabled ? (compareLossesQuery.data?.data?.evolution || compareLossesQuery.data?.evolution || []) : [];
 
     if (salesData.length === 0) return [];
 
@@ -188,7 +188,7 @@ export default function ProductComparisonModal({
             };
           }
 
-          dataByGroup[groupKey][valueKey] += parseFloat(row.valor || 0);
+          dataByGroup[groupKey][valueKey] += parseFloat(row.valor || row.total_valor || 0);
         } catch (error) {
           console.error('Erro ao processar dados:', error);
         }
@@ -225,8 +225,8 @@ export default function ProductComparisonModal({
 
   const isLoading = salesEvolutionQuery.isLoading || lossesEvolutionQuery.isLoading;
 
-  const salesStats = salesEvolutionQuery.data?.data?.stats;
-  const lossesStats = lossesEvolutionQuery.data?.data?.stats;
+  const salesStats = salesEvolutionQuery.data?.data?.stats || { totalValor: salesEvolutionQuery.data?.totalValue || 0, totalQuantidade: salesEvolutionQuery.data?.totalQty || 0 };
+  const lossesStats = lossesEvolutionQuery.data?.data?.stats || { totalValor: lossesEvolutionQuery.data?.totalValue || 0, totalQuantidade: lossesEvolutionQuery.data?.totalQty || 0 };
   const compareSalesStats = compareSalesQuery.data?.data?.stats;
   const compareLossesStats = compareLossesQuery.data?.data?.stats;
 
