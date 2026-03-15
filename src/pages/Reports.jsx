@@ -238,13 +238,6 @@ export default function Reports() {
     return yearSalesTotal / activeMonths;
   }, [yearSalesQuery.data, yearSalesTotal]);
 
-  // Calcular melhor mês
-  const bestMonth = useMemo(() => {
-    if (!monthlyChartData || monthlyChartData.length === 0) return null;
-    const best = monthlyChartData.reduce((max, item) => item.sales > (max?.sales || 0) ? item : max, null);
-    return best?.sales > 0 ? best.month : null;
-  }, [monthlyChartData]);
-
   // Comparação de anos
   const compareYearSalesTotal = useMemo(() => {
     if (!compareYearsEnabled) return 0;
