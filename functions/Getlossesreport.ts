@@ -46,13 +46,13 @@ Deno.serve(async (req) => {
           pe.produto_codigo as produto_id,
           COALESCE(p.descricao, pe.produto_descricao) as produto_nome,
           COALESCE(p.departamento_desc, 'Sem Setor') as setor,
-          COALESCE(p.unidade, pe.unidade_venda, 'un') as unidade,
+          COALESCE(p.unidade, 'un') as unidade,
           SUM(pe.valor_total_venda) as total_valor,
           SUM(pe.quantidade) as total_quantidade
         FROM perdas pe
         LEFT JOIN produtos p ON pe.produto_codigo = p.codigo
         WHERE pe.data >= ${startDate}::date AND pe.data <= ${endDate}::date
-        GROUP BY pe.produto_codigo, produto_nome, setor, unidade
+        GROUP BY pe.produto_codigo, produto_nome, setor, p.unidade
         ORDER BY total_valor DESC
         LIMIT ${topN}
       `,
@@ -72,13 +72,13 @@ Deno.serve(async (req) => {
           COALESCE(p.departamento_desc, 'Sem Setor') as setor,
           pe.produto_codigo as produto_id,
           COALESCE(p.descricao, pe.produto_descricao) as produto_nome,
-          COALESCE(p.unidade, pe.unidade_venda, 'un') as unidade,
+          COALESCE(p.unidade, 'un') as unidade,
           SUM(pe.valor_total_venda) as total_valor,
           SUM(pe.quantidade) as total_quantidade
         FROM perdas pe
         LEFT JOIN produtos p ON pe.produto_codigo = p.codigo
         WHERE pe.data >= ${startDate}::date AND pe.data <= ${endDate}::date
-        GROUP BY setor, pe.produto_codigo, produto_nome, unidade
+        GROUP BY setor, pe.produto_codigo, produto_nome, p.unidade
         ORDER BY setor, total_valor DESC
       `
     ]);

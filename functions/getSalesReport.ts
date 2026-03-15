@@ -52,13 +52,13 @@ Deno.serve(async (req) => {
           v.produto_codigo as produto_id,
           COALESCE(p.descricao, v.produto_descricao) as produto_nome,
           COALESCE(p.departamento_desc, v.departamento_descricao, 'Sem Setor') as setor,
-          COALESCE(p.unidade, v.produto_unidade, 'un') as unidade,
+          COALESCE(p.unidade, 'un') as unidade,
           SUM(v.valor_total) as total_valor,
           SUM(v.quantidade_total) as total_quantidade
         FROM vendas v
         LEFT JOIN produtos p ON v.produto_codigo = p.codigo
         WHERE v.data BETWEEN ${startDate}::date AND ${endDate}::date
-        GROUP BY v.produto_codigo, produto_nome, setor, unidade
+        GROUP BY v.produto_codigo, produto_nome, setor, p.unidade
         ORDER BY total_valor DESC
         LIMIT ${topN}
       `,
@@ -67,13 +67,13 @@ Deno.serve(async (req) => {
           COALESCE(p.departamento_desc, v.departamento_descricao, 'Sem Setor') as setor,
           v.produto_codigo as produto_id,
           COALESCE(p.descricao, v.produto_descricao) as produto_nome,
-          COALESCE(p.unidade, v.produto_unidade, 'un') as unidade,
+          COALESCE(p.unidade, 'un') as unidade,
           SUM(v.valor_total) as total_valor,
           SUM(v.quantidade_total) as total_quantidade
         FROM vendas v
         LEFT JOIN produtos p ON v.produto_codigo = p.codigo
         WHERE v.data BETWEEN ${startDate}::date AND ${endDate}::date
-        GROUP BY setor, v.produto_codigo, produto_nome, unidade
+        GROUP BY setor, v.produto_codigo, produto_nome, p.unidade
         ORDER BY setor, total_valor DESC
       `,
       sql`
