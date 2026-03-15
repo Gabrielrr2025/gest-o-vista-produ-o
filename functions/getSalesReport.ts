@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 import { neon } from 'npm:@neondatabase/serverless@0.9.0';
 
 Deno.serve(async (req) => {
@@ -33,112 +33,108 @@ Deno.serve(async (req) => {
 
     console.log(`📊 Relatório de Vendas: ${startDate} a ${endDate}`);
 
-    // ========================================
-    // PERÍODO PRINCIPAL
-    // ========================================
+    // Tabela vendas: produto_codigo, produto_descricao, departamento_descricao, quantidade_total, valor_total
+    // Join com produtos via: vendas.produto_codigo = produtos.codigo
+    // produtos: codigo, descricao, unidade, departamento_desc, setor (adicionado pelo app)
 
-    // Executar todas as queries em paralelo
     const [salesBySector, salesByProduct, salesBySectorProduct, rawSalesData] = await Promise.all([
       sql`
         SELECT 
-          p.setor,
-          SUM(v.valor_reais) as total_valor,
-          SUM(v.quantidade) as total_quantidade,
-          COUNT(DISTINCT p.id) as total_produtos
+          COALESCE(p.setor, v.departamento_descricao, 'Sem Setor') as setor,
+          SUM(v.valor_total) as total_valor,
+          SUM(v.quantidade_total) as total_quantidade,
+          COUNT(DISTINCT v.produto_codigo) as total_produtos
         FROM vendas v
-        JOIN produtos p ON v.produto_id = p.id
-        WHERE v.data BETWEEN ${startDate} AND ${endDate}
-        GROUP BY p.setor
+        LEFT JOIN produtos p ON v.produto_codigo = p.codigo
+        WHERE v.data BETWEEN ${startDate}::date AND ${endDate}::date
+        GROUP BY COALESCE(p.setor, v.departamento_descricao, 'Sem Setor')
         ORDER BY total_valor DESC
       `,
       sql`
         SELECT 
-          p.id as produto_id,
-          p.nome as produto_nome,
-          p.setor,
-          p.unidade,
-          SUM(v.valor_reais) as total_valor,
-          SUM(v.quantidade) as total_quantidade
+          v.produto_codigo as produto_id,
+          COALESCE(p.nome, v.produto_descricao) as produto_nome,
+          COALESCE(p.setor, v.departamento_descricao, 'Sem Setor') as setor,
+          COALESCE(p.unidade, v.produto_unidade, 'un') as unidade,
+          SUM(v.valor_total) as total_valor,
+          SUM(v.quantidade_total) as total_quantidade
         FROM vendas v
-        JOIN produtos p ON v.produto_id = p.id
-        WHERE v.data BETWEEN ${startDate} AND ${endDate}
-        GROUP BY p.id, p.nome, p.setor, p.unidade
+        LEFT JOIN produtos p ON v.produto_codigo = p.codigo
+        WHERE v.data BETWEEN ${startDate}::date AND ${endDate}::date
+        GROUP BY v.produto_codigo, produto_nome, setor, unidade
         ORDER BY total_valor DESC
         LIMIT ${topN}
       `,
       sql`
         SELECT 
-          p.setor,
-          p.id as produto_id,
-          p.nome as produto_nome,
-          p.unidade,
-          SUM(v.valor_reais) as total_valor,
-          SUM(v.quantidade) as total_quantidade
+          COALESCE(p.setor, v.departamento_descricao, 'Sem Setor') as setor,
+          v.produto_codigo as produto_id,
+          COALESCE(p.nome, v.produto_descricao) as produto_nome,
+          COALESCE(p.unidade, v.produto_unidade, 'un') as unidade,
+          SUM(v.valor_total) as total_valor,
+          SUM(v.quantidade_total) as total_quantidade
         FROM vendas v
-        JOIN produtos p ON v.produto_id = p.id
-        WHERE v.data BETWEEN ${startDate} AND ${endDate}
-        GROUP BY p.setor, p.id, p.nome, p.unidade
-        ORDER BY p.setor, total_valor DESC
+        LEFT JOIN produtos p ON v.produto_codigo = p.codigo
+        WHERE v.data BETWEEN ${startDate}::date AND ${endDate}::date
+        GROUP BY setor, v.produto_codigo, produto_nome, unidade
+        ORDER BY setor, total_valor DESC
       `,
       sql`
         SELECT 
           v.data,
-          p.setor,
-          v.valor_reais
+          COALESCE(p.setor, v.departamento_descricao, 'Sem Setor') as setor,
+          v.valor_total as valor_reais
         FROM vendas v
-        JOIN produtos p ON v.produto_id = p.id
-        WHERE v.data BETWEEN ${startDate} AND ${endDate}
+        LEFT JOIN produtos p ON v.produto_codigo = p.codigo
+        WHERE v.data BETWEEN ${startDate}::date AND ${endDate}::date
       `
     ]);
 
-    const totalGeral = salesBySector.reduce((sum, s) => sum + parseFloat(s.total_valor), 0);
+    const totalGeral = salesBySector.reduce((sum, s) => sum + parseFloat(s.total_valor || 0), 0);
 
     console.log(`✅ ${salesBySector.length} setores, ${salesByProduct.length} produtos (top ${topN})`);
 
-    // ========================================
-    // PERÍODO DE COMPARAÇÃO (se fornecido)
-    // ========================================
-
+    // Período de comparação (se fornecido)
     let compareData = null;
 
     if (compareStartDate && compareEndDate) {
       console.log(`📊 Comparação: ${compareStartDate} a ${compareEndDate}`);
 
-      const compareSalesBySector = await sql`
-        SELECT 
-          p.setor,
-          SUM(v.valor_reais) as total_valor,
-          SUM(v.quantidade) as total_quantidade
-        FROM vendas v
-        JOIN produtos p ON v.produto_id = p.id
-        WHERE v.data BETWEEN ${compareStartDate} AND ${compareEndDate}
-        GROUP BY p.setor
-      `;
+      const [compareSalesBySector, compareSalesByProduct, compareRawSalesData] = await Promise.all([
+        sql`
+          SELECT 
+            COALESCE(p.setor, v.departamento_descricao, 'Sem Setor') as setor,
+            SUM(v.valor_total) as total_valor,
+            SUM(v.quantidade_total) as total_quantidade
+          FROM vendas v
+          LEFT JOIN produtos p ON v.produto_codigo = p.codigo
+          WHERE v.data BETWEEN ${compareStartDate}::date AND ${compareEndDate}::date
+          GROUP BY COALESCE(p.setor, v.departamento_descricao, 'Sem Setor')
+        `,
+        sql`
+          SELECT 
+            v.produto_codigo as produto_id,
+            COALESCE(p.nome, v.produto_descricao) as produto_nome,
+            COALESCE(p.setor, v.departamento_descricao, 'Sem Setor') as setor,
+            SUM(v.valor_total) as total_valor,
+            SUM(v.quantidade_total) as total_quantidade
+          FROM vendas v
+          LEFT JOIN produtos p ON v.produto_codigo = p.codigo
+          WHERE v.data BETWEEN ${compareStartDate}::date AND ${compareEndDate}::date
+          GROUP BY v.produto_codigo, produto_nome, setor
+        `,
+        sql`
+          SELECT 
+            v.data,
+            COALESCE(p.setor, v.departamento_descricao, 'Sem Setor') as setor,
+            v.valor_total as valor_reais
+          FROM vendas v
+          LEFT JOIN produtos p ON v.produto_codigo = p.codigo
+          WHERE v.data BETWEEN ${compareStartDate}::date AND ${compareEndDate}::date
+        `
+      ]);
 
-      const compareSalesByProduct = await sql`
-        SELECT 
-          p.id as produto_id,
-          p.nome as produto_nome,
-          p.setor,
-          SUM(v.valor_reais) as total_valor,
-          SUM(v.quantidade) as total_quantidade
-        FROM vendas v
-        JOIN produtos p ON v.produto_id = p.id
-        WHERE v.data BETWEEN ${compareStartDate} AND ${compareEndDate}
-        GROUP BY p.id, p.nome, p.setor
-      `;
-
-      const compareTotalGeral = compareSalesBySector.reduce((sum, s) => sum + parseFloat(s.total_valor), 0);
-
-      const compareRawSalesData = await sql`
-        SELECT 
-          v.data,
-          p.setor,
-          v.valor_reais
-        FROM vendas v
-        JOIN produtos p ON v.produto_id = p.id
-        WHERE v.data BETWEEN ${compareStartDate} AND ${compareEndDate}
-      `;
+      const compareTotalGeral = compareSalesBySector.reduce((sum, s) => sum + parseFloat(s.total_valor || 0), 0);
 
       compareData = {
         salesBySector: compareSalesBySector,
@@ -146,23 +142,11 @@ Deno.serve(async (req) => {
         rawData: compareRawSalesData,
         totalGeral: compareTotalGeral
       };
-
-      console.log(`✅ Comparação: ${compareSalesBySector.length} setores`);
     }
 
-    // ========================================
-    // RESPOSTA
-    // ========================================
-
     return Response.json({
-      period: {
-        start: startDate,
-        end: endDate
-      },
-      comparePeriod: compareStartDate ? {
-        start: compareStartDate,
-        end: compareEndDate
-      } : null,
+      period: { start: startDate, end: endDate },
+      comparePeriod: compareStartDate ? { start: compareStartDate, end: compareEndDate } : null,
       data: {
         salesBySector,
         salesByProduct,

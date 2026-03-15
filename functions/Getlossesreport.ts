@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 import { neon } from 'npm:@neondatabase/serverless@0.9.0';
 
 Deno.serve(async (req) => {
@@ -31,72 +31,69 @@ Deno.serve(async (req) => {
 
     console.log(`💸 Relatório de Perdas: ${startDate} a ${endDate}`);
 
-    // ========================================
-    // VERSÃO SUPER SIMPLES - SEM JOINS
-    // ========================================
+    // Tabela perdas: produto_codigo, produto_descricao, unidade_venda, quantidade, valor_total_venda
+    // Join com produtos via: perdas.produto_codigo = produtos.codigo
 
-    // Executar todas as queries em paralelo
     const [totalResult, rawData, productDetails, bySector, bySectorProduct] = await Promise.all([
       sql`
-        SELECT SUM(valor_reais) as total_valor
-        FROM perdas
-        WHERE data >= ${startDate}::date AND data <= ${endDate}::date
+        SELECT SUM(pe.valor_total_venda) as total_valor
+        FROM perdas pe
+        WHERE pe.data >= ${startDate}::date AND pe.data <= ${endDate}::date
       `,
       sql`
-        SELECT data, SUM(valor_reais) as valor_reais, SUM(quantidade) as quantidade
-        FROM perdas
-        WHERE data >= ${startDate}::date AND data <= ${endDate}::date
-        GROUP BY data
-        ORDER BY data
+        SELECT pe.data, SUM(pe.valor_total_venda) as valor_reais, SUM(pe.quantidade) as quantidade
+        FROM perdas pe
+        WHERE pe.data >= ${startDate}::date AND pe.data <= ${endDate}::date
+        GROUP BY pe.data
+        ORDER BY pe.data
       `,
       sql`
         SELECT 
-          pe.produto_id, p.nome as produto_nome, p.setor, p.unidade,
-          SUM(pe.valor_reais) as total_valor, SUM(pe.quantidade) as total_quantidade
+          pe.produto_codigo as produto_id,
+          COALESCE(p.nome, pe.produto_descricao) as produto_nome,
+          COALESCE(p.setor, p.departamento_desc, 'Sem Setor') as setor,
+          COALESCE(p.unidade, pe.unidade_venda, 'un') as unidade,
+          SUM(pe.valor_total_venda) as total_valor,
+          SUM(pe.quantidade) as total_quantidade
         FROM perdas pe
-        LEFT JOIN produtos p ON pe.produto_id = p.id
+        LEFT JOIN produtos p ON pe.produto_codigo = p.codigo
         WHERE pe.data >= ${startDate}::date AND pe.data <= ${endDate}::date
-        GROUP BY pe.produto_id, p.nome, p.setor, p.unidade
+        GROUP BY pe.produto_codigo, produto_nome, setor, unidade
         ORDER BY total_valor DESC
         LIMIT ${topN}
       `,
       sql`
         SELECT 
-          COALESCE(p.setor, 'Sem Setor') as setor,
-          SUM(pe.valor_reais) as total_valor, SUM(pe.quantidade) as total_quantidade
+          COALESCE(p.setor, p.departamento_desc, 'Sem Setor') as setor,
+          SUM(pe.valor_total_venda) as total_valor,
+          SUM(pe.quantidade) as total_quantidade
         FROM perdas pe
-        LEFT JOIN produtos p ON pe.produto_id = p.id
+        LEFT JOIN produtos p ON pe.produto_codigo = p.codigo
         WHERE pe.data >= ${startDate}::date AND pe.data <= ${endDate}::date
-        GROUP BY p.setor
+        GROUP BY COALESCE(p.setor, p.departamento_desc, 'Sem Setor')
         ORDER BY total_valor DESC
       `,
       sql`
         SELECT 
-          COALESCE(p.setor, 'Sem Setor') as setor, pe.produto_id,
-          p.nome as produto_nome, p.unidade,
-          SUM(pe.valor_reais) as total_valor, SUM(pe.quantidade) as total_quantidade
+          COALESCE(p.setor, p.departamento_desc, 'Sem Setor') as setor,
+          pe.produto_codigo as produto_id,
+          COALESCE(p.nome, pe.produto_descricao) as produto_nome,
+          COALESCE(p.unidade, pe.unidade_venda, 'un') as unidade,
+          SUM(pe.valor_total_venda) as total_valor,
+          SUM(pe.quantidade) as total_quantidade
         FROM perdas pe
-        LEFT JOIN produtos p ON pe.produto_id = p.id
+        LEFT JOIN produtos p ON pe.produto_codigo = p.codigo
         WHERE pe.data >= ${startDate}::date AND pe.data <= ${endDate}::date
-        GROUP BY p.setor, pe.produto_id, p.nome, p.unidade
-        ORDER BY p.setor, total_valor DESC
+        GROUP BY setor, pe.produto_codigo, produto_nome, unidade
+        ORDER BY setor, total_valor DESC
       `
     ]);
 
     const totalGeral = parseFloat(totalResult[0]?.total_valor || 0);
-    console.log(`✅ Queries paralelas concluídas. Total: R$ ${totalGeral.toFixed(2)}`);
-
-
-
-    // ========================================
-    // RESPOSTA
-    // ========================================
+    console.log(`✅ Perdas carregadas. Total: R$ ${totalGeral.toFixed(2)}`);
 
     return Response.json({
-      period: {
-        start: startDate,
-        end: endDate
-      },
+      period: { start: startDate, end: endDate },
       data: {
         lossesBySector: bySector.map(s => ({
           setor: s.setor,
@@ -124,7 +121,7 @@ Deno.serve(async (req) => {
           valor_reais: parseFloat(r.valor_reais || 0),
           quantidade: parseFloat(r.quantidade || 0)
         })),
-        totalGeral: totalGeral
+        totalGeral
       },
       compareData: null
     });
