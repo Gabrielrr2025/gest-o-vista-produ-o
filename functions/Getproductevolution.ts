@@ -1,11 +1,11 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import postgres from 'npm:@neondatabase/serverless@0.9.0';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import { neon } from 'npm:@neondatabase/serverless@0.9.0';
 
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
-    
+
     if (!user) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -13,55 +13,73 @@ Deno.serve(async (req) => {
     const { produtoId, startDate, endDate, type = 'sales' } = await req.json();
 
     if (!produtoId || !startDate || !endDate) {
-      return Response.json({ 
-        error: 'Missing required fields: produtoId, startDate, endDate' 
-      }, { status: 400 });
+      return Response.json({ error: 'Missing required fields: produtoId, startDate, endDate' }, { status: 400 });
     }
 
-    const connectionString = Deno.env.get("POSTGRES_CONNECTION_URL");
+    const connectionString = Deno.env.get('POSTGRES_CONNECTION_URL');
     if (!connectionString) {
       return Response.json({ error: 'Database not configured' }, { status: 500 });
     }
 
-    const sql = postgres(connectionString);
+    const sql = neon(connectionString);
 
-    try {
-      const tableName = type === 'sales' ? 'vendas' : 'perdas';
-      
-      // Buscar evolução diária do produto
-      const evolution = await sql`
-        SELECT 
+    let evolution = [];
+    let stats = { totalValor: 0, totalQuantidade: 0 };
+
+    if (type === 'sales') {
+      // vendas: produto_codigo, valor_total, quantidade_total, data
+      const rows = await sql`
+        SELECT
           data,
-          SUM(quantidade) as total_quantidade,
-          SUM(quantidade * preco) as total_valor
-        FROM ${sql(tableName)}
-        WHERE produto_id = ${produtoId}
+          SUM(valor_total)      AS valor,
+          SUM(quantidade_total) AS quantidade
+        FROM vendas
+        WHERE produto_codigo = ${produtoId}
           AND data >= ${startDate}::date
           AND data <= ${endDate}::date
         GROUP BY data
         ORDER BY data
       `;
 
-      // Calcular totais
-      const totalQty = evolution.reduce((sum, row) => sum + parseFloat(row.total_quantidade || 0), 0);
-      const totalValue = evolution.reduce((sum, row) => sum + parseFloat(row.total_valor || 0), 0);
+      evolution = rows.map(r => ({
+        data: r.data,
+        valor: parseFloat(r.valor || 0),
+        quantidade: parseFloat(r.quantidade || 0)
+      }));
+    } else {
+      // perdas: produto_codigo, valor_total_venda, quantidade, data
+      const rows = await sql`
+        SELECT
+          data,
+          SUM(valor_total_venda) AS valor,
+          SUM(quantidade)        AS quantidade
+        FROM perdas
+        WHERE produto_codigo = ${produtoId}
+          AND data >= ${startDate}::date
+          AND data <= ${endDate}::date
+        GROUP BY data
+        ORDER BY data
+      `;
 
-      return Response.json({
-        success: true,
-        evolution: evolution,
-        totalQty,
-        totalValue
-      });
-
-    } finally {
-      await sql.end();
+      evolution = rows.map(r => ({
+        data: r.data,
+        valor: parseFloat(r.valor || 0),
+        quantidade: parseFloat(r.quantidade || 0)
+      }));
     }
 
+    stats.totalValor     = evolution.reduce((s, r) => s + r.valor, 0);
+    stats.totalQuantidade = evolution.reduce((s, r) => s + r.quantidade, 0);
+
+    return Response.json({
+      data: {
+        evolution,
+        stats
+      }
+    });
+
   } catch (error) {
-    console.error('Error in getProductEvolution:', error);
-    return Response.json({ 
-      error: 'Internal server error', 
-      details: error.message 
-    }, { status: 500 });
+    console.error('❌ Getproductevolution error:', error.message);
+    return Response.json({ error: error.message }, { status: 500 });
   }
 });
