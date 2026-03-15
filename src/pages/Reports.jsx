@@ -295,34 +295,35 @@ export default function Reports() {
 
     // Processar vendas do ano atual
     yearSales.forEach(row => {
-      const date = new Date(row.data);
-      const monthIndex = date.getMonth();
+      // Usar slice para evitar problema de timezone ao parsear data
+      const dateStr = typeof row.data === 'string' ? row.data.slice(0, 10) : row.data;
+      const monthIndex = parseInt(dateStr.slice(5, 7)) - 1;
       const month = monthOrder[monthIndex];
-      monthlyData.get(month).sales += parseFloat(row.valor_reais || 0);
+      if (month) monthlyData.get(month).sales += parseFloat(row.valor_reais || 0);
     });
 
     // Processar perdas do ano atual
     yearLosses.forEach(row => {
-      const date = new Date(row.data);
-      const monthIndex = date.getMonth();
+      const dateStr = typeof row.data === 'string' ? row.data.slice(0, 10) : row.data;
+      const monthIndex = parseInt(dateStr.slice(5, 7)) - 1;
       const month = monthOrder[monthIndex];
-      monthlyData.get(month).losses += parseFloat(row.valor_reais || 0);
+      if (month) monthlyData.get(month).losses += parseFloat(row.valor_reais || 0);
     });
 
     // Processar vendas do ano de comparação
     if (compareYearsEnabled) {
       compareYearSales.forEach(row => {
-        const date = new Date(row.data);
-        const monthIndex = date.getMonth();
+        const dateStr = typeof row.data === 'string' ? row.data.slice(0, 10) : row.data;
+        const monthIndex = parseInt(dateStr.slice(5, 7)) - 1;
         const month = monthOrder[monthIndex];
-        monthlyData.get(month).compareSales += parseFloat(row.valor_reais || 0);
+        if (month) monthlyData.get(month).compareSales += parseFloat(row.valor_reais || 0);
       });
 
       compareYearLosses.forEach(row => {
-        const date = new Date(row.data);
-        const monthIndex = date.getMonth();
+        const dateStr = typeof row.data === 'string' ? row.data.slice(0, 10) : row.data;
+        const monthIndex = parseInt(dateStr.slice(5, 7)) - 1;
         const month = monthOrder[monthIndex];
-        monthlyData.get(month).compareLosses += parseFloat(row.valor_reais || 0);
+        if (month) monthlyData.get(month).compareLosses += parseFloat(row.valor_reais || 0);
       });
     }
 
