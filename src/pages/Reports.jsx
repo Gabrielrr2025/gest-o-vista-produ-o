@@ -229,6 +229,22 @@ export default function Reports() {
     return (yearLossesTotal / yearSalesTotal) * 100;
   }, [yearSalesTotal, yearLossesTotal]);
 
+  // Calcular média mensal real (só meses com dados)
+  const yearMonthlyAverage = useMemo(() => {
+    const yearSales = yearSalesQuery.data?.data?.rawData || [];
+    if (yearSales.length === 0) return 0;
+    const monthsWithData = new Set(yearSales.map(r => new Date(r.data).getMonth()));
+    const activeMonths = monthsWithData.size || 1;
+    return yearSalesTotal / activeMonths;
+  }, [yearSalesQuery.data, yearSalesTotal]);
+
+  // Calcular melhor mês
+  const bestMonth = useMemo(() => {
+    if (!monthlyChartData || monthlyChartData.length === 0) return null;
+    const best = monthlyChartData.reduce((max, item) => item.sales > (max?.sales || 0) ? item : max, null);
+    return best?.sales > 0 ? best.month : null;
+  }, [monthlyChartData]);
+
   // Comparação de anos
   const compareYearSalesTotal = useMemo(() => {
     if (!compareYearsEnabled) return 0;
@@ -618,7 +634,7 @@ export default function Reports() {
                     Faturamento
                   </p>
                   <p className="text-4xl font-bold text-green-900 mb-2">
-                    R$ {(yearSalesTotal / 1000).toFixed(0)}k
+                    R$ {yearSalesTotal >= 1000000 ? `${(yearSalesTotal / 1000000).toFixed(2)}M` : `${(yearSalesTotal / 1000).toFixed(0)}k`}
                   </p>
                   {yearOverYearChange !== null && (
                     <div className={`flex items-center gap-1 mt-2 text-lg font-bold ${
@@ -652,7 +668,7 @@ export default function Reports() {
                     Perdas
                   </p>
                   <p className="text-4xl font-bold text-red-900 mb-2">
-                    R$ {(yearLossesTotal / 1000).toFixed(0)}k
+                    R$ {yearLossesTotal >= 1000000 ? `${(yearLossesTotal / 1000000).toFixed(2)}M` : `${(yearLossesTotal / 1000).toFixed(0)}k`}
                   </p>
                   <p className="text-lg text-red-600 mt-1 font-bold">
                     Taxa média: {yearAverageLossRate.toFixed(1)}%
@@ -674,10 +690,10 @@ export default function Reports() {
                     Média Mensal de Vendas
                   </p>
                   <p className="text-4xl font-bold text-blue-900 mb-2">
-                    R$ {(yearSalesTotal / 12 / 1000).toFixed(0)}k
+                    R$ {yearMonthlyAverage >= 1000000 ? `${(yearMonthlyAverage / 1000000).toFixed(2)}M` : `${(yearMonthlyAverage / 1000).toFixed(0)}k`}
                   </p>
                   <p className="text-lg text-blue-600 mt-1 font-bold">
-                    Melhor mês: Dezembro
+                    {bestMonth ? `Melhor mês: ${bestMonth}` : 'Calculando...'}
                   </p>
                 </div>
                 <div className="bg-blue-200 p-2 rounded-lg">
@@ -928,7 +944,7 @@ export default function Reports() {
                       Faturamento Total
                     </p>
                     <p className="text-5xl font-bold text-green-900 mb-3">
-                      R$ {(salesData.totalGeral / 1000).toFixed(1)}k
+                      R$ {salesData.totalGeral >= 1000000 ? `${(salesData.totalGeral / 1000000).toFixed(2)}M` : `${(salesData.totalGeral / 1000).toFixed(1)}k`}
                     </p>
                     <p className="text-sm text-green-700 font-medium">
                       {format(dateRange.from, 'dd/MM/yyyy')} - {format(dateRange.to, 'dd/MM/yyyy')}
@@ -967,7 +983,7 @@ export default function Reports() {
                         Perdas Totais
                       </p>
                       <p className="text-5xl font-bold text-red-900 mb-3">
-                        R$ {(lossesData.totalGeral / 1000).toFixed(1)}k
+                        R$ {lossesData.totalGeral >= 1000000 ? `${(lossesData.totalGeral / 1000000).toFixed(2)}M` : `${(lossesData.totalGeral / 1000).toFixed(1)}k`}
                       </p>
                       <p className="text-sm text-red-700 font-medium">
                         {format(dateRange.from, 'dd/MM/yyyy')} - {format(dateRange.to, 'dd/MM/yyyy')}
