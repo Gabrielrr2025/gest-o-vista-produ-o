@@ -18,11 +18,18 @@ Deno.serve(async (req) => {
 
     const sql = neon(connectionString);
     
-    const result = await sql`SELECT COUNT(*) as total FROM produtos`;
+    const result = await sql`
+      SELECT DISTINCT data::date as data, COUNT(*) as registros
+      FROM vendas 
+      WHERE data >= '2026-01-01' AND data <= '2026-12-31'
+      GROUP BY data::date
+      ORDER BY data::date DESC
+      LIMIT 20
+    `;
     
     return Response.json({
       success: true,
-      total_produtos: result[0].total
+      datas: result
     });
   } catch (error) {
     return Response.json({ 
