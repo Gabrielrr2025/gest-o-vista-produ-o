@@ -11,28 +11,22 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { 
-      startDate, 
-      endDate,
-      topN = 10
-    } = body;
+    const { startDate, endDate, topN = 10 } = body;
 
     if (!startDate || !endDate) {
       return Response.json({ error: 'startDate e endDate obrigatórios' }, { status: 400 });
     }
 
     const connectionString = Deno.env.get('POSTGRES_CONNECTION_URL');
-    
     if (!connectionString) {
       return Response.json({ error: 'POSTGRES_CONNECTION_URL não configurada' }, { status: 500 });
     }
 
     const sql = neon(connectionString);
-
     console.log(`💸 Relatório de Perdas: ${startDate} a ${endDate}`);
 
-    // Tabela perdas: produto_codigo, produto_descricao, unidade_venda, quantidade, valor_total_venda
-    // Join com produtos via: perdas.produto_codigo = produtos.codigo
+    // produtos: codigo, descricao, unidade, departamento_desc
+    // perdas: produto_codigo, produto_descricao, unidade_venda, quantidade, valor_total_venda
 
     const [totalResult, rawData, productDetails, bySector, bySectorProduct] = await Promise.all([
       sql`
@@ -50,8 +44,8 @@ Deno.serve(async (req) => {
       sql`
         SELECT 
           pe.produto_codigo as produto_id,
-          COALESCE(p.nome, pe.produto_descricao) as produto_nome,
-          COALESCE(p.setor, p.departamento_desc, 'Sem Setor') as setor,
+          COALESCE(p.descricao, pe.produto_descricao) as produto_nome,
+          COALESCE(p.departamento_desc, 'Sem Setor') as setor,
           COALESCE(p.unidade, pe.unidade_venda, 'un') as unidade,
           SUM(pe.valor_total_venda) as total_valor,
           SUM(pe.quantidade) as total_quantidade
@@ -64,20 +58,20 @@ Deno.serve(async (req) => {
       `,
       sql`
         SELECT 
-          COALESCE(p.setor, p.departamento_desc, 'Sem Setor') as setor,
+          COALESCE(p.departamento_desc, 'Sem Setor') as setor,
           SUM(pe.valor_total_venda) as total_valor,
           SUM(pe.quantidade) as total_quantidade
         FROM perdas pe
         LEFT JOIN produtos p ON pe.produto_codigo = p.codigo
         WHERE pe.data >= ${startDate}::date AND pe.data <= ${endDate}::date
-        GROUP BY COALESCE(p.setor, p.departamento_desc, 'Sem Setor')
+        GROUP BY COALESCE(p.departamento_desc, 'Sem Setor')
         ORDER BY total_valor DESC
       `,
       sql`
         SELECT 
-          COALESCE(p.setor, p.departamento_desc, 'Sem Setor') as setor,
+          COALESCE(p.departamento_desc, 'Sem Setor') as setor,
           pe.produto_codigo as produto_id,
-          COALESCE(p.nome, pe.produto_descricao) as produto_nome,
+          COALESCE(p.descricao, pe.produto_descricao) as produto_nome,
           COALESCE(p.unidade, pe.unidade_venda, 'un') as unidade,
           SUM(pe.valor_total_venda) as total_valor,
           SUM(pe.quantidade) as total_quantidade
@@ -128,13 +122,7 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('❌ ERRO:', error.message);
-    console.error('Stack:', error.stack);
     console.error('Nome do erro:', error.name);
-    
-    return Response.json({ 
-      error: error.message,
-      errorName: error.name,
-      stack: error.stack
-    }, { status: 500 });
+    return Response.json({ error: error.message, errorName: error.name, stack: error.stack }, { status: 500 });
   }
 });
