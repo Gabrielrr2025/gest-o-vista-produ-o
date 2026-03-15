@@ -327,12 +327,14 @@ export default function Reports() {
       });
     }
 
-    // Calcular % de perda
-    const result = Array.from(monthlyData.values()).map(item => ({
-      ...item,
-      lossRate: item.sales > 0 ? (item.losses / item.sales) * 100 : 0,
-      compareLossRate: item.compareSales > 0 ? (item.compareLosses / item.compareSales) * 100 : 0
-    }));
+    // Calcular % de perda e filtrar meses sem nenhum dado
+    const result = Array.from(monthlyData.values())
+      .map(item => ({
+        ...item,
+        lossRate: item.sales > 0 ? (item.losses / item.sales) * 100 : 0,
+        compareLossRate: item.compareSales > 0 ? (item.compareLosses / item.compareSales) * 100 : 0
+      }))
+      .filter(item => item.sales > 0 || item.losses > 0 || item.compareSales > 0 || item.compareLosses > 0);
 
     return result;
   }, [yearSalesQuery.data, yearLossesQuery.data, compareYearsEnabled, compareYearSalesQuery.data, compareYearLossesQuery.data]);
