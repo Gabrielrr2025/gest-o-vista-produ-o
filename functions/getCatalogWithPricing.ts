@@ -19,28 +19,17 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const { startDate = '2026-01-01', endDate = '2026-12-31' } = body;
 
-    // Buscar todos os produtos + vendas do período para curva ABC
-    const [products, salesByProduct] = await Promise.all([
-      sql`
-        SELECT 
-          p.id, p.codigo, p.descricao, p.departamento_desc as setor, p.unidade,
-          prod.custo, prod.preco_venda, prod.status as planejamento_status,
-          prod.id as planejamento_id
-        FROM produtos p
-        LEFT JOIN produtos prod ON p.codigo = prod.codigo AND prod.status IN ('ativo', 'inativo')
-        ORDER BY p.departamento_desc, p.descricao
-      `,
-      sql`
-        SELECT 
-          v.produto_codigo as codigo,
-          SUM(v.valor_total) as total_vendas,
-          SUM(v.quantidade_total) as total_qty
-        FROM vendas v
-        WHERE v.data BETWEEN ${startDate}::date AND ${endDate}::date
-        GROUP BY v.produto_codigo
-        ORDER BY total_vendas DESC
-      `
-    ]);
+    // Buscar vendas por produto para curva ABC
+    const salesByProduct = await sql`
+      SELECT 
+        v.produto_codigo as codigo,
+        SUM(v.valor_total) as total_vendas,
+        SUM(v.quantidade_total) as total_qty
+      FROM vendas v
+      WHERE v.data BETWEEN ${startDate}::date AND ${endDate}::date
+      GROUP BY v.produto_codigo
+      ORDER BY total_vendas DESC
+    `;
 
     // Calcular curva ABC
     const totalGeral = salesByProduct.reduce((s, p) => s + parseFloat(p.total_vendas || 0), 0);
@@ -56,20 +45,17 @@ Deno.serve(async (req) => {
       });
     });
 
-    // Buscar lista de produtos distintos da tabela de vendas (produtos reais com histórico)
+    // Buscar todos os produtos distintos com histórico de vendas
     const allProducts = await sql`
       SELECT DISTINCT 
         v.produto_codigo as codigo,
         COALESCE(p.descricao, v.produto_descricao) as descricao,
         COALESCE(p.departamento_desc, v.departamento_descricao, 'Sem Setor') as setor,
         COALESCE(p.unidade, 'UN') as unidade,
-        prod.id as prod_id,
-        prod.custo,
-        prod.preco_venda,
-        prod.status as planejamento_status
+        p.custo,
+        p.preco_venda
       FROM vendas v
       LEFT JOIN produtos p ON v.produto_codigo = p.codigo
-      LEFT JOIN produtos prod ON v.produto_codigo = prod.codigo
       ORDER BY setor, descricao
     `;
 
