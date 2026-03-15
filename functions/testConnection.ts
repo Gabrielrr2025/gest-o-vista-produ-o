@@ -18,14 +18,11 @@ Deno.serve(async (req) => {
 
     const sql = neon(connectionString);
     
-    const [produtosColumns, produtoSample] = await Promise.all([
-      sql`SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'produtos' ORDER BY ordinal_position`,
-      sql`SELECT * FROM produtos LIMIT 1`
-    ]);
-
+    const result = await sql`SELECT COUNT(*) as total FROM produtos`;
+    
     return Response.json({
-      produtos_columns: produtosColumns,
-      produto_sample: produtoSample
+      success: true,
+      total_produtos: result[0].total
     });
   } catch (error) {
     return Response.json({ 
