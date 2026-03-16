@@ -59,24 +59,27 @@ Deno.serve(async (req) => {
       ORDER BY setor, descricao
     `;
 
+    // Buscar produtos que estão no planejamento (tabela própria do base44 via SDK)
+    const planejamentoProds = await base44.asServiceRole.entities.Product.list();
+    const planejamentoSet = new Set((planejamentoProds || []).map(p => String(p.code || '').toLowerCase()));
+
     const result = allProducts.map(p => {
       const abc = abcMap.get(String(p.codigo)) || { total_vendas: 0, total_qty: 0, curva: null };
-      const custo = parseFloat(p.custo || 0);
-      const preco = parseFloat(p.preco_venda || 0);
-      const margem = preco > 0 && custo > 0 ? ((preco - custo) / preco) * 100 : null;
+      const custo = p.custo != null ? parseFloat(p.custo) : null;
+      const preco = p.preco_venda != null ? parseFloat(p.preco_venda) : null;
+      const margem = preco != null && custo != null && preco > 0 ? ((preco - custo) / preco) * 100 : null;
       return {
         codigo: p.codigo,
         nome: p.descricao,
         setor: p.setor,
         unidade: p.unidade,
-        custo: custo || null,
-        preco_venda: preco || null,
+        custo,
+        preco_venda: preco,
         margem,
         curva_abc: abc.curva,
         total_vendas: abc.total_vendas,
         total_qty: abc.total_qty,
-        no_planejamento: !!p.prod_id && p.planejamento_status === 'ativo',
-        planejamento_id: p.prod_id || null
+        no_planejamento: planejamentoSet.has(String(p.codigo).toLowerCase())
       };
     });
 
