@@ -165,30 +165,17 @@ export default function ProductComparisonModal({
 
   // Calcular quais marcos caem dentro do período atual e no agrupamento 'day'
   const milestoneLabels = useMemo(() => {
-    if (groupBy !== 'day' || !milestones.length || !dateRange?.from || !dateRange?.to) return {};
+    if (groupBy !== 'day' || !milestones.length) return {};
     const result = {};
     milestones.forEach(m => {
       const d = m.date?.split('T')[0];
       if (!d) return;
-      const label = format(parseISO(d), 'dd/MM');
+      const [y, mo, dy] = d.split('-').map(Number);
+      const label = format(new Date(y, mo - 1, dy), 'dd/MM');
       result[label] = m;
     });
     return result;
-  }, [milestones, groupBy, dateRange]);
-
-  const isLoading = salesEvolutionQuery.isLoading || lossesEvolutionQuery.isLoading;
-
-  const salesStats = salesEvolutionQuery.data?.data?.stats || { totalValor: salesEvolutionQuery.data?.totalValue || 0, totalQuantidade: salesEvolutionQuery.data?.totalQty || 0 };
-  const lossesStats = lossesEvolutionQuery.data?.data?.stats || { totalValor: lossesEvolutionQuery.data?.totalValue || 0, totalQuantidade: lossesEvolutionQuery.data?.totalQty || 0 };
-  const compareSalesStats = compareSalesQuery.data?.data?.stats;
-  const compareLossesStats = compareLossesQuery.data?.data?.stats;
-
-  // Calcular variação
-  const salesVariation = useMemo(() => {
-    if (!compareEnabled || !salesStats || !compareSalesStats) return null;
-    if (compareSalesStats.totalValor === 0) return null;
-    return ((salesStats.totalValor - compareSalesStats.totalValor) / compareSalesStats.totalValor) * 100;
-  }, [salesStats, compareSalesStats, compareEnabled]);
+  }, [milestones, groupBy]);
 
   if (!initialProduct) return null;
 
