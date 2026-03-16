@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { X, TrendingUp, TrendingDown } from "lucide-react";
-import { format, subYears, parseISO, getHours, getDay, getWeek } from "date-fns";
+import { format, getDay, getWeek } from "date-fns";
 import { Flag } from "lucide-react";
 import {
   ComposedChart,
