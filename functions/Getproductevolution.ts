@@ -34,65 +34,93 @@ Deno.serve(async (req) => {
       console.warn('Aviso: não foi possível buscar produto no Base44:', e.message);
     }
 
+    if (!productCode && !productName) {
+      return Response.json({ error: 'Produto não encontrado' }, { status: 404 });
+    }
+
     const sql = neon(connectionString);
 
     let evolution = [];
-    let stats = { totalValor: 0, totalQuantidade: 0 };
 
-    // Função para gerar cláusula WHERE de produto (por código ou nome)
-    const buildRows = async (tableType) => {
-      const isVendas = tableType === 'sales';
-      const valorCol = isVendas ? 'valor_total' : 'valor_total_venda';
-      const qtyCol   = isVendas ? 'quantidade_total' : 'quantidade';
-      const tipo     = isVendas ? 'venda' : 'perda';
-
-      // Buscar via VIEW vw_movimentacoes - mesma abordagem do Getplanningdata
+    if (type === 'sales') {
       let rows;
       if (productCode) {
-        // Busca por código (preferencial)
-        rows = await sql(
-          `SELECT data::text as data,
-                  SUM(${isVendas ? 'valor_total' : 'valor_total'}) AS valor,
-                  SUM(quantidade) AS quantidade
-           FROM vw_movimentacoes
-           WHERE produto_codigo = $1
-             AND tipo = $2
-             AND data >= $3::date
-             AND data <= $4::date
-           GROUP BY data
-           ORDER BY data`,
-          [productCode, tipo, startDate, endDate]
-        );
-      } else if (productName) {
-        // Fallback: busca por nome
         rows = await sql(
           `SELECT data::text as data,
                   SUM(valor_total) AS valor,
-                  SUM(quantidade)  AS quantidade
-           FROM vw_movimentacoes
-           WHERE LOWER(TRIM(produto)) = $1
-             AND tipo = $2
-             AND data >= $3::date
-             AND data <= $4::date
+                  SUM(quantidade_total) AS quantidade
+           FROM vendas
+           WHERE produto_codigo = $1
+             AND data >= $2::date
+             AND data <= $3::date
            GROUP BY data
            ORDER BY data`,
-          [productName, tipo, startDate, endDate]
+          [productCode, startDate, endDate]
         );
       } else {
-        rows = [];
+        rows = await sql(
+          `SELECT v.data::text as data,
+                  SUM(v.valor_total) AS valor,
+                  SUM(v.quantidade_total) AS quantidade
+           FROM vendas v
+           LEFT JOIN produtos p ON v.produto_codigo = p.codigo
+           WHERE LOWER(TRIM(COALESCE(p.descricao, v.produto_descricao))) = $1
+             AND v.data >= $2::date
+             AND v.data <= $3::date
+           GROUP BY v.data
+           ORDER BY v.data`,
+          [productName, startDate, endDate]
+        );
       }
-
-      return rows.map(r => ({
+      evolution = rows.map(r => ({
         data: r.data,
         valor: parseFloat(r.valor || 0),
         quantidade: parseFloat(r.quantidade || 0)
       }));
+
+    } else {
+      let rows;
+      if (productCode) {
+        rows = await sql(
+          `SELECT data::text as data,
+                  SUM(valor_total_venda) AS valor,
+                  SUM(quantidade) AS quantidade
+           FROM perdas
+           WHERE produto_codigo = $1
+             AND data >= $2::date
+             AND data <= $3::date
+           GROUP BY data
+           ORDER BY data`,
+          [productCode, startDate, endDate]
+        );
+      } else {
+        rows = await sql(
+          `SELECT p2.data::text as data,
+                  SUM(p2.valor_total_venda) AS valor,
+                  SUM(p2.quantidade) AS quantidade
+           FROM perdas p2
+           LEFT JOIN produtos p ON p2.produto_codigo = p.codigo
+           WHERE LOWER(TRIM(COALESCE(p.descricao, p2.produto_descricao))) = $1
+             AND p2.data >= $2::date
+             AND p2.data <= $3::date
+           GROUP BY p2.data
+           ORDER BY p2.data`,
+          [productName, startDate, endDate]
+        );
+      }
+      evolution = rows.map(r => ({
+        data: r.data,
+        valor: parseFloat(r.valor || 0),
+        quantidade: parseFloat(r.quantidade || 0)
+      }));
+    }
+
+    const stats = {
+      totalValor:      evolution.reduce((s, r) => s + r.valor, 0),
+      totalQuantidade: evolution.reduce((s, r) => s + r.quantidade, 0)
     };
 
-    evolution = await buildRows(type);
-
-    stats.totalValor      = evolution.reduce((s, r) => s + r.valor, 0);
-    stats.totalQuantidade = evolution.reduce((s, r) => s + r.quantidade, 0);
+    console.log(`✅ Evolução do produto ${productCode || productName}: ${evolution.length} registros, tipo=${type}`);
 
     return Response.json({
       data: {
