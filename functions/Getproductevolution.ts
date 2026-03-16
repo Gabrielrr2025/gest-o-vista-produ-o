@@ -41,8 +41,8 @@ Deno.serve(async (req) => {
     const sql = neon(connectionString);
 
     // Usa a VIEW vw_movimentacoes (mesma abordagem do Getplanningdata)
-    // Tenta primeiro por produto_codigo (se code bate com codigo da VIEW), senão por nome
     const tipo = type === 'sales' ? 'venda' : 'perda';
+    console.log(`🔍 Buscando produto: code=${productCode}, name="${productName}", tipo=${tipo}, período=${startDate} a ${endDate}`);
 
     let rows = [];
 
