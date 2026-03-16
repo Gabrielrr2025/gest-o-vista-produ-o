@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,9 +10,11 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { Plus, Search, Pencil, Trash2, Package, Filter } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Package, Filter, Star } from "lucide-react";
 import SectorBadge, { SECTORS } from "../common/SectorBadge";
+import ProductMilestonesPanel from "./ProductMilestonesPanel";
 
 const DAYS = [
   { value: "Segunda",  short: "S", full: "Seg" },
@@ -24,42 +26,59 @@ const DAYS = [
   { value: "Domingo", short: "D", full: "Dom" },
 ];
 
-// Unidades conforme solicitado
 const UNITS = ["UN", "KG", "PCT"];
 
 const emptyForm = {
-  name: "",
-  code: "",
-  sector: "",
-  unit: "UN",
-  recipe_yield: 1,
-  production_days: [],
-  active: true,
-  manufacturing_time: "",
-  sale_time: "",
-  production_time: "",
-  price: "",
-  cost: "",
+  name: "", code: "", sector: "", unit: "UN",
+  recipe_yield: 1, production_days: [], active: true,
+  manufacturing_time: "", sale_time: "", production_time: "",
+  price: "", cost: "",
 };
 
 export default function ProductsManager({ products = [], onRefresh, showAddButton = true, isLoading = false }) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [filterSector, setFilterSector] = useState("all");
-
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [isSaving, setIsSaving] = useState(false);
-
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // --- Favoritos ---
+  const { data: favorites = [] } = useQuery({
+    queryKey: ['favorites'],
+    queryFn: () => base44.entities.FavoriteProduct.list('-created_date', 200),
+  });
+
+  const favoriteIds = useMemo(() => new Set(favorites.map(f => f.product_id)), [favorites]);
+
+  const toggleFavorite = async (product, e) => {
+    e.stopPropagation();
+    const existing = favorites.find(f => f.product_id === product.id);
+    try {
+      if (existing) {
+        await base44.entities.FavoriteProduct.delete(existing.id);
+        toast.success(`"${product.name}" removido dos favoritos`);
+      } else {
+        await base44.entities.FavoriteProduct.create({
+          product_id: product.id,
+          product_name: product.name,
+          sector: product.sector,
+        });
+        toast.success(`"${product.name}" adicionado aos favoritos ⭐`);
+      }
+      queryClient.invalidateQueries({ queryKey: ['favorites'] });
+    } catch {
+      toast.error('Erro ao atualizar favorito');
+    }
+  };
 
   // --- Filtros ---
   const filtered = useMemo(() => {
     return products.filter((p) => {
-      const matchSearch =
-        !search ||
+      const matchSearch = !search ||
         p.name?.toLowerCase().includes(search.toLowerCase()) ||
         p.code?.toLowerCase().includes(search.toLowerCase());
       const matchSector = filterSector === "all" || p.sector === filterSector;
@@ -67,26 +86,16 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
     });
   }, [products, search, filterSector]);
 
-  // --- Abrir criar ---
-  const openCreate = () => {
-    setEditingProduct(null);
-    setForm(emptyForm);
-    setDialogOpen(true);
-  };
+  const openCreate = () => { setEditingProduct(null); setForm(emptyForm); setDialogOpen(true); };
 
-  // --- Abrir editar ---
   const openEdit = (product) => {
     setEditingProduct(product);
     setForm({
-      name: product.name || "",
-      code: product.code || "",
-      sector: product.sector || "",
-      unit: product.unit || "UN",
-      recipe_yield: product.recipe_yield || 1,
+      name: product.name || "", code: product.code || "", sector: product.sector || "",
+      unit: product.unit || "UN", recipe_yield: product.recipe_yield || 1,
       production_days: Array.isArray(product.production_days) ? [...product.production_days] : [],
       active: product.active !== false,
-      manufacturing_time: product.manufacturing_time || "",
-      sale_time: product.sale_time || "",
+      manufacturing_time: product.manufacturing_time || "", sale_time: product.sale_time || "",
       production_time: product.production_time || "",
       price: product.price != null ? String(product.price) : "",
       cost: product.cost != null ? String(product.cost) : "",
@@ -94,11 +103,7 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
     setDialogOpen(true);
   };
 
-  const closeDialog = () => {
-    setDialogOpen(false);
-    setEditingProduct(null);
-    setForm(emptyForm);
-  };
+  const closeDialog = () => { setDialogOpen(false); setEditingProduct(null); setForm(emptyForm); };
 
   const toggleDay = (day) => {
     setForm((prev) => ({
@@ -109,52 +114,38 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
     }));
   };
 
-  // --- Salvar ---
   const handleSubmit = async () => {
     if (!form.name.trim()) return toast.error("Nome é obrigatório.");
     if (!form.sector) return toast.error("Setor é obrigatório.");
-
     setIsSaving(true);
     try {
       if (editingProduct) {
-        // response.data é o retorno do backend
-        const data = await base44.functions.invoke('Updateproduct', {
-          id: editingProduct.id,
-          name: form.name,
-          code: form.code,
-          sector: form.sector,
-          unit: form.unit,
-          recipe_yield: form.recipe_yield,
-          production_days: form.production_days,
-          active: form.active,
-          manufacturing_time: form.manufacturing_time || null,
+        const res = await base44.functions.invoke('Updateproduct', {
+          id: editingProduct.id, name: form.name, code: form.code, sector: form.sector,
+          unit: form.unit, recipe_yield: form.recipe_yield, production_days: form.production_days,
+          active: form.active, manufacturing_time: form.manufacturing_time || null,
           sale_time: form.sale_time || null,
           price: form.price !== "" ? parseFloat(form.price) : null,
           cost: form.cost !== "" ? parseFloat(form.cost) : null,
         });
+        const data = res?.data || res;
         if (data?.error) throw new Error(data.error);
         toast.success("Produto atualizado!");
       } else {
-        const data = await base44.functions.invoke('Createproduct', {
-          name: form.name,
-          code: form.code,
-          sector: form.sector,
-          unit: form.unit,
-          recipe_yield: form.recipe_yield,
-          production_days: form.production_days,
-          active: form.active,
-          manufacturing_time: form.manufacturing_time || null,
+        const res = await base44.functions.invoke('Createproduct', {
+          name: form.name, code: form.code, sector: form.sector, unit: form.unit,
+          recipe_yield: form.recipe_yield, production_days: form.production_days,
+          active: form.active, manufacturing_time: form.manufacturing_time || null,
           sale_time: form.sale_time || null,
           price: form.price !== "" ? parseFloat(form.price) : null,
           cost: form.cost !== "" ? parseFloat(form.cost) : null,
         });
+        const data = res?.data || res;
         if (data?.error) throw new Error(data.error);
         toast.success("Produto criado com sucesso!");
       }
       queryClient.invalidateQueries({ queryKey: ['products'] });
       queryClient.invalidateQueries({ queryKey: ['planningData'] });
-      queryClient.invalidateQueries({ queryKey: ['sqlData'] });
-      queryClient.invalidateQueries({ queryKey: ['savedPlanning'] });
       onRefresh?.();
       closeDialog();
     } catch (err) {
@@ -164,78 +155,44 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
     }
   };
 
-  // --- Excluir ---
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setIsDeleting(true);
     try {
-      const response = await base44.functions.invoke('Deleteproduct', {
-        id: deleteTarget.id,
-        soft: false,
-      });
-
-      // Debug: ver exatamente o que o Base44 retorna
-      console.log('🗑️ Resposta do Deleteproduct:', JSON.stringify(response));
-
-      // Verificar se houve erro explícito na resposta
+      const response = await base44.functions.invoke('Deleteproduct', { id: deleteTarget.id, soft: false });
       const data = response?.data || response;
-      const errorMsg = data?.error || response?.error;
-
-      if (errorMsg) {
-        toast.error(`Erro ao excluir: ${errorMsg}`);
-        return;
-      }
-
-      // Se chegou aqui sem erro, o produto foi deletado com sucesso
+      if (data?.error) { toast.error(`Erro ao excluir: ${data.error}`); return; }
       toast.success(`"${deleteTarget.name}" excluído com sucesso!`);
       setDeleteTarget(null);
-
-      // Invalidar e forçar refetch de TODAS as queries relevantes
       await queryClient.invalidateQueries({ queryKey: ['products'] });
-      await queryClient.invalidateQueries({ queryKey: ['planningData'] });
-      await queryClient.invalidateQueries({ queryKey: ['sqlData'] });
-      await queryClient.invalidateQueries({ queryKey: ['savedPlanning'] });
       await queryClient.refetchQueries({ queryKey: ['products'] });
-      await queryClient.refetchQueries({ queryKey: ['sqlData'] });
       onRefresh?.();
     } catch (err) {
-      console.error('❌ Erro ao excluir produto:', err);
-      toast.error("Erro ao excluir: " + (err.message || "Verifique sua conexão."));
+      toast.error("Erro ao excluir: " + (err.message || ""));
     } finally {
       setIsDeleting(false);
     }
   };
 
-  // --- Badges dias ---
   const renderDays = (days = []) => (
     <div className="flex gap-1">
       {DAYS.map(({ value, short }) => (
-        <span
-          key={value}
-          className={`w-6 h-6 flex items-center justify-center rounded text-[10px] font-bold ${
-            days.includes(value) ? "bg-slate-700 text-white" : "bg-slate-200 text-slate-500"
-          }`}
-        >
-          {short}
-        </span>
+        <span key={value} className={`w-6 h-6 flex items-center justify-center rounded text-[10px] font-bold ${
+          days.includes(value) ? "bg-slate-700 text-white" : "bg-slate-200 text-slate-500"
+        }`}>{short}</span>
       ))}
     </div>
   );
 
   return (
     <div className="space-y-4">
-
       {/* Controles */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div className="flex flex-col sm:flex-row gap-3 flex-1">
           <div className="relative flex-1 max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input
-              placeholder="Buscar por nome ou código..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-            />
+            <Input placeholder="Buscar por nome ou código..." value={search}
+              onChange={(e) => setSearch(e.target.value)} className="pl-9" />
           </div>
           <Select value={filterSector} onValueChange={setFilterSector}>
             <SelectTrigger className="w-44">
@@ -248,11 +205,9 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
             </SelectContent>
           </Select>
         </div>
-
         {showAddButton && (
           <Button onClick={openCreate} className="bg-slate-900 hover:bg-slate-700 text-white">
-            <Plus className="w-4 h-4 mr-2" />
-            Novo Produto
+            <Plus className="w-4 h-4 mr-2" />Novo Produto
           </Button>
         )}
       </div>
@@ -276,10 +231,11 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-8"></TableHead>
                     <TableHead className="w-48">Produto</TableHead>
                     <TableHead className="w-32">Setor</TableHead>
                     <TableHead className="w-28 text-center">Rendimento</TableHead>
-                    <TableHead className="w-28 text-center">Unidade Venda</TableHead>
+                    <TableHead className="w-28 text-center">Unidade</TableHead>
                     <TableHead>Dias de Produção</TableHead>
                     <TableHead className="w-24 text-right">Ações</TableHead>
                   </TableRow>
@@ -287,6 +243,17 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
                 <TableBody>
                   {filtered.map((product) => (
                     <TableRow key={product.id} className={product.active === false ? "opacity-40" : ""}>
+                      <TableCell className="px-2">
+                        <button
+                          onClick={(e) => toggleFavorite(product, e)}
+                          className="p-1 rounded transition-colors hover:bg-amber-50"
+                          title={favoriteIds.has(product.id) ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+                        >
+                          <Star className={`w-4 h-4 transition-colors ${
+                            favoriteIds.has(product.id) ? "fill-amber-400 text-amber-400" : "text-slate-300 hover:text-amber-400"
+                          }`} />
+                        </button>
+                      </TableCell>
                       <TableCell>
                         <p className="text-sm font-semibold text-slate-900">{product.name}</p>
                         {product.code && <p className="text-xs text-slate-400">#{product.code}</p>}
@@ -295,24 +262,16 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
                       <TableCell className="text-center text-sm text-slate-700">
                         {product.recipe_yield || 1} {product.unit === "KG" || product.unit === "kilo" ? "Kg" : "Un"}
                       </TableCell>
-                      <TableCell className="text-center text-sm text-slate-700">
-                        {product.unit || "UN"}
-                      </TableCell>
+                      <TableCell className="text-center text-sm text-slate-700">{product.unit || "UN"}</TableCell>
                       <TableCell>{renderDays(product.production_days || [])}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => openEdit(product)}
-                            className="text-slate-400 hover:text-slate-700 transition-colors p-1.5 rounded hover:bg-slate-100"
-                            title="Editar"
-                          >
+                          <button onClick={() => openEdit(product)}
+                            className="text-slate-400 hover:text-slate-700 transition-colors p-1.5 rounded hover:bg-slate-100" title="Editar">
                             <Pencil className="w-4 h-4" />
                           </button>
-                          <button
-                            onClick={() => setDeleteTarget(product)}
-                            className="text-slate-400 hover:text-red-500 transition-colors p-1.5 rounded hover:bg-red-50"
-                            title="Excluir"
-                          >
+                          <button onClick={() => setDeleteTarget(product)}
+                            className="text-slate-400 hover:text-red-500 transition-colors p-1.5 rounded hover:bg-red-50" title="Excluir">
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
@@ -341,33 +300,20 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-
-            {/* Nome */}
             <div className="space-y-1.5">
               <Label className="text-sm font-medium">Nome *</Label>
-              <Input
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="Ex: Pão Francês"
-              />
+              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ex: Pão Francês" />
             </div>
 
-            {/* Código + Setor */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium">Código</Label>
-                <Input
-                  value={form.code}
-                  onChange={(e) => setForm({ ...form, code: e.target.value })}
-                  placeholder="Ex: PAD001"
-                />
+                <Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="Ex: PAD001" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium">Setor *</Label>
                 <Select value={form.sector} onValueChange={(v) => setForm({ ...form, sector: v })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                   <SelectContent className="z-[10000]">
                     {SECTORS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                   </SelectContent>
@@ -375,14 +321,11 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
               </div>
             </div>
 
-            {/* Unidade + Rendimento */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium">Unidade</Label>
                 <Select value={form.unit} onValueChange={(v) => setForm({ ...form, unit: v })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                   <SelectContent className="z-[10000]">
                     {UNITS.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
                   </SelectContent>
@@ -390,117 +333,77 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
               </div>
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium">Rendimento</Label>
-                <Input
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  value={form.recipe_yield}
-                  onChange={(e) => setForm({ ...form, recipe_yield: parseFloat(e.target.value) || 1 })}
-                />
+                <Input type="number" min="0.01" step="0.01" value={form.recipe_yield}
+                  onChange={(e) => setForm({ ...form, recipe_yield: parseFloat(e.target.value) || 1 })} />
               </div>
             </div>
 
-            {/* Horário Fabricação + Tempo de Preparo */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium">Horário de Fabricação</Label>
-                <Input
-                  type="time"
-                  value={form.manufacturing_time}
-                  onChange={(e) => setForm({ ...form, manufacturing_time: e.target.value })}
-                />
+                <Input type="time" value={form.manufacturing_time}
+                  onChange={(e) => setForm({ ...form, manufacturing_time: e.target.value })} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium">Tempo de Preparo (min)</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={form.production_time}
-                  onChange={(e) => setForm({ ...form, production_time: e.target.value })}
-                  placeholder="Ex: 45"
-                />
+                <Input type="number" min="0" step="1" value={form.production_time}
+                  onChange={(e) => setForm({ ...form, production_time: e.target.value })} placeholder="Ex: 45" />
               </div>
             </div>
 
-            {/* Preço de Venda + Custo */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium">Preço de Venda (R$)</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.price}
-                  onChange={(e) => setForm({ ...form, price: e.target.value })}
-                  placeholder="Ex: 0.50"
-                />
+                <Input type="number" min="0" step="0.01" value={form.price}
+                  onChange={(e) => setForm({ ...form, price: e.target.value })} placeholder="Ex: 0.50" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium">Custo Unitário (R$)</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.cost}
-                  onChange={(e) => setForm({ ...form, cost: e.target.value })}
-                  placeholder="Ex: 0.20"
-                />
+                <Input type="number" min="0" step="0.01" value={form.cost}
+                  onChange={(e) => setForm({ ...form, cost: e.target.value })} placeholder="Ex: 0.20" />
               </div>
             </div>
 
-            {/* Horário de Venda */}
             <div className="space-y-1.5">
               <Label className="text-sm font-medium">Horário de Venda</Label>
-              <Input
-                type="time"
-                value={form.sale_time}
-                onChange={(e) => setForm({ ...form, sale_time: e.target.value })}
-                className="w-1/2"
-              />
+              <Input type="time" value={form.sale_time}
+                onChange={(e) => setForm({ ...form, sale_time: e.target.value })} className="w-1/2" />
             </div>
 
-            {/* Dias de Produção */}
             <div className="space-y-1.5">
               <Label className="text-sm font-medium">Dias de Produção</Label>
               <div className="flex gap-2 flex-wrap">
                 {DAYS.map(({ value, full }) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => toggleDay(value)}
+                  <button key={value} type="button" onClick={() => toggleDay(value)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
                       form.production_days.includes(value)
                         ? "bg-slate-800 text-white border-slate-800"
                         : "bg-white text-slate-500 border-slate-200 hover:border-slate-400"
-                    }`}
-                  >
-                    {full}
-                  </button>
+                    }`}>{full}</button>
                 ))}
               </div>
             </div>
 
-            {/* Produto Ativo */}
             <div className="flex items-center justify-between p-3 rounded-lg border border-slate-200 bg-slate-50">
               <div>
                 <p className="text-sm font-medium text-slate-900">Produto Ativo</p>
                 <p className="text-xs text-slate-400">Produtos inativos não aparecem no planejamento</p>
               </div>
-              <Switch
-                checked={form.active}
-                onCheckedChange={(v) => setForm({ ...form, active: v })}
-              />
+              <Switch checked={form.active} onCheckedChange={(v) => setForm({ ...form, active: v })} />
             </div>
+
+            {/* Marcos Temporais — só no modo edição */}
+            {editingProduct && (
+              <>
+                <Separator />
+                <ProductMilestonesPanel productId={editingProduct.id} productName={editingProduct.name} />
+              </>
+            )}
           </div>
 
           <DialogFooter className="gap-2 pt-2">
             <Button variant="ghost" onClick={closeDialog}>Cancelar</Button>
-            <Button
-              onClick={handleSubmit}
-              disabled={isSaving}
-              className="bg-slate-900 hover:bg-slate-700 text-white"
-            >
+            <Button onClick={handleSubmit} disabled={isSaving} className="bg-slate-900 hover:bg-slate-700 text-white">
               {isSaving ? "Salvando..." : editingProduct ? "Salvar Alterações" : "Criar Produto"}
             </Button>
           </DialogFooter>
@@ -508,34 +411,23 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
       </Dialog>
 
       {/* ===== DIALOG EXCLUIR ===== */}
-      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => {
-        // Só permitir fechar se NÃO estiver deletando
-        if (!open && !isDeleting) setDeleteTarget(null);
-      }}>
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open && !isDeleting) setDeleteTarget(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir produto?</AlertDialogTitle>
             <AlertDialogDescription>
               O produto <strong>{deleteTarget?.name}</strong> será excluído permanentemente do sistema.
-              Ele voltará a aparecer como "não mapeado" caso ainda exista nos registros de vendas ou perdas.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => {
-                e.preventDefault(); // Impedir que o AlertDialogAction feche o dialog automaticamente
-                handleDelete();
-              }}
-              disabled={isDeleting}
-              className="bg-red-600 hover:bg-red-700 text-white"
-            >
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); handleDelete(); }}
+              disabled={isDeleting} className="bg-red-600 hover:bg-red-700 text-white">
               {isDeleting ? "Excluindo..." : "Excluir"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
     </div>
   );
 }
