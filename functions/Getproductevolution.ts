@@ -46,17 +46,34 @@ Deno.serve(async (req) => {
       let rows;
       if (productCode) {
         rows = await sql(
-          `SELECT data::text as data,
-                  SUM(valor_total) AS valor,
-                  SUM(quantidade_total) AS quantidade
-           FROM vendas
-           WHERE produto_codigo = $1
-             AND data >= $2::date
-             AND data <= $3::date
-           GROUP BY data
-           ORDER BY data`,
+          `SELECT v.data::text as data,
+                  SUM(v.valor_total) AS valor,
+                  SUM(v.quantidade_total) AS quantidade
+           FROM vendas v
+           JOIN produtos p ON v.produto_codigo = p.codigo
+           WHERE p.codigo::text = $1
+             AND v.data >= $2::date
+             AND v.data <= $3::date
+           GROUP BY v.data
+           ORDER BY v.data`,
           [productCode, startDate, endDate]
         );
+        // Se não encontrou por código, fallback por nome
+        if (rows.length === 0 && productName) {
+          rows = await sql(
+            `SELECT v.data::text as data,
+                    SUM(v.valor_total) AS valor,
+                    SUM(v.quantidade_total) AS quantidade
+             FROM vendas v
+             LEFT JOIN produtos p ON v.produto_codigo = p.codigo
+             WHERE LOWER(TRIM(COALESCE(p.descricao, v.produto_descricao))) = $1
+               AND v.data >= $2::date
+               AND v.data <= $3::date
+             GROUP BY v.data
+             ORDER BY v.data`,
+            [productName, startDate, endDate]
+          );
+        }
       } else {
         rows = await sql(
           `SELECT v.data::text as data,
@@ -82,17 +99,33 @@ Deno.serve(async (req) => {
       let rows;
       if (productCode) {
         rows = await sql(
-          `SELECT data::text as data,
-                  SUM(valor_total_venda) AS valor,
-                  SUM(quantidade) AS quantidade
-           FROM perdas
-           WHERE produto_codigo = $1
-             AND data >= $2::date
-             AND data <= $3::date
-           GROUP BY data
-           ORDER BY data`,
+          `SELECT p2.data::text as data,
+                  SUM(p2.valor_total_venda) AS valor,
+                  SUM(p2.quantidade) AS quantidade
+           FROM perdas p2
+           JOIN produtos p ON p2.produto_codigo = p.codigo
+           WHERE p.codigo::text = $1
+             AND p2.data >= $2::date
+             AND p2.data <= $3::date
+           GROUP BY p2.data
+           ORDER BY p2.data`,
           [productCode, startDate, endDate]
         );
+        if (rows.length === 0 && productName) {
+          rows = await sql(
+            `SELECT p2.data::text as data,
+                    SUM(p2.valor_total_venda) AS valor,
+                    SUM(p2.quantidade) AS quantidade
+             FROM perdas p2
+             LEFT JOIN produtos p ON p2.produto_codigo = p.codigo
+             WHERE LOWER(TRIM(COALESCE(p.descricao, p2.produto_descricao))) = $1
+               AND p2.data >= $2::date
+               AND p2.data <= $3::date
+             GROUP BY p2.data
+             ORDER BY p2.data`,
+            [productName, startDate, endDate]
+          );
+        }
       } else {
         rows = await sql(
           `SELECT p2.data::text as data,
