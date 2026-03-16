@@ -216,21 +216,7 @@ export default function ProductComparisonModal({
                     <p className="text-xs text-green-600 mt-1">
                       {(salesStats?.totalQuantidade || 0).toFixed(1)} {initialProduct.unidade}
                     </p>
-                    {salesVariation !== null && (
-                      <div className={`flex items-center gap-1 mt-2 text-xs font-bold ${
-                        salesVariation > 0 ? 'text-green-700' : 'text-red-700'
-                      }`}>
-                        {salesVariation > 0 ? (
-                          <TrendingUp className="w-3 h-3" />
-                        ) : (
-                          <TrendingDown className="w-3 h-3" />
-                        )}
-                        <span>
-                          {salesVariation > 0 ? '+' : ''}
-                          {salesVariation.toFixed(1)}% vs comparação
-                        </span>
-                      </div>
-                    )}
+
                   </div>
                   <div className="bg-green-200 p-2 rounded-lg">
                     <TrendingUp className="w-8 h-8 text-green-700" />
