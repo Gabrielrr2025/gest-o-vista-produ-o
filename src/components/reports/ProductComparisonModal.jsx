@@ -291,11 +291,7 @@ export default function ProductComparisonModal({
                     <h3 className="text-lg font-semibold">
                       Evolução de Vendas e Perdas
                     </h3>
-                    {compareEnabled && (
-                      <p className="text-sm text-slate-600 mt-1">
-                        Comparação de períodos ativa
-                      </p>
-                    )}
+
                   </div>
 
                   {/* Agrupamento */}
