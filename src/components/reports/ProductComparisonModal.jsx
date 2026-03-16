@@ -159,9 +159,9 @@ export default function ProductComparisonModal({
 
   // Calcular quais marcos caem dentro do período atual e no agrupamento 'day'
   const milestoneLabels = useMemo(() => {
-    if (groupBy !== 'day' || !milestones.length) return {};
+    if (groupBy !== 'day' || !milestonesForChart.length) return {};
     const result = {};
-    milestones.forEach(m => {
+    milestonesForChart.forEach(m => {
       const d = m.date?.split('T')[0];
       if (!d) return;
       const [y, mo, dy] = d.split('-').map(Number);
