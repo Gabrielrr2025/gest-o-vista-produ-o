@@ -23,7 +23,7 @@ const CustomTooltip = ({ active, payload }) => {
           </span>
         </p>
         <p className="text-sm text-slate-600">
-          Percentual: <span className="font-semibold text-slate-900">{data.payload.percent}%</span>
+          Percentual: <span className="font-semibold text-slate-900">{data.payload.pctDisplay}%</span>
         </p>
       </div>
     );
