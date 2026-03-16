@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
     if (productCode && /^\d+$/.test(productCode) && productCode.length <= 9) {
       rows = await sql(
         `SELECT data::text as data,
-                SUM(valor_total) AS valor,
+                SUM(valor) AS valor,
                 SUM(quantidade) AS quantidade
          FROM vw_movimentacoes
          WHERE produto_codigo::text = $1
@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
     if (rows.length === 0) {
       rows = await sql(
         `SELECT data::text as data,
-                SUM(valor_total) AS valor,
+                SUM(valor) AS valor,
                 SUM(quantidade) AS quantidade
          FROM vw_movimentacoes
          WHERE LOWER(TRIM(produto)) = $1
