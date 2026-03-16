@@ -80,6 +80,8 @@ Deno.serve(async (req) => {
       );
     }
 
+    console.log(`✅ Encontrados ${rows.length} registros para "${productName}"`);
+
     const evolution = rows.map(r => ({
       data: r.data,
       valor: parseFloat(r.valor || 0),
