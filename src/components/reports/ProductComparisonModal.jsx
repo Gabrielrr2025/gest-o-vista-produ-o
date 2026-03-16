@@ -69,9 +69,6 @@ export default function ProductComparisonModal({
 
   // Processar dados com agrupamento
   const chartData = useMemo(() => {
-    const compareSalesData = [];
-    const compareLossesData = [];
-
     if (salesData.length === 0 && lossesData.length === 0) return [];
 
     const dataByGroup = {};
