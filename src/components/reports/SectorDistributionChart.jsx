@@ -68,10 +68,10 @@ export default function SectorDistributionChart({ sectors, type = 'sales' }) {
   // Calcular total para percentuais
   const total = chartData.reduce((sum, item) => sum + item.value, 0);
 
-  // Adicionar percentual
+  // Adicionar percentual (nomeado pctDisplay para não conflitar com o percent nativo do Recharts)
   const chartDataWithPercent = chartData.map(item => ({
     ...item,
-    percent: total > 0 ? ((item.value / total) * 100).toFixed(1) : 0
+    pctDisplay: total > 0 ? ((item.value / total) * 100).toFixed(1) : '0'
   }));
 
   // Ordenar por valor (maior para menor)
