@@ -35,10 +35,16 @@ Deno.serve(async (req) => {
         WHERE pe.data >= ${startDate}::date AND pe.data <= ${endDate}::date
       `,
       sql`
-        SELECT pe.data, SUM(pe.valor_total_venda) as valor_reais, SUM(pe.quantidade) as quantidade
+        SELECT 
+          pe.data,
+          COALESCE(p.descricao, pe.produto_descricao) as produto,
+          COALESCE(p.departamento_desc, 'Sem Setor') as setor,
+          SUM(pe.valor_total_venda) as valor_reais,
+          SUM(pe.quantidade) as quantidade
         FROM perdas pe
+        LEFT JOIN produtos p ON pe.produto_codigo = p.codigo
         WHERE pe.data >= ${startDate}::date AND pe.data <= ${endDate}::date
-        GROUP BY pe.data
+        GROUP BY pe.data, COALESCE(p.descricao, pe.produto_descricao), COALESCE(p.departamento_desc, 'Sem Setor')
         ORDER BY pe.data
       `,
       sql`
