@@ -535,6 +535,27 @@ export default function ProductComparisonModal({
                     ))}
                     </ComposedChart>
                 </ResponsiveContainer>
+
+                {/* Lista de marcos no período */}
+                {groupBy === 'day' && Object.keys(milestoneLabels).length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-slate-100">
+                    <p className="text-xs font-semibold text-amber-700 mb-2 flex items-center gap-1.5">
+                      <Flag className="w-3.5 h-3.5" /> Marcos no período
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {Object.entries(milestoneLabels).map(([label, milestone]) => (
+                        <div key={milestone.id} className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1">
+                          <span className="text-xs font-bold text-amber-700">{label}</span>
+                          <span className="text-xs text-amber-600">—</span>
+                          <span className="text-xs font-medium text-amber-800">{milestone.title}</span>
+                          {milestone.notes && (
+                            <span className="text-xs text-amber-500 italic">({milestone.notes})</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ) : (
