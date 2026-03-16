@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { X, TrendingUp, TrendingDown } from "lucide-react";
 import { format, subYears, parseISO, getHours, getDay, getWeek } from "date-fns";
+import { Flag } from "lucide-react";
 import {
   ComposedChart,
   Bar,
@@ -18,7 +19,8 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  ResponsiveContainer
+  ResponsiveContainer,
+  ReferenceLine
 } from 'recharts';
 import DateRangePicker from "./DateRangePicker";
 
