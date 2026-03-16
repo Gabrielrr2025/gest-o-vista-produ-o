@@ -159,14 +159,14 @@ export default function ProductsPieChart({
       <CardContent>
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
-            <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+            <PieChart margin={{ top: 20, right: 20, bottom: 40, left: 20 }}>
               <Pie
                 data={chartData}
-                cx="38%"
-                cy="50%"
+                cx="50%"
+                cy="45%"
                 labelLine={false}
                 label={renderCustomLabel}
-                outerRadius={75}
+                outerRadius="38%"
                 fill="#8884d8"
                 dataKey="value"
               >
@@ -176,23 +176,17 @@ export default function ProductsPieChart({
               </Pie>
               <Tooltip content={<CustomTooltip />} />
               <Legend 
-                layout="vertical"
-                verticalAlign="middle" 
-                align="right"
-                iconSize={12}
-                wrapperStyle={{
-                  fontSize: '14px',
-                  paddingLeft: '20px'
-                }}
+                layout="horizontal"
+                verticalAlign="bottom"
+                align="center"
+                iconSize={10}
+                wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
                 formatter={(value, entry) => {
                   const isOthers = value === 'Outros';
                   const otherCount = entry.payload.products?.length || 0;
-                  
                   return (
-                    <span className="text-sm font-medium">
-                      {value}
-                      {isOthers && otherCount > 0 && ` (${otherCount})`}: 
-                      <span className="font-bold"> R$ {(entry.payload.value / 1000).toFixed(1)}k</span>
+                    <span style={{ fontSize: '12px', fontWeight: 500 }}>
+                      {value}{isOthers && otherCount > 0 && ` (${otherCount})`}: <strong>R$ {(entry.payload.value / 1000).toFixed(1)}k</strong>
                     </span>
                   );
                 }}
