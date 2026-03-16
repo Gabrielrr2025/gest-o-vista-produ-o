@@ -87,14 +87,14 @@ export default function SectorDistributionChart({ sectors, type = 'sales' }) {
       <CardContent>
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
+            <PieChart margin={{ top: 15, right: 15, bottom: 15, left: 15 }}>
               <Pie
                 data={chartDataWithPercent}
-                cx="35%"
+                cx="38%"
                 cy="50%"
                 labelLine={false}
                 label={renderLabel}
-                outerRadius={90}
+                outerRadius={80}
                 fill="#8884d8"
                 dataKey="value"
               >
