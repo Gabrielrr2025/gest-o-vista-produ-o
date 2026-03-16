@@ -89,14 +89,14 @@ export default function SectorDistributionChart({ sectors, type = 'sales' }) {
       <CardContent>
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
-            <PieChart margin={{ top: 15, right: 15, bottom: 15, left: 15 }}>
+            <PieChart margin={{ top: 20, right: 20, bottom: 40, left: 20 }}>
               <Pie
                 data={chartDataWithPercent}
-                cx="38%"
-                cy="50%"
+                cx="50%"
+                cy="45%"
                 labelLine={false}
                 label={renderLabel}
-                outerRadius={80}
+                outerRadius="38%"
                 fill="#8884d8"
                 dataKey="value"
               >
@@ -106,17 +106,14 @@ export default function SectorDistributionChart({ sectors, type = 'sales' }) {
               </Pie>
               <Tooltip content={<CustomTooltip />} />
               <Legend 
-                layout="vertical"
-                verticalAlign="middle" 
-                align="right"
-                iconSize={12}
-                wrapperStyle={{
-                  fontSize: '14px',
-                  paddingLeft: '20px'
-                }}
+                layout="horizontal"
+                verticalAlign="bottom"
+                align="center"
+                iconSize={10}
+                wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
                 formatter={(value, entry) => (
-                  <span className="text-sm font-medium">
-                    {value}: <span className="font-bold">R$ {(entry.payload.value / 1000).toFixed(1)}k</span>
+                  <span style={{ fontSize: '12px', fontWeight: 500 }}>
+                    {value}: <strong>R$ {(entry.payload.value / 1000).toFixed(1)}k</strong>
                   </span>
                 )}
               />
