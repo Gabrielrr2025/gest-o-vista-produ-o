@@ -157,14 +157,6 @@ export default function ProductComparisonModal({
       });
   }, [salesData, lossesData, groupBy, milestonesForChart]);
 
-  // Buscar marcos do produto
-  const milestonesQuery = useQuery({
-    queryKey: ['milestones', productId],
-    queryFn: () => base44.entities.ProductMilestone.filter({ product_id: productId }),
-    enabled: isOpen && !!productId,
-  });
-  const milestones = milestonesQuery.data || [];
-
   // Calcular quais marcos caem dentro do período atual e no agrupamento 'day'
   const milestoneLabels = useMemo(() => {
     if (groupBy !== 'day' || !milestones.length) return {};
