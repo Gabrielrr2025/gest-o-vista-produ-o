@@ -1173,17 +1173,15 @@ export default function Reports() {
         </Card>
       )}
 
-      {salesData && (
-        <ProductComparisonModal
-          isOpen={comparisonModalOpen}
-          onClose={() => setComparisonModalOpen(false)}
-          initialProduct={comparisonInitialProduct}
-          initialDateRange={dateRange}
-          rawSalesData={salesData?.rawData || []}
-          rawLossesData={lossesData?.rawData || []}
-          type="sales"
-        />
-      )}
+      <ProductComparisonModal
+        isOpen={comparisonModalOpen}
+        onClose={() => setComparisonModalOpen(false)}
+        initialProduct={comparisonInitialProduct}
+        initialDateRange={dateRange}
+        rawSalesData={salesData?.rawData || []}
+        rawLossesData={lossesData?.rawData || []}
+        type="sales"
+      />
     </div>
   );
 }
