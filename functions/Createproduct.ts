@@ -42,7 +42,8 @@ Deno.serve(async (req) => {
       recipe_yield: recipe_yield || 1,
       production_days: production_days || ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'],
       active: active !== false,
-      price: price || 0
+      price: price != null ? parseFloat(price) : 0,
+      cost: body.cost != null ? parseFloat(body.cost) : 0,
     });
 
     console.log('✅ Produto criado:', product.id, product.name);
