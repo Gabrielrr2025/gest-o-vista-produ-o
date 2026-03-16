@@ -50,8 +50,17 @@ const CustomTooltip = ({ active, payload }) => {
   return null;
 };
 
-const renderLabel = (entry) => {
-  return `${entry.percent}%`;
+const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+  const RADIAN = Math.PI / 180;
+  const radius = outerRadius + 22;
+  const x = cx + radius * Math.cos(-midAngle * RADIAN);
+  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+  if (parseFloat((percent * 100).toFixed(1)) < 3) return null;
+  return (
+    <text x={x} y={y} fill="#374151" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize={12} fontWeight={600}>
+      {`${(percent * 100).toFixed(1)}%`}
+    </text>
+  );
 };
 
 export default function ProductsPieChart({ 
