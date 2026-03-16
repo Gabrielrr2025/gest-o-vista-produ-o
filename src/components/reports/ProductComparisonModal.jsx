@@ -282,13 +282,7 @@ export default function ProductComparisonModal({
           </div>
 
           {/* Gráfico com Controles */}
-          {isLoading ? (
-            <Card className="shadow-lg">
-              <CardContent className="py-16 text-center">
-                <div className="text-slate-500">Carregando evolução do produto...</div>
-              </CardContent>
-            </Card>
-          ) : chartData.length > 0 ? (
+          {chartData.length > 0 ? (
             <Card className="shadow-lg">
               <CardContent className="pt-6">
                 {/* Header com controles */}
