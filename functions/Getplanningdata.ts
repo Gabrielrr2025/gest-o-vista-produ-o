@@ -102,10 +102,16 @@ Deno.serve(async (req) => {
     const recStartStr = recStart.toISOString().split('T')[0];
 
     // 3. Queries
-    const products = await sql`
-      SELECT id, nome, setor, unidade, status, dias_producao
-      FROM produtos WHERE status = 'ativo' ORDER BY setor, nome
-    `;
+    // Buscar produtos ativos da entidade Base44
+    const base44Products = await base44.asServiceRole.entities.Product.filter({ active: true });
+    const products = base44Products.map((p) => ({
+      id: p.id,
+      nome: p.name,
+      setor: p.sector,
+      unidade: p.unit || 'unidade',
+      status: 'ativo',
+      dias_producao: p.production_days || [],
+    }));
 
     const salesRecencia = await sql`
       SELECT v.produto_id, v.data::text as data, v.quantidade
