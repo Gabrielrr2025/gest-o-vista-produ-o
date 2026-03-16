@@ -22,8 +22,6 @@ import {
   ResponsiveContainer,
   ReferenceLine
 } from 'recharts';
-import DateRangePicker from "./DateRangePicker";
-
 const GROUPING_OPTIONS = [
   { value: 'day', label: 'Por dia' },
   { value: 'hour', label: 'Por hora' },
