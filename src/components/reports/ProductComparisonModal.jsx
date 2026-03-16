@@ -516,7 +516,24 @@ export default function ProductComparisonModal({
                       strokeWidth={3}
                       dot={{ fill: '#ef4444', r: 4, strokeWidth: 2, stroke: '#fff' }}
                     />
-                  </ComposedChart>
+                    {/* Marcos temporais */}
+                    {groupBy === 'day' && Object.entries(milestoneLabels).map(([label, milestone]) => (
+                      <ReferenceLine
+                        key={milestone.id}
+                        x={label}
+                        stroke="#f59e0b"
+                        strokeWidth={2}
+                        strokeDasharray="4 3"
+                        label={{
+                          value: `🚩 ${milestone.title}`,
+                          position: 'top',
+                          fontSize: 11,
+                          fill: '#b45309',
+                          fontWeight: 600,
+                        }}
+                      />
+                    ))}
+                    </ComposedChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
