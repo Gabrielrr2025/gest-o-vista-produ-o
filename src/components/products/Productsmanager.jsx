@@ -423,6 +423,32 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
               </div>
             </div>
 
+            {/* Preço de Venda + Custo */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">Preço de Venda (R$)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.price}
+                  onChange={(e) => setForm({ ...form, price: e.target.value })}
+                  placeholder="Ex: 0.50"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">Custo Unitário (R$)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.cost}
+                  onChange={(e) => setForm({ ...form, cost: e.target.value })}
+                  placeholder="Ex: 0.20"
+                />
+              </div>
+            </div>
+
             {/* Horário de Venda */}
             <div className="space-y-1.5">
               <Label className="text-sm font-medium">Horário de Venda</Label>
