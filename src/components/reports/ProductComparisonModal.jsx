@@ -138,9 +138,9 @@ export default function ProductComparisonModal({
 
   // Buscar marcos do produto
   const milestonesQuery = useQuery({
-    queryKey: ['milestones', initialProduct?.produto_id],
-    queryFn: () => base44.entities.ProductMilestone.filter({ product_id: initialProduct.produto_id }),
-    enabled: isOpen && !!initialProduct?.produto_id,
+    queryKey: ['milestones', productId],
+    queryFn: () => base44.entities.ProductMilestone.filter({ product_id: productId }),
+    enabled: isOpen && !!productId,
   });
   const milestones = milestonesQuery.data || [];
 
