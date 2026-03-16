@@ -377,8 +377,11 @@ export default function Reports() {
     // Processar VENDAS
     salesData.rawData.forEach(row => {
       try {
-        const dateStr = row.data.split('T')[0];
-        const fullDate = parseISO(row.data);
+        // Usar slice para evitar problemas de timezone (ex: "2026-01-01T00:00:00Z" -> "2026-01-01")
+        const dateStr = typeof row.data === 'string' ? row.data.slice(0, 10) : row.data;
+        // Criar data local sem conversão de timezone
+        const [year, monthNum, day] = dateStr.split('-').map(Number);
+        const fullDate = new Date(year, monthNum - 1, day);
         let groupKey;
         let groupLabel;
 
