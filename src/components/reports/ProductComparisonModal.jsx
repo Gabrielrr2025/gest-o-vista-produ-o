@@ -70,6 +70,14 @@ export default function ProductComparisonModal({
     totalQuantidade: lossesData.reduce((s, r) => s + parseFloat(r.quantidade || 0), 0),
   }), [lossesData]);
 
+  // Buscar marcos do produto (movido para cima pois chartData depende deles)
+  const milestonesQuery = useQuery({
+    queryKey: ['milestones', productId],
+    queryFn: () => base44.entities.ProductMilestone.filter({ product_id: productId }),
+    enabled: isOpen && !!productId,
+  });
+  const milestonesForChart = milestonesQuery.data || [];
+
   // Processar dados com agrupamento
   const chartData = useMemo(() => {
     if (salesData.length === 0 && lossesData.length === 0) return [];
