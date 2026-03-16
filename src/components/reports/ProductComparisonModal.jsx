@@ -39,97 +39,41 @@ export default function ProductComparisonModal({
   onClose, 
   initialProduct,
   initialDateRange,
+  rawSalesData = [],
+  rawLossesData = [],
   type = 'sales'
 }) {
-  const [dateRange, setDateRange] = useState(initialDateRange);
   const [groupBy, setGroupBy] = useState('day');
   const [compareEnabled, setCompareEnabled] = useState(false);
-  const [compareDateRange, setCompareDateRange] = useState(() => {
-    if (!initialDateRange?.from || !initialDateRange?.to) return null;
-    return {
-      from: subYears(initialDateRange.from, 1),
-      to: subYears(initialDateRange.to, 1)
-    };
-  });
 
-  // Buscar evolução do produto (VENDAS - período principal)
-  const salesEvolutionQuery = useQuery({
-    queryKey: ['productEvolution', 'sales', initialProduct?.produto_id, dateRange],
-    queryFn: async () => {
-      if (!initialProduct || !dateRange?.from || !dateRange?.to) return null;
+  // Filtrar rawData pelo produto selecionado
+  const productNome = (initialProduct?.produto_nome || '').toLowerCase().trim();
 
-      const response = await base44.functions.invoke('Getproductevolution', {
-        produtoId: initialProduct.produto_id,
-        startDate: format(dateRange.from, 'yyyy-MM-dd'),
-        endDate: format(dateRange.to, 'yyyy-MM-dd'),
-        type: 'sales'
-      });
-      
-      return response.data;
-    },
-    enabled: isOpen && !!initialProduct && !!dateRange?.from && !!dateRange?.to
-  });
+  const salesData = useMemo(() => {
+    if (!productNome) return [];
+    return rawSalesData.filter(r => (r.produto || '').toLowerCase().trim() === productNome);
+  }, [rawSalesData, productNome]);
 
-  // Buscar evolução do produto (PERDAS - período principal)
-  const lossesEvolutionQuery = useQuery({
-    queryKey: ['productEvolution', 'losses', initialProduct?.produto_id, dateRange],
-    queryFn: async () => {
-      if (!initialProduct || !dateRange?.from || !dateRange?.to) return null;
+  const lossesData = useMemo(() => {
+    if (!productNome) return [];
+    return rawLossesData.filter(r => (r.produto || '').toLowerCase().trim() === productNome);
+  }, [rawLossesData, productNome]);
 
-      const response = await base44.functions.invoke('Getproductevolution', {
-        produtoId: initialProduct.produto_id,
-        startDate: format(dateRange.from, 'yyyy-MM-dd'),
-        endDate: format(dateRange.to, 'yyyy-MM-dd'),
-        type: 'losses'
-      });
-      
-      return response.data;
-    },
-    enabled: isOpen && !!initialProduct && !!dateRange?.from && !!dateRange?.to
-  });
+  // Totais
+  const salesStats = useMemo(() => ({
+    totalValor: salesData.reduce((s, r) => s + parseFloat(r.valor_reais || 0), 0),
+    totalQuantidade: salesData.reduce((s, r) => s + parseFloat(r.quantidade || 0), 0),
+  }), [salesData]);
 
-  // Buscar evolução do produto (VENDAS - período de comparação)
-  const compareSalesQuery = useQuery({
-    queryKey: ['productEvolution', 'sales', initialProduct?.produto_id, compareDateRange, 'compare'],
-    queryFn: async () => {
-      if (!initialProduct || !compareDateRange?.from || !compareDateRange?.to) return null;
-
-      const response = await base44.functions.invoke('Getproductevolution', {
-        produtoId: initialProduct.produto_id,
-        startDate: format(compareDateRange.from, 'yyyy-MM-dd'),
-        endDate: format(compareDateRange.to, 'yyyy-MM-dd'),
-        type: 'sales'
-      });
-      
-      return response.data;
-    },
-    enabled: isOpen && !!initialProduct && compareEnabled && !!compareDateRange?.from && !!compareDateRange?.to
-  });
-
-  // Buscar evolução do produto (PERDAS - período de comparação)
-  const compareLossesQuery = useQuery({
-    queryKey: ['productEvolution', 'losses', initialProduct?.produto_id, compareDateRange, 'compare'],
-    queryFn: async () => {
-      if (!initialProduct || !compareDateRange?.from || !compareDateRange?.to) return null;
-
-      const response = await base44.functions.invoke('Getproductevolution', {
-        produtoId: initialProduct.produto_id,
-        startDate: format(compareDateRange.from, 'yyyy-MM-dd'),
-        endDate: format(compareDateRange.to, 'yyyy-MM-dd'),
-        type: 'losses'
-      });
-      
-      return response.data;
-    },
-    enabled: isOpen && !!initialProduct && compareEnabled && !!compareDateRange?.from && !!compareDateRange?.to
-  });
+  const lossesStats = useMemo(() => ({
+    totalValor: lossesData.reduce((s, r) => s + parseFloat(r.valor_reais || 0), 0),
+    totalQuantidade: lossesData.reduce((s, r) => s + parseFloat(r.quantidade || 0), 0),
+  }), [lossesData]);
 
   // Processar dados com agrupamento
   const chartData = useMemo(() => {
-    const salesData = salesEvolutionQuery.data?.data?.evolution || salesEvolutionQuery.data?.evolution || [];
-    const lossesData = lossesEvolutionQuery.data?.data?.evolution || lossesEvolutionQuery.data?.evolution || [];
-    const compareSalesData = compareEnabled ? (compareSalesQuery.data?.data?.evolution || compareSalesQuery.data?.evolution || []) : [];
-    const compareLossesData = compareEnabled ? (compareLossesQuery.data?.data?.evolution || compareLossesQuery.data?.evolution || []) : [];
+    const compareSalesData = [];
+    const compareLossesData = [];
 
     if (salesData.length === 0) return [];
 
