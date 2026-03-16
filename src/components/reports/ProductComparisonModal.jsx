@@ -43,6 +43,9 @@ export default function ProductComparisonModal({
 }) {
   const [groupBy, setGroupBy] = useState('day');
 
+  // Normalizar produto_id (FavoriteProduct usa product_id, outros usam produto_id)
+  const productId = initialProduct?.produto_id || initialProduct?.product_id;
+
   // Filtrar rawData pelo produto selecionado
   const productNome = (initialProduct?.produto_nome || '').toLowerCase().trim();
 
