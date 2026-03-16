@@ -11,6 +11,7 @@ import * as XLSX from 'xlsx';
 
 export default function Products() {
   const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState('planejamento');
 
   // Buscar produtos do Neon via function
   const { data: productsData, isLoading } = useQuery({
