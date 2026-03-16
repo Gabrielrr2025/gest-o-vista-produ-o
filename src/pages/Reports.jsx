@@ -546,16 +546,24 @@ export default function Reports() {
           <h1 className="text-2xl font-bold text-gray-900">Relatórios de Vendas</h1>
           <p className="text-gray-500 mt-1">Análise integrada de vendas e perdas</p>
         </div>
-        {salesData && (
-          <Button 
-            onClick={handleExportExcel} 
-            size="lg" 
-            className="shadow-md bg-green-600 hover:bg-green-700 text-white"
-          >
-            <FileSpreadsheet className="w-5 h-5 mr-2" />
-            Exportar Excel
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <FavoriteProductsPanel onProductClick={(id, name) => {
+            const productData = salesData?.salesByProduct?.find(p => p.produto_id === id) ||
+              { produto_id: id, produto_nome: name };
+            setComparisonInitialProduct(productData);
+            setComparisonModalOpen(true);
+          }} />
+          {salesData && (
+            <Button 
+              onClick={handleExportExcel} 
+              size="lg" 
+              className="shadow-md bg-green-600 hover:bg-green-700 text-white"
+            >
+              <FileSpreadsheet className="w-5 h-5 mr-2" />
+              Exportar Excel
+            </Button>
+          )}
+        </div>
       </div>
 
 
