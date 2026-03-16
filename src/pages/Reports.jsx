@@ -28,6 +28,7 @@ import SectorDistributionChart from "../components/reports/SectorDistributionCha
 import SectorEvolutionChart from "../components/reports/SectorEvolutionChart";
 import ProductsPieChart from "../components/reports/ProductsPieChart";
 import ProductComparisonModal from "../components/reports/ProductComparisonModal";
+import FavoriteProductsPanel from "../components/reports/FavoriteProductsPanel";
 
 export default function Reports() {
   const [hasAccess, setHasAccess] = useState(false);
