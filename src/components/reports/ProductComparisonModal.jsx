@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { X, TrendingUp, TrendingDown } from "lucide-react";
+import { X, TrendingDown } from "lucide-react";
 import { format, getDay, getWeek } from "date-fns";
 import { Flag } from "lucide-react";
 import {
