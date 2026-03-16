@@ -552,8 +552,10 @@ export default function Reports() {
         </div>
         <div className="flex items-center gap-2">
           <FavoriteProductsPanel onProductClick={(id, name) => {
-            const productData = salesData?.salesByProduct?.find(p => p.produto_id === id) ||
-              { produto_id: id, produto_nome: name };
+            // Buscar em salesByProduct primeiro (tem dados do período atual)
+            const found = salesData?.salesByProduct?.find(p => p.produto_id === id)
+              || salesData?.salesBySectorProduct?.find(p => p.produto_id === id);
+            const productData = found || { produto_id: id, produto_nome: name, setor: '', unidade: 'un', total_valor: 0, total_quantidade: 0 };
             setComparisonInitialProduct(productData);
             setComparisonModalOpen(true);
           }} />
