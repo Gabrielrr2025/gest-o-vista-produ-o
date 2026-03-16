@@ -4,12 +4,13 @@ import { Badge } from "@/components/ui/badge";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 
 const COLORS = [
-  '#3b82f6', // Azul
-  '#f59e0b', // Laranja
-  '#22c55e', // Verde
-  '#ef4444', // Vermelho
-  '#a855f7', // Roxo
-  '#64748b'  // Cinza (Outros)
+  '#2563eb', // Azul vivo
+  '#dc2626', // Vermelho
+  '#16a34a', // Verde escuro
+  '#d97706', // Âmbar
+  '#7c3aed', // Violeta
+  '#0891b2', // Ciano
+  '#64748b', // Cinza (Outros)
 ];
 
 const CustomTooltip = ({ active, payload }) => {
