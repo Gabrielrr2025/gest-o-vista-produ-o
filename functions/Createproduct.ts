@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
 
     // Verificar se já existe produto com mesmo nome E setor
     const existing = await sql`
-      SELECT id, nome, setor, status FROM produtos 
+      SELECT codigo, nome, setor, status FROM produtos 
       WHERE LOWER(nome) = LOWER(${name}) 
       AND LOWER(setor) = LOWER(${sector})
     `;
@@ -42,18 +42,16 @@ Deno.serve(async (req) => {
     if (existing.length > 0) {
       // Se o produto existe mas está INATIVO, reativar
       if (existing[0].status === 'inativo') {
-        console.log(`♻️ Reativando produto "${name}" (${sector}) - ID ${existing[0].id}`);
+        console.log(`♻️ Reativando produto "${name}" (${sector}) - codigo ${existing[0].codigo}`);
         const reactivated = await sql`
           UPDATE produtos 
           SET status = 'ativo', 
-              codigo = ${code || null},
               unidade = ${unit || 'UN'},
               rendimento = ${recipe_yield || 1},
               dias_producao = ${JSON.stringify(production_days || [])},
               horario_fabricacao = ${manufacturing_time || null},
-              horario_venda = ${sale_time || null},
-              updated_at = NOW()
-          WHERE id = ${existing[0].id}
+              horario_venda = ${sale_time || null}
+          WHERE codigo = ${existing[0].codigo}
           RETURNING *
         `;
         const react = reactivated[0];
@@ -61,7 +59,7 @@ Deno.serve(async (req) => {
           success: true,
           reactivated: true,
           product: {
-            id: react.id,
+            id: react.codigo,
             name: react.nome,
             code: react.codigo,
             sector: react.setor,
@@ -76,17 +74,17 @@ Deno.serve(async (req) => {
       }
 
       // Se está ativo, é duplicata real
-      console.log(`⚠️ Produto "${name}" (${sector}) já existe com ID ${existing[0].id}`);
+      console.log(`⚠️ Produto "${name}" (${sector}) já existe com codigo ${existing[0].codigo}`);
       return Response.json({ 
         error: `Produto "${name}" no setor "${sector}" já existe`,
-        existingId: existing[0].id
+        existingId: existing[0].codigo
       }, { status: 409 });
     }
 
     // Verificar se código já existe (se fornecido)
-    if (code && code.trim()) {
+    if (code && String(code).trim()) {
       const existingCode = await sql`
-        SELECT id, codigo FROM produtos WHERE LOWER(codigo) = LOWER(${code.trim()})
+        SELECT codigo FROM produtos WHERE codigo = ${code}
       `;
 
       if (existingCode.length > 0) {
