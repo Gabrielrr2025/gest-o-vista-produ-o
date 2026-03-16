@@ -3,12 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 
 const COLORS = [
-  '#f59e0b', // Amber (Padaria)
-  '#ec4899', // Pink (Confeitaria)
-  '#f97316', // Orange (Salgados)
-  '#3b82f6', // Blue (Frios)
-  '#22c55e', // Green (Restaurante)
-  '#a855f7'  // Purple (Minimercado)
+  '#2563eb', // Azul vivo (Padaria)
+  '#16a34a', // Verde escuro (Confeitaria)
+  '#dc2626', // Vermelho (Salgados)
+  '#d97706', // Âmbar (Frios)
+  '#7c3aed', // Violeta (Restaurante)
+  '#0891b2', // Ciano (Minimercado)
 ];
 
 const CustomTooltip = ({ active, payload }) => {
