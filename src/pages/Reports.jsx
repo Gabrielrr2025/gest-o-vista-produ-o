@@ -439,8 +439,9 @@ export default function Reports() {
     if (lossesData?.rawData) {
       lossesData.rawData.forEach(row => {
         try {
-          const dateStr = row.data.split('T')[0];
-          const fullDate = parseISO(row.data);
+          const dateStr = typeof row.data === 'string' ? row.data.slice(0, 10) : row.data;
+          const [yr, mo, dy] = dateStr.split('-').map(Number);
+          const fullDate = new Date(yr, mo - 1, dy);
           let groupKey;
 
           switch (timeFilter) {
