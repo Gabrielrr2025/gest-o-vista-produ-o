@@ -1177,6 +1177,8 @@ export default function Reports() {
           onClose={() => setComparisonModalOpen(false)}
           initialProduct={comparisonInitialProduct}
           initialDateRange={dateRange}
+          rawSalesData={salesData?.rawData || []}
+          rawLossesData={lossesData?.rawData || []}
           type="sales"
         />
       )}
