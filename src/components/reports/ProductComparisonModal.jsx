@@ -225,6 +225,27 @@ export default function ProductComparisonModal({
     return chartArray;
   }, [salesEvolutionQuery.data, lossesEvolutionQuery.data, compareSalesQuery.data, compareLossesQuery.data, groupBy, compareEnabled]);
 
+  // Buscar marcos do produto
+  const milestonesQuery = useQuery({
+    queryKey: ['milestones', initialProduct?.produto_id],
+    queryFn: () => base44.entities.ProductMilestone.filter({ product_id: initialProduct.produto_id }),
+    enabled: isOpen && !!initialProduct?.produto_id,
+  });
+  const milestones = milestonesQuery.data || [];
+
+  // Calcular quais marcos caem dentro do período atual e no agrupamento 'day'
+  const milestoneLabels = useMemo(() => {
+    if (groupBy !== 'day' || !milestones.length || !dateRange?.from || !dateRange?.to) return {};
+    const result = {};
+    milestones.forEach(m => {
+      const d = m.date?.split('T')[0];
+      if (!d) return;
+      const label = format(parseISO(d), 'dd/MM');
+      result[label] = m;
+    });
+    return result;
+  }, [milestones, groupBy, dateRange]);
+
   const isLoading = salesEvolutionQuery.isLoading || lossesEvolutionQuery.isLoading;
 
   const salesStats = salesEvolutionQuery.data?.data?.stats || { totalValor: salesEvolutionQuery.data?.totalValue || 0, totalQuantidade: salesEvolutionQuery.data?.totalQty || 0 };
