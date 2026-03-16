@@ -319,8 +319,8 @@ Deno.serve(async (req) => {
       const avgLosses   = mean(perdasBrutas);
       const avgLossRate = taxaPerdaFinal * 100;
 
-      const currentSales  = parseFloat(currentWeekSales.find((s: any) => String(s.produto_id) === String(pid))?.quantidade_total ?? '0');
-      const currentLosses = parseFloat(currentWeekLoss.find( (l: any) => String(l.produto_id) === String(pid))?.quantidade_total ?? '0');
+      const currentSales  = parseFloat(currentWeekSales.find(matchRecord)?.quantidade_total ?? '0');
+      const currentLosses = parseFloat(currentWeekLoss.find(matchRecord)?.quantidade_total ?? '0');
       const currentLossRate = (currentSales + currentLosses) > 0
         ? (currentLosses / (currentSales + currentLosses)) * 100 : 0;
 
