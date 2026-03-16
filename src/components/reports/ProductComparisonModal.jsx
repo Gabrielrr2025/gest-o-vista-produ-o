@@ -169,7 +169,7 @@ export default function ProductComparisonModal({
       result[label] = m;
     });
     return result;
-  }, [milestones, groupBy]);
+  }, [milestonesForChart, groupBy]);
 
   if (!initialProduct) return null;
 
