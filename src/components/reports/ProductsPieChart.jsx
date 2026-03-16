@@ -159,14 +159,14 @@ export default function ProductsPieChart({
       <CardContent>
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
-            <PieChart margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
+            <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
               <Pie
                 data={chartData}
                 cx="38%"
                 cy="50%"
-                labelLine={true}
+                labelLine={false}
                 label={renderCustomLabel}
-                outerRadius={85}
+                outerRadius={75}
                 fill="#8884d8"
                 dataKey="value"
               >
