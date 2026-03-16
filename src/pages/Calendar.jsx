@@ -431,6 +431,47 @@ export default function Calendar() {
           </CardContent>
         </Card>
 
+        {/* LISTA DE TODOS OS EVENTOS DO ANO */}
+        {yearEvents.length > 0 && (
+          <Card className="border-slate-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-bold text-slate-800">
+                Todos os Eventos — {currentYear}
+                <span className="ml-2 text-sm font-normal text-slate-500">({yearEvents.length} eventos)</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+                {[...yearEvents]
+                  .sort((a, b) => a.date.localeCompare(b.date))
+                  .map(ev => {
+                    const color = EVENT_COLORS[ev.type] || DEFAULT_COLOR;
+                    const impacto = parseFloat(ev.impact_percentage ?? 0);
+                    return (
+                      <div
+                        key={ev.id}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors"
+                        onClick={() => { setSelectedEvent(ev); setSelectedDate(null); setShowDialog(true); }}
+                      >
+                        <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${color.dot}`} />
+                        <span className="text-sm font-medium text-slate-500 min-w-[80px]">
+                          {format(parseISO(ev.date), "dd/MM/yyyy")}
+                        </span>
+                        <span className="text-sm font-semibold text-slate-800 flex-1">{ev.name}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full border ${color.badge}`}>{ev.type}</span>
+                        {impacto !== 0 && (
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${impacto > 0 ? 'bg-green-100 text-green-700 border-green-200' : 'bg-red-100 text-red-700 border-red-200'}`}>
+                            {impacto > 0 ? '+' : ''}{impacto}%
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {showDialog && (
           <CalendarEventDialog
             event={selectedEvent}
