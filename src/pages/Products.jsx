@@ -103,78 +103,44 @@ export default function Products() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Produtos</h1>
-          <p className="text-sm text-gray-500 mt-1">Gerencie o catálogo de produtos e precificação</p>
+          <p className="text-sm text-gray-500 mt-1">Gerencie o catálogo de produtos e planejamento de produção</p>
         </div>
-        {activeTab === 'planejamento' && (
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={handleExportExcel}>
-              <Download className="w-4 h-4 mr-2" />
-              Exportar Excel
-            </Button>
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handleExportExcel}>
+            <Download className="w-4 h-4 mr-2" />
+            Exportar Excel
+          </Button>
+        </div>
       </div>
 
-      {/* Abas */}
-      <div className="flex gap-1 border-b border-slate-200">
-        <button
-          onClick={() => setActiveTab('planejamento')}
-          className={`px-5 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'planejamento'
-              ? 'border-blue-600 text-blue-700'
-              : 'border-transparent text-slate-500 hover:text-slate-700'
-          }`}
-        >
-          Planejamento de Produção
-        </button>
-        <button
-          onClick={() => setActiveTab('catalogo')}
-          className={`px-5 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'catalogo'
-              ? 'border-blue-600 text-blue-700'
-              : 'border-transparent text-slate-500 hover:text-slate-700'
-          }`}
-        >
-          Catálogo + Precificação (ABC)
-        </button>
-      </div>
-
-      {activeTab === 'planejamento' && (
-        <>
-          {/* Produtos não mapeados da VIEW SQL */}
-          {sqlLoading && (
-            <div className="text-center py-8 text-slate-500">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900 mx-auto mb-2"></div>
-              Buscando produtos não mapeados...
-            </div>
-          )}
-
-          {!sqlLoading && hasSqlData && (
-            <UnmappedProductsSuggestion
-              sqlData={sqlData}
-              products={products}
-              onProductCreated={handleRefresh}
-            />
-          )}
-
-          {sqlError && (
-            <div className="text-center py-8 text-red-500">
-              Erro ao buscar produtos não mapeados: {sqlError.message}
-            </div>
-          )}
-
-          <ProductsManager
-            products={products}
-            onRefresh={handleRefresh}
-            showAddButton={true}
-            isLoading={isLoading}
-          />
-        </>
+      {/* Produtos não mapeados da VIEW SQL */}
+      {sqlLoading && (
+        <div className="text-center py-8 text-slate-500">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900 mx-auto mb-2"></div>
+          Buscando produtos não mapeados...
+        </div>
       )}
 
-      {activeTab === 'catalogo' && (
-        <SQLProductsCatalog />
+      {!sqlLoading && hasSqlData && (
+        <UnmappedProductsSuggestion
+          sqlData={sqlData}
+          products={products}
+          onProductCreated={handleRefresh}
+        />
       )}
+
+      {sqlError && (
+        <div className="text-center py-8 text-red-500">
+          Erro ao buscar produtos não mapeados: {sqlError.message}
+        </div>
+      )}
+
+      <ProductsManager
+        products={products}
+        onRefresh={handleRefresh}
+        showAddButton={true}
+        isLoading={isLoading}
+      />
     </div>
   );
 }
