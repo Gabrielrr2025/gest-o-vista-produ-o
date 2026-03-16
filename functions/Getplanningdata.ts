@@ -111,31 +111,42 @@ Deno.serve(async (req) => {
       unidade: p.unit || 'unidade',
       status: 'ativo',
       dias_producao: p.production_days || [],
+      code: p.code,
     }));
 
-    const salesRecencia = await sql`
-      SELECT v.produto_id, v.data::text as data, v.quantidade
-      FROM vendas v
-      WHERE v.data >= ${recStartStr} AND v.data < ${startDate}
-    `;
-    const lossesRecencia = await sql`
-      SELECT pe.produto_id, pe.data::text as data, pe.quantidade
-      FROM perdas pe
-      WHERE pe.data >= ${recStartStr} AND pe.data < ${startDate}
-    `;
+    // Buscar histórico da VIEW por nome do produto
+    const viewHistorico = await sql(
+      `SELECT produto, produto_codigo, setor, quantidade, data::text as data, tipo
+       FROM vw_movimentacoes
+       WHERE data >= $1 AND data < $2
+       ORDER BY data`,
+      [recStartStr, startDate]
+    );
 
-    const currentWeekSales = await sql`
-      SELECT v.produto_id, SUM(v.quantidade) as quantidade_total
-      FROM vendas v
-      WHERE v.data >= ${startDate} AND v.data <= ${endDate}
-      GROUP BY v.produto_id
-    `;
-    const currentWeekLoss = await sql`
-      SELECT pe.produto_id, SUM(pe.quantidade) as quantidade_total
-      FROM perdas pe
-      WHERE pe.data >= ${startDate} AND pe.data <= ${endDate}
-      GROUP BY pe.produto_id
-    `;
+    const viewCurrentWeek = await sql(
+      `SELECT produto, produto_codigo, setor, SUM(quantidade) as quantidade_total, tipo
+       FROM vw_movimentacoes
+       WHERE data >= $1 AND data <= $2
+       GROUP BY produto, produto_codigo, setor, tipo`,
+      [startDate, endDate]
+    );
+
+    // Converter para formato esperado: indexado por nome do produto
+    const salesRecencia = viewHistorico
+      .filter((r) => (r.tipo || '').toLowerCase() === 'venda')
+      .map((r) => ({ produto_nome: r.produto, produto_codigo: r.produto_codigo, data: r.data, quantidade: r.quantidade }));
+
+    const lossesRecencia = viewHistorico
+      .filter((r) => (r.tipo || '').toLowerCase() === 'perda')
+      .map((r) => ({ produto_nome: r.produto, produto_codigo: r.produto_codigo, data: r.data, quantidade: r.quantidade }));
+
+    const currentWeekSales = viewCurrentWeek
+      .filter((r) => (r.tipo || '').toLowerCase() === 'venda')
+      .map((r) => ({ produto_nome: r.produto, produto_codigo: r.produto_codigo, quantidade_total: r.quantidade_total }));
+
+    const currentWeekLoss = viewCurrentWeek
+      .filter((r) => (r.tipo || '').toLowerCase() === 'perda')
+      .map((r) => ({ produto_nome: r.produto, produto_codigo: r.produto_codigo, quantidade_total: r.quantidade_total }));
 
     // Buscar eventos do calendário via Base44 SDK (entidade CalendarEvent)
     let allCalendarEvents: any[] = [];
