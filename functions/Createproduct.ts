@@ -94,11 +94,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Criar produto
+    // Criar produto — a tabela produtos usa 'codigo' como PK (não tem coluna 'id')
     const result = await sql`
       INSERT INTO produtos (
         nome,
-        codigo,
         setor,
         unidade,
         rendimento,
@@ -108,7 +107,6 @@ Deno.serve(async (req) => {
         horario_venda
       ) VALUES (
         ${name},
-        ${code || null},
         ${sector},
         ${unit || 'UN'},
         ${recipe_yield || 1},
@@ -125,7 +123,7 @@ Deno.serve(async (req) => {
     // Formatar resposta
     const created = result[0];
     const formattedProduct = {
-      id: created.id,
+      id: created.codigo,
       name: created.nome,
       code: created.codigo,
       sector: created.setor,
