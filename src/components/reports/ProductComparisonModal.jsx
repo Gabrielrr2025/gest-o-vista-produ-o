@@ -42,7 +42,6 @@ export default function ProductComparisonModal({
   type = 'sales'
 }) {
   const [groupBy, setGroupBy] = useState('day');
-  const [compareEnabled, setCompareEnabled] = useState(false);
 
   // Filtrar rawData pelo produto selecionado
   const productNome = (initialProduct?.produto_nome || '').toLowerCase().trim();
