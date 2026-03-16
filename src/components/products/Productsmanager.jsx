@@ -35,9 +35,11 @@ const emptyForm = {
   recipe_yield: 1,
   production_days: [],
   active: true,
-  manufacturing_time: "",   // horário de fabricação (time)
-  sale_time: "",            // horário de venda (time)
-  production_time: "",      // tempo de preparo em minutos
+  manufacturing_time: "",
+  sale_time: "",
+  production_time: "",
+  price: "",
+  cost: "",
 };
 
 export default function ProductsManager({ products = [], onRefresh, showAddButton = true, isLoading = false }) {
@@ -86,6 +88,8 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
       manufacturing_time: product.manufacturing_time || "",
       sale_time: product.sale_time || "",
       production_time: product.production_time || "",
+      price: product.price != null ? String(product.price) : "",
+      cost: product.cost != null ? String(product.cost) : "",
     });
     setDialogOpen(true);
   };
@@ -125,6 +129,8 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
           active: form.active,
           manufacturing_time: form.manufacturing_time || null,
           sale_time: form.sale_time || null,
+          price: form.price !== "" ? parseFloat(form.price) : null,
+          cost: form.cost !== "" ? parseFloat(form.cost) : null,
         });
         if (data?.error) throw new Error(data.error);
         toast.success("Produto atualizado!");
@@ -139,6 +145,8 @@ export default function ProductsManager({ products = [], onRefresh, showAddButto
           active: form.active,
           manufacturing_time: form.manufacturing_time || null,
           sale_time: form.sale_time || null,
+          price: form.price !== "" ? parseFloat(form.price) : null,
+          cost: form.cost !== "" ? parseFloat(form.cost) : null,
         });
         if (data?.error) throw new Error(data.error);
         toast.success("Produto criado com sucesso!");
