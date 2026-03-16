@@ -118,6 +118,8 @@ Deno.serve(async (req) => {
         })),
         rawData: rawData.map(r => ({
           data: r.data,
+          produto: r.produto,
+          setor: r.setor,
           valor_reais: parseFloat(r.valor_reais || 0),
           quantidade: parseFloat(r.quantidade || 0)
         })),
