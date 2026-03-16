@@ -306,57 +306,21 @@ export default function ProductComparisonModal({
                     )}
                   </div>
 
-                  {/* Controles em linha */}
-                  <div className="flex items-center gap-3 flex-wrap">
-                    {/* Período */}
-                    <div className="flex items-center gap-2">
-                      <Label className="text-sm font-medium text-slate-700 whitespace-nowrap">Período:</Label>
-                      <div className="relative z-50">
-                        <DateRangePicker 
-                          value={dateRange}
-                          onChange={setDateRange}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Agrupamento */}
-                    <div className="flex items-center gap-2">
-                      <Label className="text-sm font-medium text-slate-700 whitespace-nowrap">Agrupar:</Label>
-                      <Select value={groupBy} onValueChange={setGroupBy}>
-                        <SelectTrigger className="w-40 h-9">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="z-[100]">
-                          {GROUPING_OPTIONS.map(option => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Comparação */}
-                    <div className="flex items-center gap-2">
-                      <Switch
-                        id="compare"
-                        checked={compareEnabled}
-                        onCheckedChange={setCompareEnabled}
-                      />
-                      <Label htmlFor="compare" className="text-sm font-medium text-slate-700 cursor-pointer whitespace-nowrap">
-                        Comparar
-                      </Label>
-                    </div>
-
-                    {/* Período de comparação */}
-                    {compareEnabled && (
-                      <div className="relative z-50">
-                        <DateRangePicker 
-                          value={compareDateRange}
-                          onChange={setCompareDateRange}
-                        />
-                      </div>
-                    )}
+                  {/* Agrupamento */}
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm font-medium text-slate-700 whitespace-nowrap">Agrupar:</Label>
+                    <Select value={groupBy} onValueChange={setGroupBy}>
+                      <SelectTrigger className="w-40 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="z-[100]">
+                        {GROUPING_OPTIONS.map(option => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
