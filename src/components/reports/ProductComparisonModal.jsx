@@ -128,13 +128,26 @@ export default function ProductComparisonModal({
     groupData(salesData, 'vendas', 'valor_reais');
     groupData(lossesData, 'perdas', 'valor_reais');
 
+    // Se agrupamento por dia, garantir que dias de marcos existam no eixo mesmo sem dados
+    if (groupBy === 'day') {
+      (milestonesForChart || []).forEach(m => {
+        const d = m.date?.split('T')[0];
+        if (!d) return;
+        const [y, mo, dy] = d.split('-').map(Number);
+        const fullDate = new Date(y, mo - 1, dy);
+        if (!dataByGroup[d]) {
+          dataByGroup[d] = { key: d, label: format(fullDate, 'dd/MM'), vendas: 0, perdas: 0 };
+        }
+      });
+    }
+
     return Object.values(dataByGroup)
       .map(group => ({ data: group.label, sortKey: group.key, vendas: group.vendas, perdas: group.perdas }))
       .sort((a, b) => {
         if (groupBy === 'weekday' || groupBy === 'hour') return parseInt(a.sortKey) - parseInt(b.sortKey);
         return a.sortKey.localeCompare(b.sortKey);
       });
-  }, [salesData, lossesData, groupBy]);
+  }, [salesData, lossesData, groupBy, milestonesForChart]);
 
   // Buscar marcos do produto
   const milestonesQuery = useQuery({
