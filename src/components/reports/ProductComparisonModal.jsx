@@ -75,78 +75,64 @@ export default function ProductComparisonModal({
     const compareSalesData = [];
     const compareLossesData = [];
 
-    if (salesData.length === 0) return [];
+    if (salesData.length === 0 && lossesData.length === 0) return [];
 
     const dataByGroup = {};
 
     // Função auxiliar para agrupar dados
-    const groupData = (data, targetMap, valueKey) => {
+    const groupData = (data, valueKey, valorField) => {
       data.forEach(row => {
         try {
-          const dateStr = row.data.split('T')[0];
-          const fullDate = parseISO(row.data);
+          const dateStr = (typeof row.data === 'string' ? row.data : '').slice(0, 10);
+          const [year, month, day] = dateStr.split('-').map(Number);
+          const fullDate = new Date(year, month - 1, day);
           let groupKey;
           let groupLabel;
 
           switch (groupBy) {
             case 'hour':
-              const hour = getHours(fullDate);
-              groupKey = `${hour}`;
-              groupLabel = `${hour.toString().padStart(2, '0')}h`;
+              groupKey = '0';
+              groupLabel = '00h';
               break;
-
             case 'day':
               groupKey = dateStr;
               groupLabel = format(fullDate, 'dd/MM');
               break;
-
             case 'weekday':
               const weekday = getDay(fullDate);
               groupKey = `${weekday}`;
               groupLabel = WEEKDAY_NAMES[weekday];
               break;
-
             case 'week':
               const week = getWeek(fullDate, { weekStartsOn: 1 });
               groupKey = `${week}`;
               groupLabel = `Semana ${week}`;
               break;
-
             case 'month':
-              const month = format(fullDate, 'yyyy-MM');
-              groupKey = month;
+              groupKey = dateStr.slice(0, 7);
               groupLabel = format(fullDate, 'MMM/yy');
               break;
-
             default:
               groupKey = dateStr;
               groupLabel = format(fullDate, 'dd/MM');
           }
 
           if (!dataByGroup[groupKey]) {
-            dataByGroup[groupKey] = {
-              key: groupKey,
-              label: groupLabel,
-              vendas: 0,
-              perdas: 0,
-              compareVendas: 0,
-              comparePerdas: 0
-            };
+            dataByGroup[groupKey] = { key: groupKey, label: groupLabel, vendas: 0, perdas: 0, compareVendas: 0, comparePerdas: 0 };
           }
 
-          dataByGroup[groupKey][valueKey] += parseFloat(row.valor || row.total_valor || 0);
+          dataByGroup[groupKey][valueKey] += parseFloat(row[valorField] || 0);
         } catch (error) {
-          console.error('Erro ao processar dados:', error);
+          // ignorar linha inválida
         }
       });
     };
 
-    // Processar todos os dados
-    groupData(salesData, dataByGroup, 'vendas');
-    groupData(lossesData, dataByGroup, 'perdas');
+    groupData(salesData, 'vendas', 'valor_reais');
+    groupData(lossesData, 'perdas', 'valor_reais');
     if (compareEnabled) {
-      groupData(compareSalesData, dataByGroup, 'compareVendas');
-      groupData(compareLossesData, dataByGroup, 'comparePerdas');
+      groupData(compareSalesData, 'compareVendas', 'valor_reais');
+      groupData(compareLossesData, 'comparePerdas', 'valor_reais');
     }
 
     // Converter para array e ordenar
