@@ -186,8 +186,10 @@ Deno.serve(async (req) => {
     // 4. Processar por produto
     const productAnalysis = products.map((product: any) => {
       const pid = product.id;
+      const nome = (product.nome || '').toLowerCase().trim();
+      const code = product.code ? String(product.code) : null;
 
-      // dias_producao vem diretamente do SQL (salvo pelo Updateproduct/Createproduct)
+      // dias_producao já vem como array da entidade Base44
       let diasProducao: string[] = [];
       try {
         if (product.dias_producao) {
@@ -197,19 +199,14 @@ Deno.serve(async (req) => {
         }
       } catch { diasProducao = []; }
 
-      const prodSalesRec  = salesRecencia.filter( (s: any) => String(s.produto_id) === String(pid));
-      const prodLossesRec = lossesRecencia.filter((l: any) => String(l.produto_id) === String(pid));
+      // Match por código ou nome
+      const matchRecord = (r: any) => {
+        if (code && r.produto_codigo && String(r.produto_codigo) === code) return true;
+        return (r.produto_nome || '').toLowerCase().trim() === nome;
+      };
 
-      // Debug: log para o primeiro produto
-      if (pid === products[0]?.id) {
-        console.log(`🔍 Debug produto ${product.nome} (ID ${pid}):`);
-        console.log(`   salesRecencia total: ${salesRecencia.length}, filtrado: ${prodSalesRec.length}`);
-        console.log(`   lossesRecencia total: ${lossesRecencia.length}, filtrado: ${prodLossesRec.length}`);
-        if (salesRecencia.length > 0) {
-          console.log(`   Tipo produto_id no SQL: ${typeof salesRecencia[0].produto_id}, valor: ${salesRecencia[0].produto_id}`);
-          console.log(`   Tipo pid: ${typeof pid}, valor: ${pid}`);
-        }
-      }
+      const prodSalesRec  = salesRecencia.filter(matchRecord);
+      const prodLossesRec = lossesRecencia.filter(matchRecord);
 
       // Agrupar por semana
       type WeekData = { sales: number; losses: number; hasData: boolean; pesoCalendario: number; };
