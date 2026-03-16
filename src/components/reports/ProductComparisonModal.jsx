@@ -127,30 +127,14 @@ export default function ProductComparisonModal({
 
     groupData(salesData, 'vendas', 'valor_reais');
     groupData(lossesData, 'perdas', 'valor_reais');
-    if (compareEnabled) {
-      groupData(compareSalesData, 'compareVendas', 'valor_reais');
-      groupData(compareLossesData, 'comparePerdas', 'valor_reais');
-    }
 
-    // Converter para array e ordenar
-    const chartArray = Object.values(dataByGroup)
-      .map(group => ({
-        data: group.label,
-        sortKey: group.key,
-        vendas: group.vendas,
-        perdas: group.perdas,
-        compareVendas: group.compareVendas,
-        comparePerdas: group.comparePerdas
-      }))
+    return Object.values(dataByGroup)
+      .map(group => ({ data: group.label, sortKey: group.key, vendas: group.vendas, perdas: group.perdas }))
       .sort((a, b) => {
-        if (groupBy === 'weekday' || groupBy === 'hour') {
-          return parseInt(a.sortKey) - parseInt(b.sortKey);
-        }
+        if (groupBy === 'weekday' || groupBy === 'hour') return parseInt(a.sortKey) - parseInt(b.sortKey);
         return a.sortKey.localeCompare(b.sortKey);
       });
-
-    return chartArray;
-  }, [salesEvolutionQuery.data, lossesEvolutionQuery.data, compareSalesQuery.data, compareLossesQuery.data, groupBy, compareEnabled]);
+  }, [salesData, lossesData, groupBy]);
 
   // Buscar marcos do produto
   const milestonesQuery = useQuery({
