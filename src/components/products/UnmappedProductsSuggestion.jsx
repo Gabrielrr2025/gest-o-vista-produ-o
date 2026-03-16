@@ -47,7 +47,7 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
     });
 
     // Criar índices dos produtos cadastrados (tudo em lowercase + trim para comparação segura)
-    const normalize = (str) => (str || '').toLowerCase().trim().replace(/\s+/g, ' ');
+    const normalize = (str) => String(str || '').toLowerCase().trim().replace(/\s+/g, ' ');
     
     const registeredByCode = new Set(
       (products || []).filter(p => p.code).map(p => normalize(p.code))
