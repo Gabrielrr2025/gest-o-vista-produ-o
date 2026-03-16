@@ -25,10 +25,9 @@ Deno.serve(async (req) => {
       UPDATE produtos 
       SET 
         custo = ${custo != null ? parseFloat(custo) : null},
-        preco_venda = ${preco_venda != null ? parseFloat(preco_venda) : null},
-        updated_at = NOW()
-      WHERE codigo = ${String(codigo)}
-      RETURNING id, codigo, descricao, custo, preco_venda
+        preco_venda = ${preco_venda != null ? parseFloat(preco_venda) : null}
+      WHERE codigo = ${codigo}
+      RETURNING codigo, descricao, custo, preco_venda
     `;
 
     if (result.length === 0) {
