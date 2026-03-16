@@ -558,13 +558,7 @@ export default function Reports() {
         )}
       </div>
 
-      {/* Favoritos */}
-      <FavoriteProductsPanel onProductClick={(id, name) => {
-        const productData = salesData?.salesByProduct?.find(p => p.produto_id === id) ||
-          { produto_id: id, produto_nome: name };
-        setComparisonInitialProduct(productData);
-        setComparisonModalOpen(true);
-      }} />
+
 
       {/* Aviso perdas */}
       {!hasLossesData && salesData && (
