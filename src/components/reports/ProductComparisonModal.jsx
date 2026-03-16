@@ -353,27 +353,6 @@ export default function ProductComparisonModal({
                     />
                     <Legend iconType="circle" />
                     
-                    {/* Barras de comparação (se ativo) */}
-                    {compareEnabled && (
-                      <>
-                        <Bar 
-                          dataKey="compareVendas" 
-                          name="Vendas (comparação)" 
-                          fill="url(#colorCompareVendas)"
-                          radius={[8, 8, 0, 0]}
-                        />
-                        <Line 
-                          type="monotone" 
-                          dataKey="comparePerdas" 
-                          name="Perdas (comparação)" 
-                          stroke="#ef4444" 
-                          strokeWidth={2}
-                          strokeDasharray="5 5"
-                          dot={{ fill: '#ef4444', r: 3 }}
-                        />
-                      </>
-                    )}
-                    
                     {/* Dados principais */}
                     <Bar 
                       dataKey="vendas" 
