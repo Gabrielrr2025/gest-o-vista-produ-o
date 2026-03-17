@@ -820,7 +820,7 @@ export default function Planning() {
                 {/* SEÇÃO 1: Semana Atual */}
                 <div>
                   <h4 className="text-sm font-semibold text-slate-700 mb-3">
-                    Semana Atual
+                    Semana Passada
                   </h4>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between items-center">

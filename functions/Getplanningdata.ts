@@ -123,12 +123,24 @@ Deno.serve(async (req) => {
       [recStartStr, startDate]
     );
 
+    // Semana passada: segunda a domingo anteriores ao dia de hoje
+    const todayDate = new Date();
+    const dayOfWeek = todayDate.getDay(); // 0=dom, 1=seg...
+    // Domingo da semana passada = hoje - dayOfWeek - 0 (se hoje é seg, volta 1; se dom, volta 7)
+    const daysToLastSunday = dayOfWeek === 0 ? 7 : dayOfWeek;
+    const lastSunday = new Date(todayDate);
+    lastSunday.setDate(todayDate.getDate() - daysToLastSunday);
+    const lastMonday = new Date(lastSunday);
+    lastMonday.setDate(lastSunday.getDate() - 6);
+    const lastWeekStart = lastMonday.toISOString().split('T')[0];
+    const lastWeekEnd   = lastSunday.toISOString().split('T')[0];
+
     const viewCurrentWeek = await sql(
       `SELECT produto, produto_codigo, setor, SUM(quantidade) as quantidade_total, tipo
        FROM vw_movimentacoes
        WHERE data >= $1 AND data <= $2
        GROUP BY produto, produto_codigo, setor, tipo`,
-      [startDate, endDate]
+      [lastWeekStart, lastWeekEnd]
     );
 
     // Converter para formato esperado: indexado por nome do produto
