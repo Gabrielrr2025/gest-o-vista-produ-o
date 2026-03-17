@@ -27,19 +27,17 @@ Deno.serve(async (req) => {
 
     console.log(`📥 Buscando planejamento salvo: ${startDate} a ${endDate}`);
 
-    // Buscar todos os planejamentos da semana
+    // Buscar todos os planejamentos da semana (sem JOIN - produto_id é o ID da entidade Base44)
     const result = await sql`
       SELECT 
         p.id,
         p.produto_id,
-        p.data,
+        p.data::text as data,
         p.quantidade_planejada,
-        p.updated_at,
-        prod.nome as produto_nome
+        p.updated_at
       FROM planejamento p
-      JOIN produtos prod ON p.produto_id = prod.id
       WHERE p.data BETWEEN ${startDate} AND ${endDate}
-      ORDER BY p.data, prod.nome
+      ORDER BY p.data
     `;
 
     console.log(`✅ ${result.length} registros encontrados`);

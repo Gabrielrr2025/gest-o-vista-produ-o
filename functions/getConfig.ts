@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
       console.log(`⚙️ Buscando config: ${chave}`);
       
       const result = await sql`
-        SELECT chave, valor, descricao, updated_at
+        SELECT chave, valor, updated_at
         FROM configuracoes
         WHERE chave = ${chave}
         LIMIT 1
@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
     console.log('⚙️ Buscando todas as configurações');
     
     const result = await sql`
-      SELECT chave, valor, descricao, updated_at
+      SELECT chave, valor, updated_at
       FROM configuracoes
       ORDER BY chave
     `;
