@@ -234,7 +234,7 @@ export default function Reports() {
   const yearMonthlyAverage = useMemo(() => {
     const yearSales = yearSalesQuery.data?.data?.rawData || [];
     if (yearSales.length === 0) return 0;
-    const monthsWithData = new Set(yearSales.map(r => new Date(r.data).getMonth()));
+    const monthsWithData = new Set(yearSales.map(r => parseInt((typeof r.data === 'string' ? r.data : String(r.data)).slice(5, 7))));
     const activeMonths = monthsWithData.size || 1;
     return yearSalesTotal / activeMonths;
   }, [yearSalesQuery.data, yearSalesTotal]);
