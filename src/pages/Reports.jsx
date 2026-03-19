@@ -539,8 +539,9 @@ export default function Reports() {
     );
   }
 
-  const isLoadingPeriod = salesQuery.isLoading || lossesQuery.isLoading;
-  const isLoadingYear = yearSalesQuery.isLoading || yearLossesQuery.isLoading;
+  // Vendas são independentes de perdas — não bloquear a UI enquanto perdas carregam
+  const isLoadingPeriod = salesQuery.isLoading;
+  const isLoadingYear = yearSalesQuery.isLoading;
 
   return (
     <div className="space-y-8">
