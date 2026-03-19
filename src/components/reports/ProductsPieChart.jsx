@@ -27,7 +27,7 @@ const CustomTooltip = ({ active, payload }) => {
           </span>
         </p>
         <p className="text-sm text-slate-600">
-          Percentual: <span className="font-semibold text-slate-900">{data.payload.percent}%</span>
+          Percentual: <span className="font-semibold text-slate-900">{(data.payload.percent * 100).toFixed(1)}%</span>
         </p>
         
         {/* Se for "Outros", mostrar detalhamento */}
