@@ -5,93 +5,80 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
-
-    if (!user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await req.json();
-    const { 
-      startDate, 
-      endDate,
-      compareStartDate = null,
-      compareEndDate = null,
-      topN = 10
-    } = body;
+    const { startDate, endDate, compareStartDate = null, compareEndDate = null, topN = 10 } = body;
 
     if (!startDate || !endDate) {
       return Response.json({ error: 'startDate e endDate obrigatórios' }, { status: 400 });
     }
 
     const connectionString = Deno.env.get('POSTGRES_CONNECTION_URL');
-    if (!connectionString) {
-      return Response.json({ error: 'POSTGRES_CONNECTION_URL não configurada' }, { status: 500 });
-    }
+    if (!connectionString) return Response.json({ error: 'POSTGRES_CONNECTION_URL não configurada' }, { status: 500 });
 
     const sql = neon(connectionString);
     console.log(`📊 Relatório de Vendas: ${startDate} a ${endDate}`);
 
-    // Estrutura atual da tabela vendas:
-    // id, data_hora, data (date), hora, sequencial,
-    // produto_codigo, produto_descricao, produto_unidade,
-    // departamento_codigo, departamento_descricao,
-    // funcionario_codigo, funcionario_nome, atendente_codigo, atendente_nome,
-    // quantidade, valor_total, valor_custo, criado_em
-
+    // Usa vw_movimentacoes (tipo = 'venda') que consolida todas as fontes de dados
     const [salesBySector, salesByProduct, salesBySectorProduct, rawSalesData] = await Promise.all([
+      // Por setor
       sql`
-        SELECT 
-          COALESCE(p.departamento_desc, v.departamento_descricao, 'Sem Setor') as setor,
-          SUM(v.valor_total) as total_valor,
-          SUM(v.quantidade) as total_quantidade,
-          COUNT(DISTINCT v.produto_codigo) as total_produtos
-        FROM vendas v
-        LEFT JOIN produtos p ON v.produto_codigo = p.codigo
-        WHERE v.data BETWEEN ${startDate}::date AND ${endDate}::date
-        GROUP BY COALESCE(p.departamento_desc, v.departamento_descricao, 'Sem Setor')
+        SELECT
+          COALESCE(setor, 'Sem Setor') as setor,
+          SUM(valor) as total_valor,
+          SUM(quantidade) as total_quantidade,
+          COUNT(DISTINCT produto_codigo) as total_produtos
+        FROM vw_movimentacoes
+        WHERE tipo = 'venda'
+          AND data BETWEEN ${startDate}::date AND ${endDate}::date
+        GROUP BY COALESCE(setor, 'Sem Setor')
         ORDER BY total_valor DESC
       `,
+      // Top N produtos geral
       sql`
-        SELECT 
-          v.produto_codigo as produto_id,
-          COALESCE(p.descricao, v.produto_descricao) as produto_nome,
-          COALESCE(p.departamento_desc, v.departamento_descricao, 'Sem Setor') as setor,
-          COALESCE(p.unidade, v.produto_unidade, 'un') as unidade,
-          SUM(v.valor_total) as total_valor,
-          SUM(v.quantidade) as total_quantidade
-        FROM vendas v
-        LEFT JOIN produtos p ON v.produto_codigo = p.codigo
-        WHERE v.data BETWEEN ${startDate}::date AND ${endDate}::date
-        GROUP BY v.produto_codigo, produto_nome, setor, p.unidade, v.produto_unidade
+        SELECT
+          produto_codigo as produto_id,
+          produto as produto_nome,
+          COALESCE(setor, 'Sem Setor') as setor,
+          COALESCE(unidade, 'un') as unidade,
+          SUM(valor) as total_valor,
+          SUM(quantidade) as total_quantidade
+        FROM vw_movimentacoes
+        WHERE tipo = 'venda'
+          AND data BETWEEN ${startDate}::date AND ${endDate}::date
+        GROUP BY produto_codigo, produto, setor, unidade
         ORDER BY total_valor DESC
         LIMIT ${topN}
       `,
+      // Todos produtos por setor
       sql`
-        SELECT 
-          COALESCE(p.departamento_desc, v.departamento_descricao, 'Sem Setor') as setor,
-          v.produto_codigo as produto_id,
-          COALESCE(p.descricao, v.produto_descricao) as produto_nome,
-          COALESCE(p.unidade, v.produto_unidade, 'un') as unidade,
-          SUM(v.valor_total) as total_valor,
-          SUM(v.quantidade) as total_quantidade
-        FROM vendas v
-        LEFT JOIN produtos p ON v.produto_codigo = p.codigo
-        WHERE v.data BETWEEN ${startDate}::date AND ${endDate}::date
-        GROUP BY setor, v.produto_codigo, produto_nome, p.unidade, v.produto_unidade
+        SELECT
+          COALESCE(setor, 'Sem Setor') as setor,
+          produto_codigo as produto_id,
+          produto as produto_nome,
+          COALESCE(unidade, 'un') as unidade,
+          SUM(valor) as total_valor,
+          SUM(quantidade) as total_quantidade
+        FROM vw_movimentacoes
+        WHERE tipo = 'venda'
+          AND data BETWEEN ${startDate}::date AND ${endDate}::date
+        GROUP BY setor, produto_codigo, produto, unidade
         ORDER BY setor, total_valor DESC
       `,
+      // Raw data para gráficos
       sql`
-        SELECT 
-          v.data,
-          COALESCE(p.departamento_desc, v.departamento_descricao, 'Sem Setor') as setor,
-          COALESCE(p.descricao, v.produto_descricao) as produto,
-          SUM(v.valor_total) as valor_reais,
-          SUM(v.quantidade) as quantidade
-        FROM vendas v
-        LEFT JOIN produtos p ON v.produto_codigo = p.codigo
-        WHERE v.data BETWEEN ${startDate}::date AND ${endDate}::date
-        GROUP BY v.data, COALESCE(p.departamento_desc, v.departamento_descricao, 'Sem Setor'), COALESCE(p.descricao, v.produto_descricao)
-        ORDER BY v.data
+        SELECT
+          data,
+          COALESCE(setor, 'Sem Setor') as setor,
+          produto,
+          SUM(valor) as valor_reais,
+          SUM(quantidade) as quantidade
+        FROM vw_movimentacoes
+        WHERE tipo = 'venda'
+          AND data BETWEEN ${startDate}::date AND ${endDate}::date
+        GROUP BY data, setor, produto
+        ORDER BY data
       `
     ]);
 
@@ -99,41 +86,40 @@ Deno.serve(async (req) => {
     console.log(`✅ ${salesBySector.length} setores, ${salesByProduct.length} produtos`);
 
     let compareData = null;
-
     if (compareStartDate && compareEndDate) {
       const [compareSalesBySector, compareSalesByProduct, compareRawSalesData] = await Promise.all([
         sql`
-          SELECT 
-            COALESCE(p.departamento_desc, v.departamento_descricao, 'Sem Setor') as setor,
-            SUM(v.valor_total) as total_valor,
-            SUM(v.quantidade) as total_quantidade
-          FROM vendas v
-          LEFT JOIN produtos p ON v.produto_codigo = p.codigo
-          WHERE v.data BETWEEN ${compareStartDate}::date AND ${compareEndDate}::date
-          GROUP BY COALESCE(p.departamento_desc, v.departamento_descricao, 'Sem Setor')
+          SELECT
+            COALESCE(setor, 'Sem Setor') as setor,
+            SUM(valor) as total_valor,
+            SUM(quantidade) as total_quantidade
+          FROM vw_movimentacoes
+          WHERE tipo = 'venda'
+            AND data BETWEEN ${compareStartDate}::date AND ${compareEndDate}::date
+          GROUP BY COALESCE(setor, 'Sem Setor')
         `,
         sql`
-          SELECT 
-            v.produto_codigo as produto_id,
-            COALESCE(p.descricao, v.produto_descricao) as produto_nome,
-            COALESCE(p.departamento_desc, v.departamento_descricao, 'Sem Setor') as setor,
-            SUM(v.valor_total) as total_valor,
-            SUM(v.quantidade) as total_quantidade
-          FROM vendas v
-          LEFT JOIN produtos p ON v.produto_codigo = p.codigo
-          WHERE v.data BETWEEN ${compareStartDate}::date AND ${compareEndDate}::date
-          GROUP BY v.produto_codigo, produto_nome, setor
+          SELECT
+            produto_codigo as produto_id,
+            produto as produto_nome,
+            COALESCE(setor, 'Sem Setor') as setor,
+            SUM(valor) as total_valor,
+            SUM(quantidade) as total_quantidade
+          FROM vw_movimentacoes
+          WHERE tipo = 'venda'
+            AND data BETWEEN ${compareStartDate}::date AND ${compareEndDate}::date
+          GROUP BY produto_codigo, produto, setor
         `,
         sql`
-          SELECT 
-            v.data,
-            COALESCE(p.departamento_desc, v.departamento_descricao, 'Sem Setor') as setor,
-            SUM(v.valor_total) as valor_reais
-          FROM vendas v
-          LEFT JOIN produtos p ON v.produto_codigo = p.codigo
-          WHERE v.data BETWEEN ${compareStartDate}::date AND ${compareEndDate}::date
-          GROUP BY v.data, COALESCE(p.departamento_desc, v.departamento_descricao, 'Sem Setor')
-          ORDER BY v.data
+          SELECT
+            data,
+            COALESCE(setor, 'Sem Setor') as setor,
+            SUM(valor) as valor_reais
+          FROM vw_movimentacoes
+          WHERE tipo = 'venda'
+            AND data BETWEEN ${compareStartDate}::date AND ${compareEndDate}::date
+          GROUP BY data, setor
+          ORDER BY data
         `
       ]);
 
@@ -149,13 +135,7 @@ Deno.serve(async (req) => {
     return Response.json({
       period: { start: startDate, end: endDate },
       comparePeriod: compareStartDate ? { start: compareStartDate, end: compareEndDate } : null,
-      data: {
-        salesBySector,
-        salesByProduct,
-        salesBySectorProduct,
-        rawData: rawSalesData,
-        totalGeral
-      },
+      data: { salesBySector, salesByProduct, salesBySectorProduct, rawData: rawSalesData, totalGeral },
       compareData
     });
 
