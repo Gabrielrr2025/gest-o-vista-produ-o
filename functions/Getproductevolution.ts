@@ -1,14 +1,11 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 import { neon } from 'npm:@neondatabase/serverless@0.9.0';
 
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
-
-    if (!user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { produtoId, startDate, endDate, type = 'sales' } = await req.json();
 
@@ -17,11 +14,8 @@ Deno.serve(async (req) => {
     }
 
     const connectionString = Deno.env.get('POSTGRES_CONNECTION_URL');
-    if (!connectionString) {
-      return Response.json({ error: 'Database not configured' }, { status: 500 });
-    }
+    if (!connectionString) return Response.json({ error: 'Database not configured' }, { status: 500 });
 
-    // Buscar o produto no Base44 para obter o code (produto_codigo no SQL)
     let productCode = null;
     let productName = null;
     try {
@@ -39,45 +33,70 @@ Deno.serve(async (req) => {
     }
 
     const sql = neon(connectionString);
-
-    // Usa a VIEW vw_movimentacoes (mesma abordagem do Getplanningdata)
-    const tipo = type === 'sales' ? 'venda' : 'perda';
-    console.log(`🔍 Buscando produto: code=${productCode}, name="${productName}", tipo=${tipo}, período=${startDate} a ${endDate}`);
+    console.log(`🔍 Buscando produto: code=${productCode}, name="${productName}", tipo=${type}, período=${startDate} a ${endDate}`);
 
     let rows = [];
 
-    // Tentativa 1: por produto_codigo via VIEW (se o code for um número válido)
-    if (productCode && /^\d+$/.test(productCode) && productCode.length <= 9) {
-      rows = await sql(
-        `SELECT data::text as data,
-                SUM(valor) AS valor,
-                SUM(quantidade) AS quantidade
-         FROM vw_movimentacoes
-         WHERE produto_codigo::text = $1
-           AND tipo = $2
-           AND data >= $3::date
-           AND data <= $4::date
-         GROUP BY data
-         ORDER BY data`,
-        [productCode, tipo, startDate, endDate]
-      );
-    }
-
-    // Fallback: busca por nome do produto
-    if (rows.length === 0) {
-      rows = await sql(
-        `SELECT data::text as data,
-                SUM(valor) AS valor,
-                SUM(quantidade) AS quantidade
-         FROM vw_movimentacoes
-         WHERE LOWER(TRIM(produto)) = $1
-           AND tipo = $2
-           AND data >= $3::date
-           AND data <= $4::date
-         GROUP BY data
-         ORDER BY data`,
-        [productName, tipo, startDate, endDate]
-      );
+    if (type === 'sales') {
+      // Busca na tabela vendas
+      if (productCode && /^\d+$/.test(productCode)) {
+        rows = await sql(
+          `SELECT data::text as data,
+                  SUM(valor_total) AS valor,
+                  SUM(quantidade) AS quantidade
+           FROM vendas
+           WHERE produto_codigo = $1
+             AND data >= $2::date
+             AND data <= $3::date
+           GROUP BY data
+           ORDER BY data`,
+          [parseInt(productCode), startDate, endDate]
+        );
+      }
+      if (rows.length === 0) {
+        rows = await sql(
+          `SELECT data::text as data,
+                  SUM(valor_total) AS valor,
+                  SUM(quantidade) AS quantidade
+           FROM vendas
+           WHERE LOWER(TRIM(produto_descricao)) = $1
+             AND data >= $2::date
+             AND data <= $3::date
+           GROUP BY data
+           ORDER BY data`,
+          [productName, startDate, endDate]
+        );
+      }
+    } else {
+      // Busca na tabela perdas
+      if (productCode && /^\d+$/.test(productCode)) {
+        rows = await sql(
+          `SELECT data::text as data,
+                  SUM(valor_total_venda) AS valor,
+                  SUM(quantidade) AS quantidade
+           FROM perdas
+           WHERE produto_codigo = $1
+             AND data >= $2::date
+             AND data <= $3::date
+           GROUP BY data
+           ORDER BY data`,
+          [parseInt(productCode), startDate, endDate]
+        );
+      }
+      if (rows.length === 0) {
+        rows = await sql(
+          `SELECT data::text as data,
+                  SUM(valor_total_venda) AS valor,
+                  SUM(quantidade) AS quantidade
+           FROM perdas
+           WHERE LOWER(TRIM(produto_descricao)) = $1
+             AND data >= $2::date
+             AND data <= $3::date
+           GROUP BY data
+           ORDER BY data`,
+          [productName, startDate, endDate]
+        );
+      }
     }
 
     console.log(`✅ Encontrados ${rows.length} registros para "${productName}"`);
@@ -89,18 +108,11 @@ Deno.serve(async (req) => {
     }));
 
     const stats = {
-      totalValor:      evolution.reduce((s, r) => s + r.valor, 0),
+      totalValor: evolution.reduce((s, r) => s + r.valor, 0),
       totalQuantidade: evolution.reduce((s, r) => s + r.quantidade, 0)
     };
 
-    console.log(`✅ Evolução do produto ${productCode || productName}: ${evolution.length} registros, tipo=${type}`);
-
-    return Response.json({
-      data: {
-        evolution,
-        stats
-      }
-    });
+    return Response.json({ data: { evolution, stats } });
 
   } catch (error) {
     console.error('❌ Getproductevolution error:', error.message);
