@@ -10,7 +10,7 @@ Deno.serve(async (req) => {
     const connectionString = Deno.env.get('POSTGRES_CONNECTION_URL');
     const sql = neon(connectionString);
 
-    const sample = await sql`SELECT * FROM perdas LIMIT 2`;
+    const sample = await sql`SELECT * FROM vw_movimentacoes LIMIT 2`;
     return Response.json({ sample });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
