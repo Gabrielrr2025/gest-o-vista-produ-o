@@ -80,7 +80,6 @@ Deno.serve(async (req) => {
         GROUP BY pe.data, p.departamento_desc, pe.produto_descricao
         ORDER BY pe.data
       `
-      `
     ]);
 
     const totalGeral = lossesBySector.reduce((sum, s) => sum + parseFloat(s.total_valor || 0), 0);
