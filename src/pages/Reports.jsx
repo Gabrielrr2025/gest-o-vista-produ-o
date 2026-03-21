@@ -46,7 +46,7 @@ export default function Reports() {
 
   // Comparação de anos
   const [compareYearsEnabled, setCompareYearsEnabled] = useState(false);
-  const [compareYear, setCompareYear] = useState(2025);
+  const [compareYear, setCompareYear] = useState(2024);
 
   // Controles
   const [topN, setTopN] = useState(10);
