@@ -10,13 +10,8 @@ Deno.serve(async (req) => {
     const connectionString = Deno.env.get('POSTGRES_CONNECTION_URL');
     const sql = neon(connectionString);
 
-    const body = await req.json().catch(() => ({}));
-    const table = body.table || 'vendas';
-
-    const cols = await sql`SELECT column_name, data_type FROM information_schema.columns WHERE table_name = ${table} ORDER BY ordinal_position`;
-    const sample = await sql`SELECT * FROM vendas LIMIT 1`;
-
-    return Response.json({ cols, sample });
+    const sample = await sql`SELECT * FROM perdas LIMIT 2`;
+    return Response.json({ sample });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
