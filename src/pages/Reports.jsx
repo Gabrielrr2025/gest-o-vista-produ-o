@@ -36,8 +36,8 @@ export default function Reports() {
   // Período principal - PADRÃO: Janeiro 2026 (onde tem dados)
   const [dateRange, setDateRange] = useState(() => {
     return {
-      from: new Date(2026, 0, 1),
-      to: new Date(2026, 0, 31)
+      from: new Date(2025, 0, 1),
+      to: new Date(2025, 0, 31)
     };
   });
 
