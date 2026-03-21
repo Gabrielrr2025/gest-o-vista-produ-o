@@ -20,65 +20,65 @@ Deno.serve(async (req) => {
     const sql = neon(connectionString);
     console.log(`📊 Relatório de Perdas: ${startDate} a ${endDate}`);
 
-    // Usa vw_movimentacoes (tipo = 'perda') que já consolida dados de todas as fontes
+    // JOIN com produtos para obter o setor (tabela perdas não tem setor diretamente)
     const [lossesBySector, lossesByProduct, lossesBySectorProduct, rawLossesData] = await Promise.all([
       // Por setor
       sql`
         SELECT
-          COALESCE(setor, 'Sem Setor') as setor,
-          SUM(valor) as total_valor,
-          SUM(quantidade) as total_quantidade,
-          COUNT(DISTINCT produto_codigo) as total_produtos
-        FROM vw_movimentacoes
-        WHERE tipo = 'perda'
-          AND data BETWEEN ${startDate}::date AND ${endDate}::date
-        GROUP BY COALESCE(setor, 'Sem Setor')
+          COALESCE(p.departamento_desc, 'Sem Setor') as setor,
+          SUM(pe.valor_total_venda) as total_valor,
+          SUM(pe.quantidade) as total_quantidade,
+          COUNT(DISTINCT pe.produto_codigo) as total_produtos
+        FROM perdas pe
+        LEFT JOIN produtos p ON pe.produto_codigo = p.codigo
+        WHERE pe.data BETWEEN ${startDate}::date AND ${endDate}::date
+        GROUP BY COALESCE(p.departamento_desc, 'Sem Setor')
         ORDER BY total_valor DESC
       `,
       // Top N produtos geral
       sql`
         SELECT
-          produto_codigo as produto_id,
-          produto as produto_nome,
-          COALESCE(setor, 'Sem Setor') as setor,
-          COALESCE(unidade, 'un') as unidade,
-          SUM(valor) as total_valor,
-          SUM(quantidade) as total_quantidade
-        FROM vw_movimentacoes
-        WHERE tipo = 'perda'
-          AND data BETWEEN ${startDate}::date AND ${endDate}::date
-        GROUP BY produto_codigo, produto, setor, unidade
+          pe.produto_codigo as produto_id,
+          COALESCE(pe.produto_descricao, 'Desconhecido') as produto_nome,
+          COALESCE(p.departamento_desc, 'Sem Setor') as setor,
+          COALESCE(pe.unidade_venda, 'un') as unidade,
+          SUM(pe.valor_total_venda) as total_valor,
+          SUM(pe.quantidade) as total_quantidade
+        FROM perdas pe
+        LEFT JOIN produtos p ON pe.produto_codigo = p.codigo
+        WHERE pe.data BETWEEN ${startDate}::date AND ${endDate}::date
+        GROUP BY pe.produto_codigo, pe.produto_descricao, p.departamento_desc, pe.unidade_venda
         ORDER BY total_valor DESC
         LIMIT ${topN}
       `,
       // Todos produtos por setor
       sql`
         SELECT
-          COALESCE(setor, 'Sem Setor') as setor,
-          produto_codigo as produto_id,
-          produto as produto_nome,
-          COALESCE(unidade, 'un') as unidade,
-          SUM(valor) as total_valor,
-          SUM(quantidade) as total_quantidade
-        FROM vw_movimentacoes
-        WHERE tipo = 'perda'
-          AND data BETWEEN ${startDate}::date AND ${endDate}::date
-        GROUP BY setor, produto_codigo, produto, unidade
+          COALESCE(p.departamento_desc, 'Sem Setor') as setor,
+          pe.produto_codigo as produto_id,
+          COALESCE(pe.produto_descricao, 'Desconhecido') as produto_nome,
+          COALESCE(pe.unidade_venda, 'un') as unidade,
+          SUM(pe.valor_total_venda) as total_valor,
+          SUM(pe.quantidade) as total_quantidade
+        FROM perdas pe
+        LEFT JOIN produtos p ON pe.produto_codigo = p.codigo
+        WHERE pe.data BETWEEN ${startDate}::date AND ${endDate}::date
+        GROUP BY p.departamento_desc, pe.produto_codigo, pe.produto_descricao, pe.unidade_venda
         ORDER BY setor, total_valor DESC
       `,
       // Raw data para gráficos
       sql`
         SELECT
-          data,
-          COALESCE(setor, 'Sem Setor') as setor,
-          produto,
-          SUM(valor) as valor_reais,
-          SUM(quantidade) as quantidade
-        FROM vw_movimentacoes
-        WHERE tipo = 'perda'
-          AND data BETWEEN ${startDate}::date AND ${endDate}::date
-        GROUP BY data, setor, produto
-        ORDER BY data
+          pe.data,
+          COALESCE(p.departamento_desc, 'Sem Setor') as setor,
+          COALESCE(pe.produto_descricao, 'Desconhecido') as produto,
+          SUM(pe.valor_total_venda) as valor_reais,
+          SUM(pe.quantidade) as quantidade
+        FROM perdas pe
+        LEFT JOIN produtos p ON pe.produto_codigo = p.codigo
+        WHERE pe.data BETWEEN ${startDate}::date AND ${endDate}::date
+        GROUP BY pe.data, p.departamento_desc, pe.produto_descricao
+        ORDER BY pe.data
       `
     ]);
 
