@@ -10,8 +10,17 @@ Deno.serve(async (req) => {
     const connectionString = Deno.env.get('POSTGRES_CONNECTION_URL');
     const sql = neon(connectionString);
 
-    const sample = await sql`SELECT * FROM vw_movimentacoes LIMIT 2`;
-    return Response.json({ sample });
+    const years = await sql`
+      SELECT 
+        EXTRACT(YEAR FROM data)::int as ano,
+        tipo,
+        COUNT(*) as registros,
+        SUM(valor) as total_valor
+      FROM vw_movimentacoes
+      GROUP BY EXTRACT(YEAR FROM data), tipo
+      ORDER BY ano, tipo
+    `;
+    return Response.json({ years });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
