@@ -33,11 +33,11 @@ import FavoriteProductsPanel from "../components/reports/FavoriteProductsPanel";
 export default function Reports() {
   const [hasAccess, setHasAccess] = useState(false);
   
-  // Período principal - PADRÃO: Janeiro 2026 (onde tem dados)
+  // Período principal - PADRÃO: Janeiro 2025
   const [dateRange, setDateRange] = useState(() => {
     return {
-      from: new Date(2026, 0, 1),
-      to: new Date(2026, 0, 31)
+      from: new Date(2025, 0, 1),
+      to: new Date(2025, 0, 31)
     };
   });
 
