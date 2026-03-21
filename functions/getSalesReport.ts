@@ -105,7 +105,7 @@ Deno.serve(async (req) => {
         `,
         sql`
           SELECT
-            data,
+            TO_CHAR(data, 'YYYY-MM-DD') as data,
             COALESCE(departamento_descricao, 'Sem Setor') as setor,
             SUM(valor_total) as valor_reais
           FROM vendas
