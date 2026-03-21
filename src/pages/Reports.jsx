@@ -42,7 +42,7 @@ export default function Reports() {
   });
 
   // Ano selecionado para o gráfico anual
-  const [selectedYear, setSelectedYear] = useState(2026);
+  const [selectedYear, setSelectedYear] = useState(2025);
 
   // Comparação de anos
   const [compareYearsEnabled, setCompareYearsEnabled] = useState(false);
