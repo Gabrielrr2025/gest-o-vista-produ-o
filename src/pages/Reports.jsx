@@ -154,13 +154,19 @@ export default function Reports() {
     enabled: hasAccess && !!lastYearParams
   });
 
+  const currentYear = new Date().getFullYear();
+  const isPastYear = selectedYear < currentYear;
+  const pastYearStaleTime = 7 * 24 * 60 * 60 * 1000; // 7 dias para anos passados
+
   const yearSalesQuery = useQuery({
     queryKey: ['salesReportYear', yearParams],
     queryFn: async () => {
       const response = await base44.functions.invoke('getSalesReport', yearParams);
       return response.data;
     },
-    enabled: hasAccess && !!yearParams
+    enabled: hasAccess && !!yearParams,
+    staleTime: isPastYear ? pastYearStaleTime : 0,
+    gcTime: isPastYear ? pastYearStaleTime : 5 * 60 * 1000,
   });
 
   const yearLossesQuery = useQuery({
@@ -176,7 +182,9 @@ export default function Reports() {
       }
     },
     enabled: hasAccess && !!yearParams,
-    retry: false
+    retry: false,
+    staleTime: isPastYear ? pastYearStaleTime : 0,
+    gcTime: isPastYear ? pastYearStaleTime : 5 * 60 * 1000,
   });
 
   // Queries para ano de comparação
