@@ -205,7 +205,13 @@ export default function CalendarEventDialog({ event, initialDate, onClose, onSav
             <Label className="text-sm">Tipo de Evento</Label>
             <Select 
               value={formData.type} 
-              onValueChange={(value) => setFormData({...formData, type: value})}
+              onValueChange={(value) => {
+                const isHoliday = value === 'Feriado Nacional' || value === 'Feriado Regional';
+                const currentImpact = formData.impact_percentage;
+                // Só aplica o padrão se o impacto ainda é 0 (não foi editado manualmente)
+                const newImpact = isHoliday && currentImpact === 0 ? 10 : currentImpact;
+                setFormData({...formData, type: value, impact_percentage: newImpact});
+              }}
             >
               <SelectTrigger className="h-9">
                 <SelectValue />
