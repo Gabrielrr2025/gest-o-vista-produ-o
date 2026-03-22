@@ -49,15 +49,48 @@ export default function ProductComparisonModal({
   // Filtrar rawData pelo produto selecionado
   const productNome = (initialProduct?.produto_nome || '').toLowerCase().trim();
 
-  const salesData = useMemo(() => {
+  const rawSalesFiltered = useMemo(() => {
     if (!productNome) return [];
     return rawSalesData.filter(r => (r.produto || '').toLowerCase().trim() === productNome);
   }, [rawSalesData, productNome]);
 
-  const lossesData = useMemo(() => {
+  const rawLossesFiltered = useMemo(() => {
     if (!productNome) return [];
     return rawLossesData.filter(r => (r.produto || '').toLowerCase().trim() === productNome);
   }, [rawLossesData, productNome]);
+
+  // Se não há dados nos rawData passados pelo pai (ex: produto favorito fora do período), buscar via API
+  const needsFetch = isOpen && !!productNome && rawSalesFiltered.length === 0 && !!initialDateRange?.from && !!initialDateRange?.to;
+  const fetchedDataQuery = useQuery({
+    queryKey: ['productModalData', productNome, initialDateRange?.from, initialDateRange?.to],
+    queryFn: async () => {
+      const { format: fmt } = await import('date-fns');
+      const startDate = fmt(initialDateRange.from, 'yyyy-MM-dd');
+      const endDate = fmt(initialDateRange.to, 'yyyy-MM-dd');
+      const [salesRes, lossRes] = await Promise.all([
+        base44.functions.invoke('getSalesReport', { startDate, endDate, topN: 500 }),
+        base44.functions.invoke('Getlossesreport', { startDate, endDate, topN: 500 }).catch(() => ({ data: { data: { rawData: [] } } })),
+      ]);
+      return {
+        salesRaw: salesRes.data?.data?.rawData || [],
+        lossesRaw: lossRes.data?.data?.rawData || [],
+      };
+    },
+    enabled: needsFetch,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const salesData = useMemo(() => {
+    if (rawSalesFiltered.length > 0) return rawSalesFiltered;
+    if (!fetchedDataQuery.data) return [];
+    return fetchedDataQuery.data.salesRaw.filter(r => (r.produto || '').toLowerCase().trim() === productNome);
+  }, [rawSalesFiltered, fetchedDataQuery.data, productNome]);
+
+  const lossesData = useMemo(() => {
+    if (rawLossesFiltered.length > 0) return rawLossesFiltered;
+    if (!fetchedDataQuery.data) return [];
+    return fetchedDataQuery.data.lossesRaw.filter(r => (r.produto || '').toLowerCase().trim() === productNome);
+  }, [rawLossesFiltered, fetchedDataQuery.data, productNome]);
 
   // Totais
   const salesStats = useMemo(() => ({
