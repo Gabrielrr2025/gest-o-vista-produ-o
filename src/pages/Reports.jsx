@@ -127,8 +127,6 @@ export default function Reports() {
       return response.data;
     },
     enabled: hasAccess && !!apiParams,
-    staleTime: 5 * 60 * 1000, // 5 minutos
-    gcTime: 10 * 60 * 1000 // 10 minutos
   });
 
   const lossesQuery = useQuery({
@@ -145,8 +143,6 @@ export default function Reports() {
     },
     enabled: hasAccess && !!apiParams,
     retry: false,
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000
   });
 
   const lastYearSalesQuery = useQuery({
