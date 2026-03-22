@@ -188,13 +188,17 @@ export default function Reports() {
   });
 
   // Queries para ano de comparação
+  const isCompareYearPast = compareYear < currentYear;
+
   const compareYearSalesQuery = useQuery({
     queryKey: ['salesReportCompareYear', compareYearParams],
     queryFn: async () => {
       const response = await base44.functions.invoke('getSalesReport', compareYearParams);
       return response.data;
     },
-    enabled: hasAccess && !!compareYearParams && compareYearsEnabled
+    enabled: hasAccess && !!compareYearParams && compareYearsEnabled,
+    staleTime: isCompareYearPast ? pastYearStaleTime : 0,
+    gcTime: isCompareYearPast ? pastYearStaleTime : 5 * 60 * 1000,
   });
 
   const compareYearLossesQuery = useQuery({
@@ -210,7 +214,9 @@ export default function Reports() {
       }
     },
     enabled: hasAccess && !!compareYearParams && compareYearsEnabled,
-    retry: false
+    retry: false,
+    staleTime: isCompareYearPast ? pastYearStaleTime : 0,
+    gcTime: isCompareYearPast ? pastYearStaleTime : 5 * 60 * 1000,
   });
 
   const salesData = salesQuery.data?.data;
