@@ -565,9 +565,10 @@ export default function Reports() {
         </div>
         <div className="flex items-center gap-2">
           <FavoriteProductsPanel onProductClick={(id, name) => {
-            // Buscar em salesByProduct primeiro (tem dados do período atual)
-            const found = salesData?.salesByProduct?.find(p => p.produto_id === id)
-              || salesData?.salesBySectorProduct?.find(p => p.produto_id === id);
+            // Buscar em salesByProduct pelo nome (produto_id do favorito é Base44 UUID, produto_id do SQL é código numérico)
+            const found = salesData?.salesByProduct?.find(p => (p.produto_nome || '').toLowerCase().trim() === (name || '').toLowerCase().trim())
+              || salesData?.salesBySectorProduct?.find(p => (p.produto_nome || '').toLowerCase().trim() === (name || '').toLowerCase().trim());
+            // Se não achou nos dados do período, criar objeto mínimo para o modal usar o nome como fallback
             const productData = found || { produto_id: id, produto_nome: name, setor: '', unidade: 'un', total_valor: 0, total_quantidade: 0 };
             setComparisonInitialProduct(productData);
             setComparisonModalOpen(true);
