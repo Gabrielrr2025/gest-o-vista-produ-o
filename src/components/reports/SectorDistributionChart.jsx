@@ -95,7 +95,7 @@ export default function SectorDistributionChart({ sectors, type = 'sales' }) {
                 cy="45%"
                 labelLine={false}
                 label={renderLabel}
-                outerRadius="38%"
+                outerRadius="42%"
                 fill="#8884d8"
                 dataKey="value"
               >
