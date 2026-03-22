@@ -152,7 +152,7 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
     const key = `${product.name}-${product.sector}`;
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          product.sector.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (product.code && product.code.toLowerCase().includes(searchTerm.toLowerCase()));
+                         (product.code && String(product.code).toLowerCase().includes(searchTerm.toLowerCase()));
     return !dismissed.has(key) && matchesSearch;
   });
 
