@@ -31,12 +31,11 @@ const CustomTooltip = ({ active, payload }) => {
   return null;
 };
 
-const renderLabel = ({ cx, cy, midAngle, outerRadius, percent }) => {
-  // percent vem de 0 a 1 do Recharts (fração do total)
+const renderLabel = ({ cx, cy, midAngle, outerRadius, percent, name }) => {
   const pct = percent * 100;
-  if (pct < 4) return null;
+  if (pct < 5) return null;
   const RADIAN = Math.PI / 180;
-  const radius = outerRadius + 20;
+  const radius = outerRadius + 28;
   const x = cx + radius * Math.cos(-midAngle * RADIAN);
   const y = cy + radius * Math.sin(-midAngle * RADIAN);
   return (
