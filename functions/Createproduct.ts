@@ -10,7 +10,12 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { name, code, sector, unit, recipe_yield, production_days, active, price } = body;
+    const { name, code, unit, recipe_yield, production_days, active, price } = body;
+    const rawSector = body.sector || '';
+
+    // Normalizar setor para o formato do enum da entidade (ex: "PADARIA" -> "Padaria")
+    const VALID_SECTORS = ['Padaria', 'Salgados', 'Confeitaria', 'Minimercado', 'Restaurante', 'Frios'];
+    const sector = VALID_SECTORS.find(s => s.toLowerCase() === rawSector.toLowerCase()) || rawSector;
 
     if (!name || !sector) {
       return Response.json({ error: 'Campos obrigatórios: name, sector' }, { status: 400 });
