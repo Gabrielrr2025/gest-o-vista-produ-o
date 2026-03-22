@@ -70,11 +70,19 @@ export default function ProductComparisonModal({
     totalQuantidade: lossesData.reduce((s, r) => s + parseFloat(r.quantidade || 0), 0),
   }), [lossesData]);
 
-  // Buscar marcos do produto (movido para cima pois chartData depende deles)
+  // Buscar marcos do produto — por product_id (Base44 ID) ou por nome (fallback quando produto_id é código numérico do banco)
+  const isBase44Id = productId && /^[a-f0-9]{24}$/i.test(String(productId));
   const milestonesQuery = useQuery({
-    queryKey: ['milestones', productId],
-    queryFn: () => base44.entities.ProductMilestone.filter({ product_id: productId }),
-    enabled: isOpen && !!productId,
+    queryKey: ['milestones', productId, productNome],
+    queryFn: async () => {
+      if (isBase44Id) {
+        return base44.entities.ProductMilestone.filter({ product_id: productId });
+      }
+      // produto_id é código numérico do banco → buscar por nome
+      const all = await base44.entities.ProductMilestone.list('-created_date', 200);
+      return all.filter(m => (m.product_name || '').toLowerCase().trim() === productNome);
+    },
+    enabled: isOpen && !!(productId || productNome),
   });
   const milestonesForChart = milestonesQuery.data || [];
 
