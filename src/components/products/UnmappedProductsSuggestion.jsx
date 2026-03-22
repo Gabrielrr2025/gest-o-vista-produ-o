@@ -85,7 +85,7 @@ export default function UnmappedProductsSuggestion({ sqlData, products, onProduc
         name: product.name,
         sector: product.sector,
         recipe_yield: 1,
-        unit: 'UN',
+        unit: 'unidade',
         production_days: ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'],
         active: true
       });
